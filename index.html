@@ -127,6 +127,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: 12px; gap: 4px; }
 .swatches button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.swatches svg.shape { flex: none; display: block; }
 .chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.25); display: inline-block; }
 .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink); }
 #list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -164,7 +165,8 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .menu > button:hover:not([disabled]), .menu > button:focus-visible { background: color-mix(in srgb, var(--ink) 9%, transparent); outline: none; }
 .menu > button .key { margin-left: auto; padding-left: 16px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; width: auto; align-self: stretch; }
-.menu .swatches { padding: 4px 6px 6px; }
+.menu .swatches { padding: 4px 6px 2px; }
+.menu .swatches + .swatches { padding-bottom: 6px; }
 .modal {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; padding: 24px;
 }
@@ -246,7 +248,8 @@ input[type="file"] { display: none; }
       <label for="noteText" id="noteTextWrap">Text
         <textarea id="noteText" spellcheck="true"></textarea>
       </label>
-      <div class="swatches" id="noteColors" role="group" aria-label="Pill colour"></div>
+      <div class="swatches" id="noteColors" role="group" aria-label="Colour"></div>
+      <div class="swatches" id="noteShapes" role="group" aria-label="Shape"></div>
       <div class="seg" role="group" aria-label="Orientation">
         <button id="oriH" aria-pressed="true">Horizontal</button>
         <button id="oriV" aria-pressed="false">Vertical</button>
@@ -309,6 +312,15 @@ input[type="file"] { display: none; }
     red:   { name: "Red",   fill: "#d6301f", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
   };
+  // Note shapes. Each is a box with rounded corners: a pill rounds them fully, a circle is a square box
+  // rounded fully, a rectangle not at all. The icon is the shape drawn in a 22 x 12 chip.
+  var SHAPES = {
+    pill:   { name: "Pill",    title: "Pill",                            icon: '<rect x="1" y="1" width="20" height="10" rx="5"/>' },
+    rect:   { name: "Rect",    title: "Rectangle",                       icon: '<rect x="1" y="1" width="20" height="10"/>' },
+    round:  { name: "Rounded", title: "Rectangle with rounded corners",  icon: '<rect x="1" y="1" width="20" height="10" rx="2.5"/>' },
+    circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' }
+  };
+  function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", base: 1,
                 tool: "draw", pen: { color: "red", width: 1 }, eraser: 10, nextId: 1 };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
@@ -349,13 +361,20 @@ input[type="file"] { display: none; }
     lines.forEach(function (l) { lw = Math.max(lw, c.measureText(l).width); });
     var lineH = fs * 1.22;
     var blockH = (lines.length - 1) * lineH + fs;
-    var padS = fs * 0.72;
-    var h = blockH + padS * 2;
-    var r = h / 2;
-    var padL = Math.max(r * 0.8, fs * 0.9);
-    var w = Math.max(lw + padL * 2, h);
-    return { fs: fs, lines: lines, lineH: lineH, blockH: blockH, lw: lw, padL: padL, w: w, h: h, r: r,
-             ang: n.vertical ? -Math.PI / 2 : 0 };
+    var padS = fs * 0.72, shape = shapeOf(n), w, h, cr, padL;
+    if (shape === "circle") {
+      // a circle round the whole text block, never smaller than a one-line pill is tall
+      w = h = Math.max(Math.hypot(lw, blockH) + fs * 0.9, fs + padS * 2);
+      cr = w / 2; padL = (w - lw) / 2;
+    } else {
+      h = blockH + padS * 2;
+      if (shape === "pill") { cr = h / 2; padL = Math.max(cr * 0.8, fs * 0.9); }
+      else { cr = shape === "round" ? fs * 0.5 : 0; padL = fs * 0.8; }
+      w = Math.max(lw + padL * 2, h);
+    }
+    // cr is the corner radius; centre is true when each line is centred (circle) rather than left-aligned
+    return { fs: fs, lines: lines, lineH: lineH, blockH: blockH, lw: lw, padL: padL, w: w, h: h, cr: cr,
+             centre: shape === "circle", ang: n.vertical ? -Math.PI / 2 : 0 };
   }
 
   function toLocal(n, L, x, y) {
@@ -366,17 +385,17 @@ input[type="file"] { display: none; }
     var c = Math.cos(L.ang), s = Math.sin(L.ang);
     return { x: n.px + lx * c - ly * s, y: n.py + lx * s + ly * c };
   }
-  function stadiumDist(L, lx, ly) {
-    var a = Math.max(L.w / 2 - L.r, 0);
-    return Math.hypot(Math.max(Math.abs(lx) - a, 0), ly);
+  // How far a point (in the note's own axes) lies outside its shape; zero or less means inside.
+  function outside(L, lx, ly) {
+    return Math.hypot(Math.max(Math.abs(lx) - (L.w / 2 - L.cr), 0), Math.max(Math.abs(ly) - (L.h / 2 - L.cr), 0)) - L.cr;
   }
   function leaderStart(n, L) {
     var t = toLocal(n, L, n.tx, n.ty);
-    if (stadiumDist(L, t.x, t.y) <= L.r) return null;
+    if (outside(L, t.x, t.y) <= 0) return null;
     var lo = 0, hi = 1;
     for (var i = 0; i < 40; i++) {
       var mid = (lo + hi) / 2;
-      if (stadiumDist(L, t.x * mid, t.y * mid) > L.r) hi = mid; else lo = mid;
+      if (outside(L, t.x * mid, t.y * mid) > 0) hi = mid; else lo = mid;
     }
     return toGlobal(n, L, t.x * hi, t.y * hi);
   }
@@ -425,7 +444,7 @@ input[type="file"] { display: none; }
       var L = layout(n, ctx);
       for (var i = 0; i <= steps; i++) {
         var l = toLocal(n, L, a[0] + (b[0] - a[0]) * i / steps, a[1] + (b[1] - a[1]) * i / steps);
-        if (stadiumDist(L, l.x, l.y) <= L.r + r) return false;
+        if (outside(L, l.x, l.y) <= r) return false;
       }
       return true;
     });
@@ -500,13 +519,14 @@ input[type="file"] { display: none; }
     c.translate(n.px, n.py); c.rotate(L.ang);
     c.fillStyle = col.fill;
     c.beginPath();
-    if (c.roundRect) c.roundRect(-L.w / 2, -L.h / 2, L.w, L.h, L.r);
-    else { var x = -L.w / 2, y = -L.h / 2, r = L.r; c.moveTo(x + r, y); c.arcTo(x + L.w, y, x + L.w, y + L.h, r); c.arcTo(x + L.w, y + L.h, x, y + L.h, r); c.arcTo(x, y + L.h, x, y, r); c.arcTo(x, y, x + L.w, y, r); c.closePath(); }
+    if (c.roundRect) c.roundRect(-L.w / 2, -L.h / 2, L.w, L.h, L.cr);
+    else { var x = -L.w / 2, y = -L.h / 2, r = L.cr; c.moveTo(x + r, y); c.arcTo(x + L.w, y, x + L.w, y + L.h, r); c.arcTo(x + L.w, y + L.h, x, y + L.h, r); c.arcTo(x, y + L.h, x, y, r); c.arcTo(x, y, x + L.w, y, r); c.closePath(); }
     c.fill();
     c.fillStyle = col.ink;
     c.font = fontStr(L.fs);
-    c.textBaseline = "middle"; c.textAlign = "left";
-    var x0 = -L.w / 2 + L.padL, y0 = -L.blockH / 2 + L.fs / 2;
+    c.textBaseline = "middle"; c.textAlign = L.centre ? "center" : "left";
+    // the text block sits in the middle of the shape; its lines are left-aligned, or centred in a circle
+    var x0 = L.centre ? 0 : -L.lw / 2, y0 = -L.blockH / 2 + L.fs / 2;
     L.lines.forEach(function (line, i) { c.fillText(line, x0, y0 + i * L.lineH); });
     c.restore();
   }
@@ -520,7 +540,7 @@ input[type="file"] { display: none; }
     c.setLineDash([6 / view.s, 4 / view.s]);
     var m = 5 / view.s;
     c.beginPath();
-    if (c.roundRect) c.roundRect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m, L.r + m);
+    if (c.roundRect) c.roundRect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m, L.cr + m);
     else c.rect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m);
     c.stroke();
     c.restore();
@@ -650,10 +670,10 @@ input[type="file"] { display: none; }
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
-      vertical: false, color: "black", size: 1
+      vertical: false, color: "black", shape: "pill", size: 1
     };
     var last = selected();
-    if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.size = last.size; }
+    if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.shape = shapeOf(last); n.size = last.size; }
     state.notes.push(n);
     select(state.notes.length - 1);
     sync(); render();
@@ -686,6 +706,19 @@ input[type="file"] { display: none; }
     });
   }
 
+  function shapeRow(el, current, onPick) {
+    el.innerHTML = "";
+    Object.keys(SHAPES).forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button"; b.title = SHAPES[k].title;
+      b.setAttribute("aria-pressed", String(k === current));
+      b.innerHTML = '<svg class="shape" viewBox="0 0 22 12" width="22" height="12" fill="currentColor" aria-hidden="true">' + SHAPES[k].icon + "</svg>";
+      b.appendChild(document.createTextNode(SHAPES[k].name));
+      b.addEventListener("click", function () { onPick(k); });
+      el.appendChild(b);
+    });
+  }
+
   function sync() {
     var list = $("list");
     list.innerHTML = "";
@@ -713,6 +746,10 @@ input[type="file"] { display: none; }
       swatchRow($("noteColors"), n.color || (n.dark === false ? "white" : "black"), function (k) {
         var ps = picked(); if (!ps.length) return;
         snapshot(); ps.forEach(function (m) { m.color = k; delete m.dark; }); sync(); render();
+      });
+      shapeRow($("noteShapes"), shapeOf(n), function (k) {
+        var ps = picked(); if (!ps.length) return;
+        snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
       });
       $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
       $("oriH").setAttribute("aria-pressed", String(!n.vertical));
@@ -794,7 +831,7 @@ input[type="file"] { display: none; }
     }
     for (var j = state.notes.length - 1; j >= 0; j--) {
       var m = state.notes[j], M = layout(m, ctx), l = toLocal(m, M, p.x, p.y);
-      if (stadiumDist(M, l.x, l.y) <= M.r + 3 / view.s) return { i: j, part: "pill" };
+      if (outside(M, l.x, l.y) <= 3 / view.s) return { i: j, part: "pill" };
     }
     return null;
   }
@@ -1017,6 +1054,11 @@ input[type="file"] { display: none; }
         closeMenu(); snapshot(); picked().forEach(function (x) { x.color = k; delete x.dark; }); sync(); render();
       });
       add(sw);
+      var sh = document.createElement("div"); sh.className = "swatches"; sh.setAttribute("role", "group"); sh.setAttribute("aria-label", "Shape");
+      shapeRow(sh, shapeOf(n), function (k) {
+        closeMenu(); snapshot(); picked().forEach(function (x) { x.shape = k; }); sync(); render();
+      });
+      add(sh);
       add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
       }));
