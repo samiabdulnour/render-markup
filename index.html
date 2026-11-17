@@ -193,9 +193,35 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 #fixList mark { background: color-mix(in srgb, var(--accent) 18%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 input[type="file"] { display: none; }
+/* Page strip, shown down the left side when a document with several pages is open */
+#pages { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 12px 10px; min-height: 0; }
+#pages[hidden] { display: none; }
+body.has-pages main { grid-template-columns: 132px 1fr 300px; }
+#pageList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#pageList button {
+  width: 100%; flex-direction: column; align-items: stretch; gap: 5px; padding: 5px;
+  border-color: transparent; background: transparent;
+}
+#pageList button:hover { border-color: var(--line); }
+#pageList button[aria-current="page"] { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+#pageList .thumb { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--line); border-radius: 2px; }
+#pageList .meta { display: flex; align-items: center; justify-content: space-between; min-height: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+#pageList button[aria-current="page"] .meta { color: var(--ink); }
+#pageList .mark {
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #ffffff;
+  font-size: 10px; display: inline-flex; align-items: center; justify-content: center;
+}
+#pageList .mark[hidden] { display: none; }
 @media (max-width: 760px) {
   main { grid-template-columns: 1fr; grid-template-rows: minmax(320px, 60vh) auto; }
   aside { border-left: 0; border-top: 1px solid var(--line); }
+  /* on a phone the strip runs across the top: thumbnails share one height so nothing is cut off */
+  body.has-pages main { grid-template-columns: 1fr; grid-template-rows: max-content minmax(280px, 52vh) auto; }
+  #pages { border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; padding: 6px 10px; }
+  #pageList { flex-direction: row; gap: 6px; }
+  #pageList li { flex: none; }
+  #pageList button { padding: 4px; gap: 3px; }
+  #pageList .thumb { height: 52px; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -203,22 +229,23 @@ input[type="file"] { display: none; }
 <body>
 <header>
   <h1>Render Markup <small id="docname">No image open</small></h1>
-  <label class="btn" for="file" title="Open a render (or drop / paste one onto the stage)">Open image</label>
-  <input type="file" id="file" accept="image/*">
+  <label class="btn" for="file" title="Open a render or a PDF (or drop one onto the stage, or paste an image)">Open file</label>
+  <input type="file" id="file" accept="image/*,application/pdf,.pdf">
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
   <button id="export" class="primary" title="Save the marked-up image at full resolution (Ctrl/Cmd+S)">Export PNG</button>
 </header>
 <main>
+  <nav id="pages" aria-label="Pages" hidden><ol id="pageList"></ol></nav>
   <section id="stage" aria-label="Image stage">
     <canvas id="view" tabindex="0" aria-label="Render with notes. Left click draws, the wheel button adds a note, dragging with the right button erases, a right-click opens a menu. D and N swap what the left click and the wheel button do. Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
-    <div id="drop">Drop the render to open it</div>
+    <div id="drop">Drop the file to open it</div>
     <div id="empty" hidden>
       <svg class="ico" viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6v22"/><path d="M15 19l9 9 9-9"/><path d="M8 32v6a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3v-6"/></svg>
-      <p class="big">Drag and drop a render here</p>
-      <label class="btn" for="file">Open image</label>
-      <p class="note">PNG, JPG or WebP · or paste with <kbd>Ctrl/Cmd+V</kbd></p>
+      <p class="big">Drag and drop a render or PDF here</p>
+      <label class="btn" for="file">Open file</label>
+      <p class="note">PNG, JPG, WebP or PDF · or paste an image with <kbd>Ctrl/Cmd+V</kbd></p>
       <p class="note alt">Or just start marking up this blank canvas.</p>
     </div>
   </section>
@@ -559,10 +586,13 @@ input[type="file"] { display: none; }
     c.restore();
   }
 
-  function paint(c) {
-    c.drawImage(state.img, 0, 0, state.w, state.h);
+  function paintMarkup(c) {
     state.strokes.forEach(function (s) { drawStroke(c, s); });
     state.notes.forEach(function (n) { drawNote(c, n, layout(n, c)); });
+  }
+  function paint(c) {
+    c.drawImage(state.img, 0, 0, state.w, state.h);
+    paintMarkup(c);
   }
 
   // ---------- zoom and pan ----------
@@ -814,6 +844,7 @@ input[type="file"] { display: none; }
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
     $("grammar").disabled = state.notes.length === 0;
+    if (doc) markPage(doc.cur);
     $("export").disabled = !state.img;
   }
 
@@ -1141,7 +1172,8 @@ input[type="file"] { display: none; }
       add(menuItem("Redo", "Ctrl+Y", redo, { disabled: future.length === 0 }));
       add(menuItem("Clear drawing", "", function () { $("clearDraw").click(); }, { disabled: state.strokes.length === 0 }));
       rule();
-      add(menuItem("Save image", "Ctrl+S", function () { $("export").click(); }, { disabled: !state.img }));
+      if (doc) add(menuItem("Save PDF", "Ctrl+S", exportPdf));
+      add(menuItem(doc ? "Save this page as an image" : "Save image", doc ? "" : "Ctrl+S", savePng, { disabled: !state.img }));
       add(menuItem("Copy to clipboard", "Ctrl+C", copyImage, { disabled: !state.img }));
     }
     m.hidden = false;
@@ -1210,6 +1242,7 @@ input[type="file"] { display: none; }
     }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
     if (e.key === "Escape") { select(-1); sync(); render(); }
+    if (doc && (e.key === "PageDown" || e.key === "PageUp")) { e.preventDefault(); showPage(doc.cur + (e.key === "PageDown" ? 1 : -1)); return; }
     if (e.key === "d" || e.key === "D") setTool("draw");
     if (e.key === "n" || e.key === "N") setTool("note");
   });
@@ -1218,12 +1251,320 @@ input[type="file"] { display: none; }
   document.addEventListener("keyup", function (e) { if (e.key === " ") spaceUp(); });
   window.addEventListener("blur", spaceUp);
 
+  // ---------- PDF documents ----------
+  // A PDF is a list of pages. Each page keeps its own notes, drawing, selection and undo history. The page on
+  // screen lives in `state` like any image and is swapped in and out as you move between pages. Pages are
+  // drawn to a bitmap only when needed and only a few are kept, so a long document does not fill the memory.
+  var doc = null, loadToken = 0;
+  var VENDOR = new URL("vendor/", document.baseURI).href;
+  var PAGE_LONG = 4000, PAGE_MAX_PX = 16e6, PAGE_MAX_SCALE = 3, PAGE_KEEP = 3, THUMB_PX = 192;
+  var pdfjsReady = null, pdfLibReady = null, useClock = 0, whiteCanvas = null;
+  // Both libraries are part of this site (see vendor/) and are only fetched when a PDF is opened or exported.
+  function pdfjs() {
+    if (!pdfjsReady) {
+      pdfjsReady = import(VENDOR + "pdfjs/pdf.min.mjs").then(function (lib) {
+        lib.GlobalWorkerOptions.workerSrc = VENDOR + "pdfjs/pdf.worker.min.mjs";
+        return lib;
+      });
+      pdfjsReady.catch(function () { pdfjsReady = null; });
+    }
+    return pdfjsReady;
+  }
+  function pdfLib() {
+    if (!pdfLibReady) {
+      pdfLibReady = new Promise(function (resolve, reject) {
+        var el = document.createElement("script");
+        el.src = VENDOR + "pdf-lib/pdf-lib.min.js";
+        el.onload = function () { if (window.PDFLib) resolve(window.PDFLib); else reject(new Error("pdf-lib did not load")); };
+        el.onerror = function () { reject(new Error("pdf-lib did not load")); };
+        document.head.appendChild(el);
+      });
+      pdfLibReady.catch(function () { pdfLibReady = null; });
+    }
+    return pdfLibReady;
+  }
+  function isPdf(file) { return !!file && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || "")); }
+  function hasMarkup(pg) { return pg.notes.length > 0 || pg.strokes.length > 0; }
+  function whitePage() {
+    if (!whiteCanvas) {
+      whiteCanvas = document.createElement("canvas"); whiteCanvas.width = whiteCanvas.height = 2;
+      var g = whiteCanvas.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, 2, 2);
+    }
+    return whiteCanvas;
+  }
+
+  function loadPdf(file) {
+    var label = file.name || "document.pdf", token = ++loadToken;
+    status("Opening " + label + "…");
+    file.arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      return pdfjs().then(function (lib) {
+        return lib.getDocument({
+          data: bytes.slice(),          // PDF.js takes this copy over; the original is kept for the export
+          standardFontDataUrl: VENDOR + "pdfjs/standard_fonts/", cMapUrl: VENDOR + "pdfjs/cmaps/", cMapPacked: true,
+          iccUrl: VENDOR + "pdfjs/iccs/", wasmUrl: VENDOR + "pdfjs/wasm/", disableWorkerRendering: true
+        }).promise;
+      }).then(function (pdf) {
+        var jobs = [];
+        for (var i = 1; i <= pdf.numPages; i++) jobs.push(pdf.getPage(i));
+        return Promise.all(jobs).then(function (proxies) { return { pdf: pdf, proxies: proxies, bytes: bytes }; });
+      });
+    }).then(function (o) {
+      if (token !== loadToken) { o.pdf.destroy(); return; }
+      closeDoc();
+      doc = {
+        name: label.replace(/\.pdf$/i, ""), label: label, bytes: o.bytes, pdf: o.pdf, cur: 0,
+        pages: o.proxies.map(function (proxy, i) {
+          var vp = proxy.getViewport({ scale: 1 });
+          // bitmap size: about 4000 px on the long side, never more than 3x the page's own size or 16 megapixels
+          var k = Math.min(PAGE_MAX_SCALE, PAGE_LONG / Math.max(vp.width, vp.height), Math.sqrt(PAGE_MAX_PX / (vp.width * vp.height)));
+          return { n: i + 1, proxy: proxy, wPt: vp.width, hPt: vp.height,
+                   w: Math.max(1, Math.round(vp.width * k)), h: Math.max(1, Math.round(vp.height * k)),
+                   img: null, rendering: null, used: 0, el: null, thumb: null,
+                   notes: [], strokes: [], sel: -1, picks: [], history: [], future: [] };
+        })
+      };
+      state.name = doc.name; state.blank = false; stage.classList.add("has-image");
+      $("export").textContent = "Export PDF";
+      $("export").title = "Save the PDF with your markup on every page (Ctrl/Cmd+S)";
+      buildPageList();
+      showPage(0, true);
+    }).catch(function (err) {
+      if (token !== loadToken) return;
+      status(err && err.name === "PasswordException" ? "That PDF is password-protected, so it cannot be opened here."
+                                                     : "That PDF could not be opened. It may be damaged, or not really a PDF.");
+    });
+  }
+  // Leave PDF mode: called when an image is opened, or another PDF replaces this one.
+  function closeDoc() {
+    if (!doc) return;
+    var old = doc; doc = null;
+    try { old.pdf.destroy(); } catch (e) { /* already gone */ }
+    thumbQueue = [];
+    $("export").textContent = "Export PNG";
+    $("export").title = "Save the marked-up image at full resolution (Ctrl/Cmd+S)";
+    buildPageList();
+  }
+
+  // Draw a page to its bitmap. Returns a promise of the canvas; repeated calls share the work.
+  function renderPage(pg) {
+    pg.used = ++useClock;
+    if (pg.img) return Promise.resolve(pg.img);
+    if (!pg.rendering) {
+      var c = document.createElement("canvas"), owner = doc;
+      c.width = pg.w; c.height = pg.h;
+      pg.rendering = pg.proxy.render({ canvas: c, viewport: pg.proxy.getViewport({ scale: pg.w / pg.wPt }), background: "#ffffff" }).promise
+        .then(function () {
+          pg.rendering = null; pg.img = c;
+          if (owner === doc) {
+            // keep the bitmaps of the page on screen and the few used most recently; the rest can be redrawn
+            var live = doc.pages.filter(function (q) { return q.img; }).sort(function (a, b) { return b.used - a.used; });
+            live.slice(PAGE_KEEP).forEach(function (q) { if (q !== doc.pages[doc.cur]) q.img = null; });
+          }
+          return c;
+        }, function (err) { pg.rendering = null; throw err; });
+    }
+    return pg.rendering;
+  }
+  // Resolves once the bitmap behind the image on screen is drawn (at once for a plain image).
+  function pageReady() { return doc ? renderPage(doc.pages[doc.cur]) : Promise.resolve(); }
+
+  function stashPage() {
+    if (!doc) return;
+    var pg = doc.pages[doc.cur];
+    pg.notes = state.notes; pg.strokes = state.strokes; pg.sel = state.sel; pg.picks = state.picks;
+    pg.history = history; pg.future = future;
+  }
+  function showPage(i, first) {
+    if (!doc || i < 0 || i >= doc.pages.length || (!first && i === doc.cur)) return;
+    $("noteText").blur();
+    if (drag) endDrag(true);
+    closeMenu();
+    if (!first) stashPage();
+    doc.cur = i;
+    var pg = doc.pages[i], total = doc.pages.length;
+    state.notes = pg.notes; state.strokes = pg.strokes; state.sel = pg.sel; state.picks = pg.picks;
+    history = pg.history; future = pg.future;
+    state.w = pg.w; state.h = pg.h; state.img = pg.img || whitePage();
+    view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
+    $("docname").textContent = doc.label + " · page " + pg.n + " of " + total + " · " + pg.w + " × " + pg.h + " px";
+    sync(); render();
+    doc.pages.forEach(function (q, k) { markPage(k); });
+    if (pg.el) pg.el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    var ready = "Page " + pg.n + " of " + total + ". Left-drag draws, right-drag erases, wheel click adds a note.";
+    if (pg.img) { pg.used = ++useClock; status(ready); return; }
+    status("Drawing page " + pg.n + "…");
+    renderPage(pg).then(function (c) {
+      if (doc && doc.pages[doc.cur] === pg) { state.img = c; render(); status(ready); }
+    }, function () {
+      if (doc && doc.pages[doc.cur] === pg) status("Page " + pg.n + " could not be drawn.");
+    });
+  }
+
+  // ----- page strip -----
+  var thumbWatch = null, thumbQueue = [], thumbBusy = false;
+  function buildPageList() {
+    var nav = $("pages"), list = $("pageList"), many = !!doc && doc.pages.length > 1;
+    list.innerHTML = "";
+    nav.hidden = !many;
+    document.body.classList.toggle("has-pages", many);
+    if (thumbWatch) { thumbWatch.disconnect(); thumbWatch = null; }
+    if (!many) return;
+    // thumbnails are drawn only once they scroll into view, one at a time
+    thumbWatch = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting || !doc) return;
+        thumbWatch.unobserve(en.target);
+        var pg = doc.pages[+en.target.dataset.page];
+        if (pg) { thumbQueue.push(pg); pumpThumbs(); }
+      });
+    }, { root: nav, rootMargin: "300px" });
+    doc.pages.forEach(function (pg, i) {
+      var li = document.createElement("li"), b = document.createElement("button");
+      b.type = "button"; b.dataset.page = i; b.setAttribute("aria-label", "Page " + pg.n);
+      var c = document.createElement("canvas"); c.className = "thumb";
+      c.width = THUMB_PX; c.height = Math.max(1, Math.round(THUMB_PX * pg.h / pg.w));
+      var meta = document.createElement("span"); meta.className = "meta";
+      var num = document.createElement("span"); num.textContent = pg.n;
+      var mark = document.createElement("span"); mark.className = "mark"; mark.hidden = true;
+      meta.appendChild(num); meta.appendChild(mark);
+      b.appendChild(c); b.appendChild(meta);
+      b.addEventListener("click", function () { showPage(i); canvas.focus({ preventScroll: true }); });
+      li.appendChild(b); list.appendChild(li);
+      pg.el = b; pg.thumb = c;
+      thumbWatch.observe(b);
+    });
+  }
+  function pumpThumbs() {
+    if (thumbBusy || !thumbQueue.length) return;
+    var pg = thumbQueue.shift();
+    if (!doc || doc.pages.indexOf(pg) < 0) { pumpThumbs(); return; }
+    thumbBusy = true;
+    pg.proxy.render({ canvas: pg.thumb, viewport: pg.proxy.getViewport({ scale: pg.thumb.width / pg.wPt }), background: "#ffffff" }).promise
+      .catch(function () { /* a thumbnail that fails is simply left blank */ })
+      .then(function () { thumbBusy = false; pg.thumbDone = true; pumpThumbs(); });
+  }
+  // The little marker on a page's thumbnail: how many notes it has, or a plain dot if it only has drawing.
+  function markPage(i) {
+    var pg = doc && doc.pages[i];
+    if (!pg || !pg.el) return;
+    var cur = i === doc.cur, notes = cur ? state.notes.length : pg.notes.length, ink = cur ? state.strokes.length : pg.strokes.length;
+    var mark = pg.el.querySelector(".mark");
+    pg.el.setAttribute("aria-current", cur ? "page" : "false");
+    mark.hidden = !notes && !ink;
+    mark.textContent = notes ? String(notes) : "";
+    pg.el.title = "Page " + pg.n + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : "") + (ink ? " · drawing" : "");
+  }
+
+  // ----- PDF export -----
+  // Paint with another page's size and markup standing in for the one on screen.
+  function withPage(pg, fn) {
+    var keep = { w: state.w, h: state.h, notes: state.notes, strokes: state.strokes };
+    state.w = pg.w; state.h = pg.h; state.notes = pg.notes; state.strokes = pg.strokes;
+    try { return fn(); } finally { state.w = keep.w; state.h = keep.h; state.notes = keep.notes; state.strokes = keep.strokes; }
+  }
+  function canvasBytes(c, type, quality) {
+    return new Promise(function (resolve, reject) {
+      c.toBlob(function (blob) {
+        if (!blob) { reject(new Error("too large")); return; }
+        blob.arrayBuffer().then(function (buf) { resolve(new Uint8Array(buf)); }, reject);
+      }, type, quality);
+    });
+  }
+  // A page's markup alone, on a transparent background, cut down to the part that has anything on it.
+  function overlayPng(pg) {
+    var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
+    var g = c.getContext("2d");
+    withPage(pg, function () { paintMarkup(g); });
+    var d = g.getImageData(0, 0, pg.w, pg.h).data, x0 = pg.w, y0 = pg.h, x1 = -1, y1 = -1;
+    for (var y = 0, i = 3; y < pg.h; y++) {
+      for (var x = 0; x < pg.w; x++, i += 4) {
+        if (d[i]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+    }
+    if (x1 < 0) return Promise.resolve(null);
+    var cut = document.createElement("canvas"); cut.width = x1 - x0 + 1; cut.height = y1 - y0 + 1;
+    cut.getContext("2d").drawImage(c, -x0, -y0);
+    return canvasBytes(cut, "image/png").then(function (bytes) { return { bytes: bytes, x: x0, y: y0, w: cut.width, h: cut.height }; });
+  }
+  // Put an overlay image on a page of the original PDF so it lands where it was drawn on screen. A page can be
+  // stored rotated and with its visible area offset; this maps from the upright page as displayed to the page's
+  // own coordinates, where y runs upwards.
+  function placeOverlay(L, page, img, pg, o) {
+    var box = page.getCropBox(), rot = ((page.getRotation().angle % 360) + 360) % 360;
+    var x0 = box.x, y0 = box.y, x1 = box.x + box.width, y1 = box.y + box.height;
+    var k = pg.wPt / pg.w;                              // PDF points per bitmap pixel
+    var vx = o.x * k, vy = o.y * k, bw = o.w * k, bh = o.h * k, at;
+    if (rot === 90) at = { x: x0 + vy + bh, y: y0 + vx };
+    else if (rot === 180) at = { x: x1 - vx, y: y0 + vy + bh };
+    else if (rot === 270) at = { x: x1 - vy - bh, y: y1 - vx };
+    else at = { x: x0 + vx, y: y1 - vy - bh };
+    page.drawImage(img, { x: at.x, y: at.y, width: bw, height: bh, rotate: L.degrees(rot) });
+  }
+  // Fallback for PDFs that cannot be edited (encrypted, or built in a way the editor cannot read):
+  // a new PDF made of pictures of the pages, with the markup on them.
+  function flattenPdf(L, d) {
+    return L.PDFDocument.create().then(function (out) {
+      var chain = Promise.resolve();
+      d.pages.forEach(function (pg) {
+        chain = chain.then(function () {
+          status("Flattening page " + pg.n + " of " + d.pages.length + "…");
+          return renderPage(pg).then(function (img) {
+            var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
+            var g = c.getContext("2d");
+            g.drawImage(img, 0, 0);
+            withPage(pg, function () { paintMarkup(g); });
+            return canvasBytes(c, "image/jpeg", 0.92);
+          }).then(function (bytes) { return out.embedJpg(bytes); }).then(function (jpg) {
+            out.addPage([pg.wPt, pg.hPt]).drawImage(jpg, { x: 0, y: 0, width: pg.wPt, height: pg.hPt });
+          });
+        });
+      });
+      return chain.then(function () { return out.save(); }).then(function (bytes) { return { bytes: bytes, flat: true }; });
+    });
+  }
+  var exporting = false;
+  function exportPdf() {
+    if (!doc || exporting) return;
+    exporting = true;
+    stashPage();
+    var d = doc, marked = d.pages.filter(hasMarkup), filename = d.name + "_markup.pdf";
+    status("Preparing the PDF…");
+    pdfLib().then(function (L) {
+      return L.PDFDocument.load(d.bytes).then(function (out) {
+        var pages = out.getPages();
+        if (pages.length !== d.pages.length) throw new Error("page count differs");
+        var chain = Promise.resolve();
+        marked.forEach(function (pg, k) {
+          chain = chain.then(function () {
+            status("Adding markup to page " + pg.n + " (" + (k + 1) + " of " + marked.length + ")…");
+            return overlayPng(pg);
+          }).then(function (o) {
+            if (!o) return;
+            return out.embedPng(o.bytes).then(function (img) { placeOverlay(L, pages[pg.n - 1], img, pg, o); });
+          });
+        });
+        return chain.then(function () { return out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false }; });
+      }).catch(function () { return flattenPdf(L, d); });
+    }).then(function (res) {
+      var n = marked.length, what = n === 0 ? "no markup on it yet" : "markup on " + n + (n === 1 ? " page" : " pages");
+      saveBlob(new Blob([res.bytes], { type: "application/pdf" }), filename,
+               "Saved " + filename + " (" + d.pages.length + (d.pages.length === 1 ? " page, " : " pages, ") + what +
+               (res.flat ? "; this PDF could not be edited, so its pages were saved as pictures)." : ")."), false);
+    }).catch(function () {
+      status("The PDF could not be exported. Save pages as images from the right-click menu instead.");
+    }).then(function () { exporting = false; });
+  }
+
   // ---------- loading images ----------
   function loadFile(file) {
-    if (!file || !/^image\//.test(file.type)) { status("That file is not an image. Open a PNG, JPG or WebP render."); return; }
-    var url = URL.createObjectURL(file);
+    if (isPdf(file)) { loadPdf(file); return; }
+    if (!file || !/^image\//.test(file.type)) { status("That file is not an image or a PDF. Open a PNG, JPG, WebP or PDF."); return; }
+    var url = URL.createObjectURL(file), token = ++loadToken;
     var im = new Image();
     im.onload = function () {
+      if (token !== loadToken) return;
+      closeDoc();
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
       view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
@@ -1247,27 +1588,35 @@ input[type="file"] { display: none; }
   document.addEventListener("paste", function (e) {
     var items = (e.clipboardData && e.clipboardData.items) || [];
     for (var i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image/") === 0) { loadFile(items[i].getAsFile()); e.preventDefault(); return; }
+      if (items[i].type.indexOf("image/") === 0 || items[i].type === "application/pdf") { loadFile(items[i].getAsFile()); e.preventDefault(); return; }
     }
   });
 
   // ---------- export ----------
   function status(msg) { $("status").textContent = msg; }
-  $("export").addEventListener("click", function () {
+  // The header button and Ctrl/Cmd+S save the whole job: a PNG for an image, a PDF for a PDF.
+  $("export").addEventListener("click", function () { if (doc) exportPdf(); else savePng(); });
+  function saveBlob(blob, filename, done, isImage) {
+    var url = URL.createObjectURL(blob);
+    try {
+      var a = document.createElement("a");
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      status(done);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    } catch (e) { if (isImage) showModal(url); else status("Your browser blocked the download."); }
+  }
+  // The image on screen (for a PDF, the current page) as a full-resolution PNG.
+  function savePng() {
     if (!state.img) return;
-    status("Preparing a " + state.w + " × " + state.h + " px PNG…");
-    fullImage().toBlob(function (blob) {
-      if (!blob) { status("The image is too large for this browser to export."); return; }
-      var filename = state.name + "_markup.png";
-      var url = URL.createObjectURL(blob);
-      try {
-        var a = document.createElement("a");
-        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-        status("Saved " + filename + " (" + state.w + " × " + state.h + " px).");
-        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-      } catch (e) { showModal(url); }
-    }, "image/png");
-  });
+    var w = state.w, h = state.h, filename = state.name + (doc ? "_p" + doc.pages[doc.cur].n : "") + "_markup.png";
+    status("Preparing a " + w + " × " + h + " px PNG…");
+    pageReady().then(function () {
+      fullImage().toBlob(function (blob) {
+        if (!blob) { status("The image is too large for this browser to export."); return; }
+        saveBlob(blob, filename, "Saved " + filename + " (" + w + " × " + h + " px).", true);
+      }, "image/png");
+    }, function () { status("This page could not be drawn, so it cannot be saved as an image."); });
+  }
   // The whole marked-up image at its own resolution, whatever the zoom on screen.
   function fullImage() {
     var c = document.createElement("canvas");
@@ -1282,10 +1631,12 @@ input[type="file"] { display: none; }
       status("This browser cannot copy images. Use Save image instead."); return;
     }
     status("Copying a " + state.w + " × " + state.h + " px image…");
-    var c = fullImage();
     // the PNG is handed over as a promise so the copy starts inside the click, which Safari insists on
-    var png = new Promise(function (resolve, reject) {
-      c.toBlob(function (blob) { if (blob) resolve(blob); else reject(new Error("too large")); }, "image/png");
+    var png = pageReady().then(function () {
+      var c = fullImage();
+      return new Promise(function (resolve, reject) {
+        c.toBlob(function (blob) { if (blob) resolve(blob); else reject(new Error("too large")); }, "image/png");
+      });
     });
     var item;
     try { item = new ClipboardItem({ "image/png": png }); }

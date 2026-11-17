@@ -1,14 +1,15 @@
 # Render Markup
 
-A small browser tool for marking up architectural renders: clean pill callouts with leader lines, freehand and straight-line sketching, and a full-resolution PNG export.
+A small browser tool for marking up architectural renders and PDFs: clean pill callouts with leader lines, freehand and straight-line sketching, a full-resolution PNG export for images and a marked-up PDF export for PDFs.
 
 **Use it:** https://samiabdulnour.github.io/render-markup/
 
-Everything runs in your browser. Images never leave your computer. The optional grammar check sends only the note text to [LanguageTool](https://languagetool.org).
+Everything runs in your browser. Images and PDFs never leave your computer. The optional grammar check sends only the note text to [LanguageTool](https://languagetool.org).
 
 ## How it works
 
-- **Open** a render (button, drag and drop, or paste with Ctrl/Cmd+V). It starts on a blank white canvas showing a drop placeholder; drop a render onto it, or just start marking up the blank canvas and the placeholder gets out of the way.
+- **Open** a render or a PDF (button or drag and drop; an image can also be pasted with Ctrl/Cmd+V). It starts on a blank white canvas showing a drop placeholder; drop a render onto it, or just start marking up the blank canvas and the placeholder gets out of the way.
+- **PDFs:** every page opens, with a strip of page thumbnails down the left (across the top on a phone). Click a thumbnail, or press PageDown / PageUp, to move between pages. Each page has its own notes, drawing and undo history, and its thumbnail shows a marker with the number of notes on it, or a dot if it only has drawing. Pages are drawn at about 4000 pixels on the long side, as they are needed.
 - **Mouse:** the left button draws; the wheel button (middle click) adds a note; dragging with the right button erases. With the switch on Notes the first two swap: the left button adds notes and the wheel button draws. A plain right-click opens a pop-up menu. Pills and their dots can be dragged with the left or wheel button.
 - **Right-click menu:** on a note it offers Edit text, the four colours, the four shapes, Make vertical / horizontal and Delete; if the note is part of a selection, colour, shape, orientation and Delete apply to all of it. Elsewhere it offers Add note here, Delete this line (when a drawn line is under the pointer), Select all notes, Undo, Redo, Clear drawing, Save image and Copy to clipboard. On a laptop trackpad a two-finger tap opens it, so Add note here works without a wheel button.
 - **Eraser:** rubs out only the ink it passes over, so a line can be trimmed or cut in two. It also removes any note whose pill it touches; the leader and dot do not count, so a sketch around a dot can be rubbed out without losing the note. Undo brings everything back. Hold Shift while dragging with the right button for a straight eraser, which snaps to horizontal, vertical and 45° like the straight pen. The Eraser size slider in the pen panel sets how wide it is.
@@ -21,6 +22,7 @@ Everything runs in your browser. Images never leave your computer. The optional 
 - **Draw:** freehand pen in the same four colours. Hold Shift for a straight line, which snaps to horizontal, vertical and 45°.
 - **Check grammar:** proofreads every note (Australian English). Review each suggestion before it applies; names and street names start unticked.
 - **Export PNG:** saves at the image's full resolution as `<name>_markup.png`. Save image in the right-click menu and Ctrl/Cmd+S do the same.
+- **Export PDF:** with a PDF open, the button (and Ctrl/Cmd+S, and Save PDF in the right-click menu) saves `<name>_markup.pdf`: the original PDF, pages untouched and still sharp, with your markup added on top of the pages that have any. A PDF that cannot be edited, such as an encrypted one, is saved as pictures of its pages instead, and the status line says so. Save this page as an image in the right-click menu saves just the current page as `<name>_p<page>_markup.png`.
 - **Copy to clipboard:** in the right-click menu, or Ctrl/Cmd+C, puts the full-resolution marked-up image on the clipboard, ready to paste into a chat, an email or a document.
 
 ## Shortcuts
@@ -44,10 +46,11 @@ Everything runs in your browser. Images never leave your computer. The optional 
 | Wheel / Shift + wheel | Scroll up-down / sideways, when zoomed in |
 | Space + drag | Drag the image, when zoomed in |
 | 0 | Fit the image |
+| PageDown / PageUp | Next / previous page of a PDF |
 | Delete / Backspace | Delete the selected note or notes |
 | Esc | Deselect |
 | Shift (while drawing) | Straight line |
 
 ## Hosting
 
-A single static `index.html` with no build step, served by GitHub Pages from the `main` branch root.
+Static files with no build step, served by GitHub Pages from the `main` branch root: `index.html` is the whole tool, and `vendor/` holds the two libraries it uses for PDFs ([PDF.js](https://mozilla.github.io/pdf.js/) to read them and [pdf-lib](https://pdf-lib.js.org/) to write them). They are part of this site, so nothing is loaded from elsewhere, and the browser only fetches them when a PDF is opened or exported. See `vendor/README.md` for versions and licences.
