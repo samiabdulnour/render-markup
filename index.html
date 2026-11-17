@@ -76,6 +76,13 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
 }
 #zoom[hidden] { display: none; }
 #zoom.zoomed { color: var(--ink); }
+/* Size label shown beside the preview while a size is being changed. Fixed colours: it sits over the image. */
+#hud {
+  position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; background: #15171b; color: #ffffff;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1; padding: 6px 9px; border-radius: 5px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+}
+#hud[hidden] { display: none; }
 #drop {
   position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 10px;
   display: none; align-items: center; justify-content: center; font-family: var(--font-display);
@@ -245,6 +252,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <section id="stage" aria-label="Image stage">
     <canvas id="view" tabindex="0" aria-label="Render with notes. Left click draws, the wheel button adds a note, dragging with the right button erases, a right-click opens a menu. D and N swap what the left click and the wheel button do. Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
+    <div id="hud" hidden></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the file to open it</div>
     <div id="empty" hidden>
@@ -368,7 +376,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var PAD = 24, spaceDown = false;
   var history = [];
   var drag = null;
-  var eraserPreview = false;   // true while the eraser size slider is being moved, to show the ring
+  var sliderPreview = null;    // "pen" or "eraser" while that size slider is being moved, to show the size on the image
 
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $("view"), ctx = canvas.getContext("2d"), stage = $("stage");
@@ -645,6 +653,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }, { passive: false });
   $("zoom").addEventListener("click", function () { fitView(); canvas.focus({ preventScroll: true }); });
 
+  function placeHud(h, r) {
+    var el = $("hud");
+    if (!h) { if (!el.hidden) el.hidden = true; return; }
+    el.textContent = h.text; el.hidden = false;
+    var x = view.ox + h.at[0] * view.s, top = view.oy + (h.at[1] - h.r) * view.s - 10, below = top < 36;
+    el.style.left = clamp(x, 76, Math.max(76, r.width - 76)) + "px";
+    el.style.top = (below ? view.oy + (h.at[1] + h.r) * view.s + 10 : top) + "px";
+    el.style.transform = below ? "translate(-50%, 0)" : "translate(-50%, -100%)";
+  }
+
   function render() {
     var r = stage.getBoundingClientRect();
     view.dpr = window.devicePixelRatio || 1;
@@ -652,7 +670,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
-    if (!state.img) { placeEmpty(); return; }
+    if (!state.img) { placeEmpty(); placeHud(null); return; }
     placeView(r);
     placeEmpty();
     var zb = $("zoom");
@@ -664,28 +682,42 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       var n = state.notes[i];
       if (n) drawSelection(ctx, n, layout(n, ctx));
     });
-    var sizing = drag && drag.part === "size" ? drag.what : null;
-    if (sizing === "pen") {
-      // the pen tip at its real size, where the drag began
+    // Previews while a size is being changed, by Ctrl + right-drag or by a slider, each with a label giving the size.
+    var sizing = drag && drag.part === "size" ? drag.what : null, hud = null;
+    var mid = [view.cx, view.cy], pct = function (v) { return Math.round(v * 100) + "%"; };   // mid: the middle of what is on screen
+    var tipAt = sizing === "pen" ? drag.last : (sliderPreview === "pen" ? mid : null);
+    if (tipAt) {
+      // the pen tip at its real size
       var tip = penPx({ width: state.pen.width }) / 2;
-      ctx.beginPath(); ctx.arc(drag.last[0], drag.last[1], tip + 1.5 / view.s, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip + 1.5 / view.s, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
-      ctx.beginPath(); ctx.arc(drag.last[0], drag.last[1], tip, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip, 0, Math.PI * 2);
       ctx.fillStyle = (COLORS[state.pen.color] || COLORS.red).fill; ctx.fill();
+      hud = { text: "Line width " + pct(state.pen.width), at: tipAt, r: tip };
     } else if (sizing === "next") {
       // a sample of the next note at its real size
       var sample = { text: "New note", tx: drag.last[0], ty: drag.last[1], px: drag.last[0], py: drag.last[1],
                      vertical: state.style.vertical, color: state.style.color, shape: state.style.shape, size: state.style.size };
-      ctx.save(); ctx.globalAlpha = 0.8; drawNote(ctx, sample, layout(sample, ctx)); ctx.restore();
+      var SL = layout(sample, ctx);
+      ctx.save(); ctx.globalAlpha = 0.8; drawNote(ctx, sample, SL); ctx.restore();
+      hud = { text: "Text size " + pct(state.style.size), at: drag.last, r: (sample.vertical ? SL.w : SL.h) / 2 };
+    } else if (sizing === "notes") {
+      // the notes themselves are the preview; the label sits over the one the drag began on
+      var held = drag.note && state.notes.indexOf(drag.note) >= 0 ? drag.note : null, many = picked().length;
+      var HL = held ? layout(held, ctx) : null;
+      hud = { text: "Text size " + pct((held || picked()[0]).size) + (many > 1 ? " · " + many + " notes" : ""),
+              at: held ? [held.px, held.py] : drag.last, r: held ? (held.vertical ? HL.w : HL.h) / 2 : 14 / view.s };
     }
-    var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (eraserPreview ? [state.w / 2, state.h / 2] : null);
+    var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (sliderPreview === "eraser" ? mid : null);
     if (ring) {
       // eraser ring: dark over light so it shows on any render
       var er = eraserR();
       ctx.beginPath(); ctx.arc(ring[0], ring[1], er, 0, Math.PI * 2);
       ctx.lineWidth = 3 / view.s; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
       ctx.lineWidth = 1.25 / view.s; ctx.strokeStyle = "#15171b"; ctx.stroke();
+      if (sizing === "eraser" || sliderPreview === "eraser") hud = { text: "Eraser size " + Math.round(state.eraser * 2) + " px", at: ring, r: er };
     }
+    placeHud(hud, r);
   }
 
   // The drop placeholder shows on the untouched blank canvas and tracks the canvas rectangle.
@@ -908,11 +940,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     state.font = e.target.value;
     document.fonts.load(fontStr(40)).then(render, render);
   });
-  $("penWidth").addEventListener("input", function (e) { state.pen.width = parseFloat(e.target.value); sync(); });
-  // the slider is the eraser's width across; a ring in the middle of the image shows it while it is moved
-  $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; eraserPreview = true; sync(); render(); });
-  ["change", "blur", "pointerup", "keyup"].forEach(function (t) {
-    $("eraserSize").addEventListener(t, function () { if (eraserPreview) { eraserPreview = false; render(); } });
+  // while either size slider is moved, the pen tip or the eraser ring shows in the middle of the image with its size
+  $("penWidth").addEventListener("input", function (e) { state.pen.width = parseFloat(e.target.value); sliderPreview = "pen"; sync(); render(); });
+  $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; sliderPreview = "eraser"; sync(); render(); });
+  ["penWidth", "eraserSize"].forEach(function (id) {
+    ["change", "blur", "pointerup", "keyup"].forEach(function (t) {
+      $(id).addEventListener(t, function () { if (sliderPreview) { sliderPreview = null; render(); } });
+    });
   });
   $("clearDraw").addEventListener("click", function () {
     if (!state.strokes.length) return;
@@ -1101,6 +1135,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     else if (h || (state.tool === "note" && state.picks.length)) {
       if (h && state.picks.indexOf(h.i) < 0) { select(h.i); }
       snapshot();
+      drag.note = h ? state.notes[h.i] : null;
       drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
     } else if (state.tool === "draw") { drag.what = "pen"; drag.from = state.pen.width; }
     else {
