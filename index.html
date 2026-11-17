@@ -162,7 +162,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
   border: 0; background: transparent; border-radius: 5px; width: 100%; justify-content: flex-start;
   text-align: left; padding: 7px 10px; gap: 10px;
 }
-.menu > button:hover:not([disabled]), .menu > button:focus-visible { background: color-mix(in srgb, var(--ink) 9%, transparent); outline: none; }
+.menu > button:focus { background: color-mix(in srgb, var(--ink) 9%, transparent); outline: none; }
 .menu > button .key { margin-left: auto; padding-left: 16px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; width: auto; align-self: stretch; }
 .menu .swatches { padding: 4px 6px 2px; }
@@ -199,7 +199,7 @@ input[type="file"] { display: none; }
   <label class="btn" for="file" title="Open a render (or drop / paste one onto the stage)">Open image</label>
   <input type="file" id="file" accept="image/*">
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
-  <button id="export" class="primary" title="Save the marked-up image at full resolution">Export PNG</button>
+  <button id="export" class="primary" title="Save the marked-up image at full resolution (Ctrl/Cmd+S)">Export PNG</button>
 </header>
 <main>
   <section id="stage" aria-label="Image stage">
@@ -1033,6 +1033,7 @@ input[type="file"] { display: none; }
     if (opts && opts.danger) b.className = "danger";
     if (opts && opts.disabled) b.disabled = true;
     b.addEventListener("click", function () { closeMenu(); fn(); });
+    b.addEventListener("pointermove", function () { if (!b.disabled && document.activeElement !== b) b.focus({ preventScroll: true }); });
     return b;
   }
   function openMenu(cx, cy, p) {
@@ -1072,6 +1073,8 @@ input[type="file"] { display: none; }
       add(menuItem("Undo", "Ctrl+Z", undo, { disabled: history.length === 0 }));
       add(menuItem("Redo", "Ctrl+Y", redo, { disabled: future.length === 0 }));
       add(menuItem("Clear drawing", "", function () { $("clearDraw").click(); }, { disabled: state.strokes.length === 0 }));
+      rule();
+      add(menuItem("Save image", "Ctrl+S", function () { $("export").click(); }, { disabled: !state.img }));
     }
     m.hidden = false;
     // keep it on screen
@@ -1122,6 +1125,7 @@ input[type="file"] { display: none; }
       if (k === "y" || e.shiftKey) redo(); else undo();
       return;
     }
+    if (mod && k === "s" && !e.altKey) { e.preventDefault(); $("export").click(); return; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
     if (typing || mod || e.altKey) return;
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
