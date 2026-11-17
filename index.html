@@ -238,7 +238,7 @@ input[type="file"] { display: none; }
     <div class="section">
       <h2>Notes</h2>
       <ul id="list"></ul>
-      <p class="note" id="listTip" hidden>Shift-click selects a range · Ctrl/Cmd-click adds or removes one</p>
+      <p class="note" id="listTip" hidden>Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all</p>
       <p class="empty" id="listEmpty">No notes yet. Click the mouse wheel button on the spot you want to point at, or right-click it and choose Add note here (on a trackpad, a two-finger tap). You can also switch to Notes and use a normal click.</p>
     </div>
     <div class="section" id="editor" hidden>
@@ -620,6 +620,13 @@ input[type="file"] { display: none; }
   function selected() { return state.sel >= 0 ? state.notes[state.sel] : null; }
   function select(i) { state.sel = i; state.picks = i >= 0 ? [i] : []; }
   function picked() { return state.picks.map(function (i) { return state.notes[i]; }).filter(Boolean); }
+  function selectAll() {
+    if (!state.notes.length) { status("There are no notes to select."); return; }
+    state.picks = state.notes.map(function (n, i) { return i; });
+    if (state.sel < 0) state.sel = state.picks[state.picks.length - 1];
+    sync(); render();
+    status(state.notes.length === 1 ? "1 note selected." : "All " + state.notes.length + " notes selected.");
+  }
   function pickFromList(i, e) {
     if (e.shiftKey && state.sel >= 0) {
       // everything between the note clicked last and this one
@@ -1020,6 +1027,7 @@ input[type="file"] { display: none; }
         snapshot(); state.strokes.splice(si, 1); sync(); render(); status("Line deleted. Undo brings it back.");
       }, { danger: true }));
       rule();
+      add(menuItem("Select all notes", "Ctrl+A", selectAll, { disabled: state.notes.length === 0 }));
       add(menuItem("Undo", "Ctrl+Z", undo, { disabled: history.length === 0 }));
       add(menuItem("Redo", "Ctrl+Y", redo, { disabled: future.length === 0 }));
       add(menuItem("Clear drawing", "", function () { $("clearDraw").click(); }, { disabled: state.strokes.length === 0 }));
@@ -1073,6 +1081,7 @@ input[type="file"] { display: none; }
       if (k === "y" || e.shiftKey) redo(); else undo();
       return;
     }
+    if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
     if (typing || mod || e.altKey) return;
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
     if (e.key === "Escape") { select(-1); sync(); render(); }
