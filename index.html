@@ -69,6 +69,13 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
   position: absolute; left: 12px; bottom: 12px; background: var(--panel); border: 1px solid var(--line);
   border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--muted); pointer-events: none;
 }
+/* Zoom read-out in the corner of the stage; a click fits the image again */
+#zoom {
+  position: absolute; top: 12px; right: 12px; padding: 4px 9px; font-family: var(--font-mono); font-size: 12px;
+  color: var(--muted); background: var(--panel); border-color: var(--line);
+}
+#zoom[hidden] { display: none; }
+#zoom.zoomed { color: var(--ink); }
 #drop {
   position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 10px;
   display: none; align-items: center; justify-content: center; font-family: var(--font-display);
@@ -205,6 +212,7 @@ input[type="file"] { display: none; }
   <section id="stage" aria-label="Image stage">
     <canvas id="view" tabindex="0" aria-label="Render with notes. Left click draws, the wheel button adds a note, dragging with the right button erases, a right-click opens a menu. D and N swap what the left click and the wheel button do. Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
+    <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the render to open it</div>
     <div id="empty" hidden>
       <svg class="ico" viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6v22"/><path d="M15 19l9 9 9-9"/><path d="M8 32v6a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3v-6"/></svg>
@@ -321,7 +329,10 @@ input[type="file"] { display: none; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
                 tool: "draw", pen: { color: "red", width: 1 }, eraser: 10, nextId: 1 };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
-  var view = { s: 1, ox: 0, oy: 0, dpr: 1 };
+  // s is screen px per image px; ox/oy place the image on the stage. zoom is a multiple of the scale that
+  // fits the whole image (1 = fitted), and cx/cy is the image point shown at the middle of the stage.
+  var view = { s: 1, ox: 0, oy: 0, dpr: 1, zoom: 1, cx: 0, cy: 0 };
+  var PAD = 24, spaceDown = false;
   var history = [];
   var drag = null;
   var eraserPreview = false;   // true while the eraser size slider is being moved, to show the ring
@@ -554,6 +565,50 @@ input[type="file"] { display: none; }
     state.notes.forEach(function (n) { drawNote(c, n, layout(n, c)); });
   }
 
+  // ---------- zoom and pan ----------
+  function fitScale(r) { return Math.min((r.width - PAD * 2) / state.w, (r.height - PAD * 2) / state.h); }
+  function maxZoom(r) { return Math.max(4, 8 / fitScale(r)); }   // up to 800% of real size, and at least 4x the fitted view
+  // Work out scale and offsets from zoom + centre, keeping the image from sliding off the stage.
+  function placeView(r) {
+    view.zoom = clamp(view.zoom, 1, maxZoom(r));
+    var s = fitScale(r) * view.zoom, iw = state.w * s, ih = state.h * s;
+    var ox = r.width / 2 - view.cx * s, oy = r.height / 2 - view.cy * s;
+    ox = iw <= r.width - PAD * 2 ? (r.width - iw) / 2 : clamp(ox, r.width - PAD - iw, PAD);
+    oy = ih <= r.height - PAD * 2 ? (r.height - ih) / 2 : clamp(oy, r.height - PAD - ih, PAD);
+    view.s = s; view.ox = ox; view.oy = oy;
+    view.cx = (r.width / 2 - ox) / s; view.cy = (r.height / 2 - oy) / s;
+  }
+  function fitView() { view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2; render(); }
+  // Zoom by a factor, keeping the image point under (mx, my) on the stage where it is.
+  function zoomAt(mx, my, factor) {
+    var r = stage.getBoundingClientRect();
+    var z = clamp(view.zoom * factor, 1, maxZoom(r));
+    if (z === view.zoom) return;
+    var px = (mx - view.ox) / view.s, py = (my - view.oy) / view.s, s = fitScale(r) * z;
+    view.zoom = z; view.cx = px + (r.width / 2 - mx) / s; view.cy = py + (r.height / 2 - my) / s;
+    render();
+  }
+  function panBy(dx, dy) { view.cx += dx / view.s; view.cy += dy / view.s; render(); }
+  stage.addEventListener("wheel", function (e) {
+    if (!state.img) return;
+    // mouse wheels report lines or pages on some systems; bring everything to pixels
+    var unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 300 : 1, dx = e.deltaX * unit, dy = e.deltaY * unit;
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl + wheel (and a trackpad pinch, which arrives the same way) zooms at the pointer
+      e.preventDefault();
+      var r = stage.getBoundingClientRect();
+      // a wheel notch is a big step (about 100), a pinch is many small ones: scale each to feel alike
+      var k = Math.abs(dy) >= 40 ? 0.0018 : 0.01;
+      zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-dy * k));
+      return;
+    }
+    if (view.zoom <= 1) return;        // nothing to scroll when the whole image is in view
+    e.preventDefault();
+    if (e.shiftKey && !dx) { dx = dy; dy = 0; }   // Shift + wheel scrolls sideways
+    panBy(dx, dy);
+  }, { passive: false });
+  $("zoom").addEventListener("click", function () { fitView(); canvas.focus({ preventScroll: true }); });
+
   function render() {
     var r = stage.getBoundingClientRect();
     view.dpr = window.devicePixelRatio || 1;
@@ -562,11 +617,10 @@ input[type="file"] { display: none; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
     if (!state.img) { placeEmpty(); return; }
-    var pad = 24;
-    view.s = Math.min((r.width - pad * 2) / state.w, (r.height - pad * 2) / state.h);
-    view.ox = (r.width - state.w * view.s) / 2;
-    view.oy = (r.height - state.h * view.s) / 2;
+    placeView(r);
     placeEmpty();
+    var zb = $("zoom");
+    zb.hidden = false; zb.textContent = Math.round(view.s * 100) + "%"; zb.classList.toggle("zoomed", view.zoom > 1);
     ctx.setTransform(view.dpr * view.s, 0, 0, view.dpr * view.s, view.dpr * view.ox, view.dpr * view.oy);
     ctx.imageSmoothingQuality = "high";
     paint(ctx);
@@ -856,6 +910,13 @@ input[type="file"] { display: none; }
     if (drag) endDrag(true);
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
     canvas.focus({ preventScroll: true });
+    if (spaceDown && e.button === 0) {
+      // Space held: the left button drags the image around instead
+      drag = { part: "pan", sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy };
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+      return;
+    }
     var p = toImg(e);
     if (rightBtn || penEraser) {
       // wait to see whether this is a click (note) or a drag (eraser); a stylus eraser tip erases at once
@@ -902,7 +963,12 @@ input[type="file"] { display: none; }
     var p = toImg(e);
     if (!drag) {
       var h = hit(p);
-      canvas.style.cursor = h ? (h.part === "target" ? "move" : "grab") : "crosshair";
+      canvas.style.cursor = spaceDown ? "grab" : h ? (h.part === "target" ? "move" : "grab") : "crosshair";
+      return;
+    }
+    if (drag.part === "pan") {
+      view.cx = drag.cx - (e.clientX - drag.sx) / view.s; view.cy = drag.cy - (e.clientY - drag.sy) / view.s;
+      render();
       return;
     }
     if (drag.part === "rclick") {
@@ -982,6 +1048,7 @@ input[type="file"] { display: none; }
   function endDrag(cancelled) {
     if (!drag) return;
     var d = drag; drag = null;
+    if (d.part === "pan") { canvas.style.cursor = spaceDown ? "grab" : "crosshair"; return; }
     if (d.part === "stroke") { sync(); return; }
     if (d.part === "create") { focusText(); return; }
     if (d.part === "erase") {
@@ -1127,12 +1194,24 @@ input[type="file"] { display: none; }
     }
     if (mod && k === "s" && !e.altKey) { e.preventDefault(); $("export").click(); return; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
+    // 0 fits the image again; Ctrl/Cmd+0 does too (the browser resets its own zoom on that as well)
+    if (e.key === "0" && !typing && !e.altKey) { fitView(); if (!mod) e.preventDefault(); return; }
     if (typing || mod || e.altKey) return;
+    // holding Space turns the left button into a hand for dragging the image, when the image has the keyboard
+    if (e.key === " " && (el === canvas || el === document.body)) {
+      e.preventDefault();
+      if (!spaceDown) { spaceDown = true; if (!drag) canvas.style.cursor = "grab"; }
+      return;
+    }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
     if (e.key === "Escape") { select(-1); sync(); render(); }
     if (e.key === "d" || e.key === "D") setTool("draw");
     if (e.key === "n" || e.key === "N") setTool("note");
   });
+
+  function spaceUp() { if (spaceDown) { spaceDown = false; if (!drag) canvas.style.cursor = "crosshair"; } }
+  document.addEventListener("keyup", function (e) { if (e.key === " ") spaceUp(); });
+  window.addEventListener("blur", spaceUp);
 
   // ---------- loading images ----------
   function loadFile(file) {
@@ -1141,6 +1220,7 @@ input[type="file"] { display: none; }
     var im = new Image();
     im.onload = function () {
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
+      view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
       state.notes = []; state.strokes = []; select(-1); history = []; future = [];
       state.blank = false; stage.classList.add("has-image");
@@ -1287,6 +1367,7 @@ input[type="file"] { display: none; }
     var im = new Image();
     im.onload = function () {
       state.img = im; state.w = 1920; state.h = 1080; state.name = "markup";
+      view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
       state.blank = true; stage.classList.add("has-image");
       $("docname").textContent = "Blank canvas · 1920 × 1080 px";
       sync(); render();
