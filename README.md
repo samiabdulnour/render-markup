@@ -8,9 +8,9 @@ Everything runs in your browser. Images never leave your computer. The optional 
 
 ## How it works
 
-- **Open** a render (button, drag and drop, or paste with Ctrl/Cmd+V). It starts on a blank white canvas.
+- **Open** a render (button, drag and drop, or paste with Ctrl/Cmd+V). It starts on a blank white canvas showing a drop placeholder; drop a render onto it, or just start marking up the blank canvas and the placeholder gets out of the way.
 - **Notes:** press on the spot you want to describe and drag out to where the note should sit. A plain click places it automatically. Type the text in the side panel; the pill resizes itself.
-- **Pill colours:** black, white, red or green. Horizontal by default, vertical optional. Text size and line length are adjustable per note.
+- **Pill colours:** black, white, red or green. Horizontal by default, vertical optional. Text size is adjustable per note. Long notes wrap on their own; press Enter in the text box for a line break exactly where you want one.
 - **Draw** (press D): freehand pen in the same four colours. Hold Shift for a straight line, which snaps to horizontal, vertical and 45°.
 - **Check grammar:** proofreads every note (Australian English). Review each suggestion before it applies; names and street names start unticked.
 - **Export PNG:** saves at the image's full resolution as `<name>_markup.png`.
