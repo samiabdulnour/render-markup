@@ -157,6 +157,12 @@ footer {
   color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap;
 }
 footer #status { color: var(--ink); }
+@media (min-width: 761px) {
+  /* one line only: a longer status message must not change the height of the stage under the pointer */
+  footer { flex-wrap: nowrap; white-space: nowrap; }
+  footer #status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  footer > span:last-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
 kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 /* Right-click pop-up menu */
 .menu {
@@ -264,12 +270,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <h2>Pen</h2>
       <div class="swatches" id="penColors" role="group" aria-label="Pen colour"></div>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
-        <input type="range" id="penWidth" min="0.3" max="4" step="0.1" value="1">
+        <input type="range" id="penWidth" min="0.3" max="4" step="0.05" value="1">
       </label>
       <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
       </label>
-      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close).</p>
+      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd> and drag with the right button to change sizes: sideways for the line width, up or down for the eraser.</p>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
     <div class="section">
@@ -658,7 +664,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       var n = state.notes[i];
       if (n) drawSelection(ctx, n, layout(n, ctx));
     });
-    var ring = drag && drag.part === "erase" ? drag.last : (eraserPreview ? [state.w / 2, state.h / 2] : null);
+    var sizing = drag && drag.part === "size" ? drag.what : null;
+    if (sizing === "pen") {
+      // the pen tip at its real size, where the drag began
+      var tip = penPx({ width: state.pen.width }) / 2;
+      ctx.beginPath(); ctx.arc(drag.last[0], drag.last[1], tip + 1.5 / view.s, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
+      ctx.beginPath(); ctx.arc(drag.last[0], drag.last[1], tip, 0, Math.PI * 2);
+      ctx.fillStyle = (COLORS[state.pen.color] || COLORS.red).fill; ctx.fill();
+    } else if (sizing === "next") {
+      // a sample of the next note at its real size
+      var sample = { text: "New note", tx: drag.last[0], ty: drag.last[1], px: drag.last[0], py: drag.last[1],
+                     vertical: state.style.vertical, color: state.style.color, shape: state.style.shape, size: state.style.size };
+      ctx.save(); ctx.globalAlpha = 0.8; drawNote(ctx, sample, layout(sample, ctx)); ctx.restore();
+    }
+    var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (eraserPreview ? [state.w / 2, state.h / 2] : null);
     if (ring) {
       // eraser ring: dark over light so it shows on any render
       var er = eraserR();
@@ -841,6 +861,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
     $("penWidthVal").textContent = Math.round(state.pen.width * 100) + "%";
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
+    if (document.activeElement !== $("penWidth")) $("penWidth").value = state.pen.width;
+    if (document.activeElement !== $("eraserSize")) $("eraserSize").value = state.eraser * 2;
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
     $("grammar").disabled = state.notes.length === 0;
@@ -951,7 +973,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var p = toImg(e);
     if (rightBtn || penEraser) {
       // wait to see whether this is a click (note) or a drag (eraser); a stylus eraser tip erases at once
-      drag = { part: "rclick", sx: e.clientX, sy: e.clientY, last: [p.x, p.y] };
+      // with Ctrl (or Alt) held, dragging the real right button changes a size instead of erasing
+      drag = { part: "rclick", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: e.button === 2 && (e.ctrlKey || e.altKey) };
       canvas.setPointerCapture(e.pointerId);
       if (penEraser) startErase();
       return;
@@ -1004,8 +1027,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     if (drag.part === "rclick") {
       if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
-      startErase();
+      if (drag.sizing) startSizing(e); else startErase();
     }
+    if (drag.part === "size") { dragSize(e); return; }
     if (drag.part === "erase") {
       var to = [p.x, p.y];
       if (e.shiftKey || drag.straight) {
@@ -1065,6 +1089,48 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     drag.moved = true;
     render();
   });
+  // ---------- Ctrl + right-drag: change a size, as in Photoshop ----------
+  // Sideways changes the size of what the left button is set to: the line width on Draw, the text size on Notes.
+  // Started on a note, it changes that note (or the whole selection it belongs to). Up and down changes the
+  // eraser, which has no mode of its own. The direction is fixed by the first few pixels of the drag.
+  function step5(v) { return Math.round(v * 20) / 20; }   // sizes move in steps of 5%
+  function startSizing(e) {
+    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy, h = hit({ x: drag.last[0], y: drag.last[1] });
+    drag.part = "size";
+    if (Math.abs(dy) > Math.abs(dx)) { drag.what = "eraser"; drag.from = state.eraser; }
+    else if (h || (state.tool === "note" && state.picks.length)) {
+      if (h && state.picks.indexOf(h.i) < 0) { select(h.i); }
+      snapshot();
+      drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
+    } else if (state.tool === "draw") { drag.what = "pen"; drag.from = state.pen.width; }
+    else {
+      // Notes with nothing selected: the size the next notes will have
+      if (!state.style) state.style = { vertical: false, color: "black", shape: "pill", size: 1 };
+      drag.what = "next"; drag.from = state.style.size;
+    }
+    canvas.style.cursor = drag.what === "eraser" ? "ns-resize" : "ew-resize";
+    dragSize(e);
+  }
+  function dragSize(e) {
+    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy, pct = function (v) { return Math.round(v * 100) + "%"; };
+    var tail = drag.what === "eraser" ? " · drag sideways for the line or note size" : " · drag up or down for the eraser size";
+    if (drag.what === "eraser") {
+      state.eraser = clamp(Math.round(drag.from - dy / 2), 3, 100);        // up is bigger; one pixel of drag is one pixel across
+      status("Eraser size " + Math.round(state.eraser * 2) + " px" + tail);
+    } else if (drag.what === "pen") {
+      state.pen.width = clamp(step5(drag.from + dx / 100), 0.3, 4);   // 100 px of drag is 100%
+      status("Line width " + pct(state.pen.width) + tail);
+    } else if (drag.what === "notes") {
+      var ps = picked();
+      ps.forEach(function (n, k) { n.size = clamp(step5(drag.from[k] + dx / 100), 0.25, 4); });
+      drag.changed = ps.some(function (n, k) { return n.size !== drag.from[k]; });
+      status("Text size " + pct(ps[0].size) + (ps.length > 1 ? " for " + ps.length + " notes" : "") + tail);
+    } else {
+      state.style.size = clamp(step5(drag.from + dx / 100), 0.25, 4);
+      status("Text size " + pct(state.style.size) + " for new notes" + tail);
+    }
+    sync(); render();
+  }
   function startErase() {
     snapshot();
     // what was there when the drag began, for the straight eraser; erasing never changes a stroke or note in place
@@ -1082,6 +1148,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (d.part === "pan") { canvas.style.cursor = spaceDown ? "grab" : "crosshair"; return; }
     if (d.part === "stroke") { sync(); return; }
     if (d.part === "create") { focusText(); return; }
+    if (d.part === "size") {
+      lastRightDrag = Date.now();
+      if (d.what === "notes" && !d.changed) history.pop();   // nothing changed, so leave undo as it was
+      canvas.style.cursor = "crosshair";
+      sync(); render();
+      return;
+    }
     if (d.part === "erase") {
       lastRightDrag = Date.now();
       if (!d.changed) history.pop();   // nothing was rubbed out, so leave undo as it was
@@ -1109,7 +1182,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // a right-drag that ends off the image (over the side panel, say) must not bring up the browser's menu
   var lastRightDrag = 0;
   document.addEventListener("contextmenu", function (e) {
-    if ((drag && (drag.part === "erase" || drag.part === "rclick")) || Date.now() - lastRightDrag < 600 || $("menu").contains(e.target)) e.preventDefault();
+    if ((drag && (drag.part === "erase" || drag.part === "rclick" || drag.part === "size")) || Date.now() - lastRightDrag < 600 || $("menu").contains(e.target)) e.preventDefault();
   });
 
   // ---------- right-click pop-up menu ----------
