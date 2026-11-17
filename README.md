@@ -10,9 +10,10 @@ Everything runs in your browser. Images never leave your computer. The optional 
 
 - **Open** a render (button, drag and drop, or paste with Ctrl/Cmd+V). It starts on a blank white canvas showing a drop placeholder; drop a render onto it, or just start marking up the blank canvas and the placeholder gets out of the way.
 - **Mouse:** the left button draws; the wheel button (middle click) adds a note; dragging with the right button erases drawing. A plain right-click adds a note too, which on a laptop trackpad is a two-finger tap. Pills and their dots can be dragged with the left or wheel button.
-- **Eraser:** rubs out only the ink it passes over, so a line can be trimmed or cut in two. It leaves notes alone. Undo brings the ink back.
+- **Eraser:** rubs out only the ink it passes over, so a line can be trimmed or cut in two. It leaves notes alone. Undo brings the ink back. Hold Shift while dragging with the right button for a straight eraser, which snaps to horizontal, vertical and 45° like the straight pen. The Eraser size slider in the pen panel sets how wide it is.
 - **Draw / Notes switch:** at the top of the side panel; it chooses what a left click does and starts on Draw. On a laptop or touch screen with no wheel button, switch to Notes (or press N) and place notes with a normal click.
 - **Notes:** press on the spot you want to describe and drag out to where the note should sit. A plain click places it automatically. Type the text in the side panel; the pill resizes itself.
+- **Selecting several notes:** in the notes list, Shift-click selects everything between the note you clicked last and this one; Ctrl/Cmd-click adds or removes a single note. Colour, orientation, text size and Delete then apply to all of them, and dragging one selected pill moves them all.
 - **Pill colours:** black, white, red or green. Horizontal by default, vertical optional. Text size is adjustable per note. Long notes wrap on their own; press Enter in the text box for a line break exactly where you want one.
 - **Draw:** freehand pen in the same four colours. Hold Shift for a straight line, which snaps to horizontal, vertical and 45°.
 - **Check grammar:** proofreads every note (Australian English). Review each suggestion before it applies; names and street names start unticked.
@@ -24,11 +25,14 @@ Everything runs in your browser. Images never leave your computer. The optional 
 | --- | --- |
 | Left button | Draw (or add notes, when the switch is on Notes) |
 | Right button, dragged | Erase drawing |
+| Shift + right button, dragged | Erase in a straight line |
 | Wheel button, right-click, Ctrl+click | Add a note |
 | D / N | Left click draws / left click adds notes |
 | Ctrl/Cmd+Z | Undo |
 | Ctrl/Cmd+Shift+Z, Ctrl+Y | Redo |
-| Delete / Backspace | Delete selected note |
+| Shift+click in the notes list | Select a range of notes |
+| Ctrl/Cmd+click in the notes list | Add or remove one note from the selection |
+| Delete / Backspace | Delete the selected note or notes |
 | Esc | Deselect |
 | Shift (while drawing) | Straight line |
 
