@@ -1142,6 +1142,7 @@ input[type="file"] { display: none; }
       add(menuItem("Clear drawing", "", function () { $("clearDraw").click(); }, { disabled: state.strokes.length === 0 }));
       rule();
       add(menuItem("Save image", "Ctrl+S", function () { $("export").click(); }, { disabled: !state.img }));
+      add(menuItem("Copy to clipboard", "Ctrl+C", copyImage, { disabled: !state.img }));
     }
     m.hidden = false;
     // keep it on screen
@@ -1168,6 +1169,7 @@ input[type="file"] { display: none; }
   window.addEventListener("blur", closeMenu);
   window.addEventListener("resize", closeMenu);
 
+  function pageTextSelected() { var sel = window.getSelection(); return !!sel && !sel.isCollapsed && String(sel).length > 0; }
   document.addEventListener("keydown", function (e) {
     var menu = $("menu");
     if (!menu.hidden) {
@@ -1193,6 +1195,9 @@ input[type="file"] { display: none; }
       return;
     }
     if (mod && k === "s" && !e.altKey) { e.preventDefault(); $("export").click(); return; }
+    // Ctrl/Cmd+C copies the image, unless text is being typed or some text on the page is selected.
+    // (A selection left behind inside the note text box is not page text: it reports as collapsed.)
+    if (mod && k === "c" && !typing && !e.altKey && !e.shiftKey && !pageTextSelected()) { e.preventDefault(); copyImage(); return; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
     // 0 fits the image again; Ctrl/Cmd+0 does too (the browser resets its own zoom on that as well)
     if (e.key === "0" && !typing && !e.altKey) { fitView(); if (!mod) e.preventDefault(); return; }
@@ -1251,10 +1256,7 @@ input[type="file"] { display: none; }
   $("export").addEventListener("click", function () {
     if (!state.img) return;
     status("Preparing a " + state.w + " × " + state.h + " px PNG…");
-    var c = document.createElement("canvas");
-    c.width = state.w; c.height = state.h;
-    paint(c.getContext("2d"));
-    c.toBlob(function (blob) {
+    fullImage().toBlob(function (blob) {
       if (!blob) { status("The image is too large for this browser to export."); return; }
       var filename = state.name + "_markup.png";
       var url = URL.createObjectURL(blob);
@@ -1266,6 +1268,34 @@ input[type="file"] { display: none; }
       } catch (e) { showModal(url); }
     }, "image/png");
   });
+  // The whole marked-up image at its own resolution, whatever the zoom on screen.
+  function fullImage() {
+    var c = document.createElement("canvas");
+    c.width = state.w; c.height = state.h;
+    paint(c.getContext("2d"));
+    return c;
+  }
+  // Put the marked-up image on the clipboard as a PNG, ready to paste into a chat, an email or a document.
+  function copyImage() {
+    if (!state.img) return;
+    if (!navigator.clipboard || !navigator.clipboard.write || typeof ClipboardItem === "undefined") {
+      status("This browser cannot copy images. Use Save image instead."); return;
+    }
+    status("Copying a " + state.w + " × " + state.h + " px image…");
+    var c = fullImage();
+    // the PNG is handed over as a promise so the copy starts inside the click, which Safari insists on
+    var png = new Promise(function (resolve, reject) {
+      c.toBlob(function (blob) { if (blob) resolve(blob); else reject(new Error("too large")); }, "image/png");
+    });
+    var item;
+    try { item = new ClipboardItem({ "image/png": png }); }
+    catch (e) { status("This browser cannot copy images. Use Save image instead."); return; }
+    navigator.clipboard.write([item]).then(function () {
+      status("Copied to the clipboard (" + state.w + " × " + state.h + " px). Paste it wherever you need it.");
+    }, function () {
+      status("The image could not be copied. Use Save image instead.");
+    });
+  }
   function showModal(url) {
     $("modalImg").src = url;
     $("modal").classList.add("open");
