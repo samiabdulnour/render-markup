@@ -255,7 +255,7 @@ input[type="file"] { display: none; }
         <button id="oriV" aria-pressed="false">Vertical</button>
       </div>
       <label for="noteSize">Text size <span class="val" id="noteSizeVal"></span>
-        <input type="range" id="noteSize" min="0.4" max="3" step="0.05">
+        <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
       </label>
       <button id="del" class="danger">Delete note</button>
     </div>
@@ -268,9 +268,6 @@ input[type="file"] { display: none; }
           <option value="cond">Condensed sans</option>
           <option value="mono">Mono</option>
         </select>
-      </label>
-      <label for="baseSize">Overall size <span class="val" id="baseSizeVal"></span>
-        <input type="range" id="baseSize" min="0.5" max="2.5" step="0.05" value="1">
       </label>
     </div>
   </aside>
@@ -321,7 +318,7 @@ input[type="file"] { display: none; }
     circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", base: 1,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
                 tool: "draw", pen: { color: "red", width: 1 }, eraser: 10, nextId: 1 };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
   var view = { s: 1, ox: 0, oy: 0, dpr: 1 };
@@ -335,7 +332,7 @@ input[type="file"] { display: none; }
   function colorOf(n) { return COLORS[n.color] || (n.dark === false ? COLORS.white : COLORS.black); }
 
   // ---------- geometry ----------
-  function fontPx(n) { return state.w / 100 * n.size * state.base; }
+  function fontPx(n) { return state.w / 100 * n.size; }
   function fontStr(fs) { var f = FONTS[state.font]; return f.weight + " " + fs + "px " + f.family; }
 
   function wrapLines(c, text, maxW) {
@@ -672,8 +669,9 @@ input[type="file"] { display: none; }
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
       vertical: false, color: "black", shape: "pill", size: 1
     };
-    var last = selected();
-    if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.shape = shapeOf(last); n.size = last.size; }
+    // a new note looks like the selected one, or failing that like the note that was selected last
+    var last = selected() || state.style;
+    if (last) { n.vertical = !!last.vertical; n.color = last.color || "black"; n.shape = shapeOf(last); n.size = last.size; }
     state.notes.push(n);
     select(state.notes.length - 1);
     sync(); render();
@@ -739,6 +737,7 @@ input[type="file"] { display: none; }
     var n = selected(), many = state.picks.length > 1;
     $("editor").hidden = !n;
     if (n) {
+      state.style = { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size };
       $("editorTitle").textContent = many ? state.picks.length + " notes selected" : "Selected note";
       $("noteTextWrap").hidden = many;   // text is per note; everything else below applies to all selected
       $("del").textContent = many ? "Delete " + state.picks.length + " notes" : "Delete note";
@@ -758,7 +757,6 @@ input[type="file"] { display: none; }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
     $("penWidthVal").textContent = Math.round(state.pen.width * 100) + "%";
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
-    $("baseSizeVal").textContent = Math.round(state.base * 100) + "%";
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
     $("grammar").disabled = state.notes.length === 0;
@@ -803,7 +801,6 @@ input[type="file"] { display: none; }
     state.font = e.target.value;
     document.fonts.load(fontStr(40)).then(render, render);
   });
-  $("baseSize").addEventListener("input", function (e) { state.base = parseFloat(e.target.value); sync(); render(); });
   $("penWidth").addEventListener("input", function (e) { state.pen.width = parseFloat(e.target.value); sync(); });
   // the slider is the eraser's width across; a ring in the middle of the image shows it while it is moved
   $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; eraserPreview = true; sync(); render(); });
