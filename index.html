@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render Markup</title>
+<meta name="description" content="Mark up architectural renders with clean pill callouts, leader lines and sketches. Runs in your browser; images never leave your computer.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet. */
+:root {
+  --bg: #e6e7ea;
+  --panel: #f8f8f9;
+  --ink: #15171b;
+  --muted: #646872;
+  --line: #d3d5da;
+  --accent: #d9442e;
+  --stage: #d9dbdf;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181b; --panel: #1f2125; --ink: #ecedef; --muted: #9a9ea8;
+    --line: #33363c; --accent: #f0624b; --stage: #121315; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181b; --panel: #1f2125; --ink: #ecedef; --muted: #9a9ea8;
+  --line: #33363c; --accent: #f0624b; --stage: #121315; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 14px; line-height: 1.45; display: flex; flex-direction: column;
+}
+header {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap;
+}
+header h1 {
+  font-family: var(--font-display); font-weight: 600; font-size: 18px;
+  letter-spacing: 0.01em; margin: 0; margin-right: auto; text-wrap: balance;
+}
+header h1 small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 8px; }
+button, .btn {
+  font: inherit; font-weight: 500; border: 1px solid var(--line); background: var(--panel);
+  color: var(--ink); border-radius: 6px; padding: 7px 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+button:hover, .btn:hover { border-color: var(--muted); }
+button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+button.danger { color: var(--accent); }
+button[disabled] { opacity: 0.45; cursor: default; }
+main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
+#stage { position: relative; background: var(--stage); min-height: 320px; overflow: hidden; touch-action: none; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+#view:focus { outline: none; }
+#hint {
+  position: absolute; left: 12px; bottom: 12px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--muted); pointer-events: none;
+}
+#drop {
+  position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 10px;
+  display: none; align-items: center; justify-content: center; font-family: var(--font-display);
+  font-size: 22px; color: var(--accent); background: color-mix(in srgb, var(--stage) 80%, transparent);
+  pointer-events: none;
+}
+#stage.dragging #drop { display: flex; }
+#empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 24px; }
+#empty[hidden] { display: none; }
+#empty .big { font-family: var(--font-display); font-weight: 600; font-size: 24px; margin: 0; }
+#empty .primaryish { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+#stage.has-image #hint { display: block; } #hint { display: none; }
+aside {
+  border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 18px; padding: 16px;
+}
+aside h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px;
+}
+.section { display: flex; flex-direction: column; gap: 10px; }
+.section[hidden] { display: none; }
+label { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+textarea, select, input[type="range"] { font: inherit; color: var(--ink); }
+textarea {
+  width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg); padding: 8px; line-height: 1.4;
+}
+select { border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 6px 8px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; justify-content: center; background: transparent; padding: 6px 10px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: 12px; gap: 4px; }
+.swatches button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.25); display: inline-block; }
+.val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink); }
+#list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+#list li button {
+  width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent;
+  padding: 6px 8px; gap: 10px;
+}
+#list li button[aria-current="true"] { border-color: var(--ink); }
+#list .num {
+  font-family: var(--font-mono); font-size: 11px; min-width: 22px; height: 22px; border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(0,0,0,0.2);
+}
+#list .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty, .note { color: var(--muted); font-size: 12.5px; margin: 0; }
+#editor[hidden] { display: none; }
+footer {
+  border-top: 1px solid var(--line); background: var(--panel); padding: 6px 16px; font-size: 12.5px;
+  color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap;
+}
+footer #status { color: var(--ink); }
+kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.modal.open { display: flex; }
+.modal .box {
+  background: var(--panel); border-radius: 10px; padding: 18px; width: min(900px, 100%); max-height: 100%;
+  display: flex; flex-direction: column; gap: 12px; overflow: auto;
+}
+.modal .box h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0; }
+#modalImg { max-width: 100%; height: auto; border: 1px solid var(--line); }
+#fixList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#fixList li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+#fixList input { margin-top: 3px; accent-color: var(--accent); }
+#fixList .was { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--accent); }
+#fixList .now { font-weight: 500; }
+#fixList .why { color: var(--muted); font-size: 12px; }
+#fixList mark { background: color-mix(in srgb, var(--accent) 18%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+input[type="file"] { display: none; }
+@media (max-width: 760px) {
+  main { grid-template-columns: 1fr; grid-template-rows: minmax(320px, 60vh) auto; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Render Markup <small id="docname">No image open</small></h1>
+  <div class="seg" role="group" aria-label="Tool">
+    <button id="toolNote" aria-pressed="true" title="Add and move notes (N)">Notes</button>
+    <button id="toolDraw" aria-pressed="false" title="Draw on the image (D) · hold Shift for a straight line">Draw</button>
+  </div>
+  <label class="btn" for="file" title="Open a render (or drop / paste one onto the stage)">Open image</label>
+  <input type="file" id="file" accept="image/*">
+  <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
+  <button id="export" class="primary" title="Save the marked-up image at full resolution">Export PNG</button>
+</header>
+<main>
+  <section id="stage" aria-label="Image stage">
+    <canvas id="view" tabindex="0" aria-label="Render with notes. N for notes, D to draw, Ctrl or Cmd+Z to undo."></canvas>
+    <div id="hint"></div>
+    <div id="drop">Drop the render to open it</div>
+    <div id="empty">
+      <p class="big">Open, drop or paste a render</p>
+      <label class="btn primaryish" for="file">Open image</label>
+      <p class="note">PNG, JPG or WebP · or paste with <kbd>Ctrl/Cmd+V</kbd></p>
+    </div>
+  </section>
+  <aside>
+    <div class="section" id="penPanel" hidden>
+      <h2>Pen</h2>
+      <div class="swatches" id="penColors" role="group" aria-label="Pen colour"></div>
+      <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
+        <input type="range" id="penWidth" min="0.3" max="4" step="0.1" value="1">
+      </label>
+      <p class="note">Drag to draw. Hold <kbd>Shift</kbd> for a straight line (it snaps to horizontal, vertical and 45° when close).</p>
+      <button id="clearDraw" class="danger">Clear drawing</button>
+    </div>
+    <div class="section">
+      <h2>Notes</h2>
+      <ul id="list"></ul>
+      <p class="empty" id="listEmpty">No notes yet. Press on the spot you want to point at and drag out to where the note should sit.</p>
+    </div>
+    <div class="section" id="editor" hidden>
+      <h2>Selected note</h2>
+      <label for="noteText">Text
+        <textarea id="noteText" spellcheck="true"></textarea>
+      </label>
+      <div class="swatches" id="noteColors" role="group" aria-label="Pill colour"></div>
+      <div class="seg" role="group" aria-label="Orientation">
+        <button id="oriH" aria-pressed="true">Horizontal</button>
+        <button id="oriV" aria-pressed="false">Vertical</button>
+      </div>
+      <label for="noteSize">Text size <span class="val" id="noteSizeVal"></span>
+        <input type="range" id="noteSize" min="0.4" max="3" step="0.05">
+      </label>
+      <label for="noteWrap">Line length <span class="val" id="noteWrapVal"></span>
+        <input type="range" id="noteWrap" min="4" max="40" step="1">
+      </label>
+      <button id="del" class="danger">Delete note</button>
+    </div>
+    <div class="section">
+      <h2>All notes</h2>
+      <button id="grammar" title="Proofread every note with LanguageTool; you review each fix before it applies">Check grammar</button>
+      <p class="note">Grammar check sends only the note text to LanguageTool. Images stay in your browser.</p>
+      <label for="font">Typeface
+        <select id="font">
+          <option value="cond">Condensed sans</option>
+          <option value="mono">Mono</option>
+        </select>
+      </label>
+      <label for="baseSize">Overall size <span class="val" id="baseSizeVal"></span>
+        <input type="range" id="baseSize" min="0.5" max="2.5" step="0.05" value="1">
+      </label>
+    </div>
+  </aside>
+</main>
+<footer>
+  <span id="status">Blank canvas. Open, drop or paste a render to mark it up instead.</span>
+  <span><kbd>N</kbd> notes · <kbd>D</kbd> draw · <kbd>Del</kbd> removes the selected note · <kbd>Esc</kbd> deselects · <kbd>Ctrl/Cmd+Z</kbd> undo · paste an image with <kbd>Ctrl/Cmd+V</kbd></span>
+</footer>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="box">
+    <h3 id="modalTitle">Your marked-up image</h3>
+    <span class="note">Your browser blocked the download. Right-click (or long-press) the image and choose Save Image.</span>
+    <img id="modalImg" alt="Marked-up render">
+    <div class="actions"><button id="modalClose">Close</button></div>
+  </div>
+</div>
+<div class="modal" id="fixModal" role="dialog" aria-modal="true" aria-labelledby="fixTitle">
+  <div class="box">
+    <h3 id="fixTitle">Grammar check</h3>
+    <p class="note" id="fixIntro"></p>
+    <ul id="fixList"></ul>
+    <div class="actions">
+      <button id="fixCancel">Cancel</button>
+      <button id="fixApply" class="primary">Apply selected</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var FONTS = {
+    cond: { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
+    mono: { family: '"IBM Plex Mono", Menlo, Consolas, monospace', weight: 500 }
+  };
+  var COLORS = {
+    black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
+    white: { name: "White", fill: "#ffffff", ink: "#111214", halo: "rgba(0,0,0,0.35)" },
+    red:   { name: "Red",   fill: "#d6301f", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
+    green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
+  };
+  var state = { img: null, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, font: "cond", base: 1,
+                tool: "note", pen: { color: "red", width: 1 }, nextId: 1 };
+  var view = { s: 1, ox: 0, oy: 0, dpr: 1 };
+  var history = [];
+  var drag = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var canvas = $("view"), ctx = canvas.getContext("2d"), stage = $("stage");
+
+  function colorOf(n) { return COLORS[n.color] || (n.dark === false ? COLORS.white : COLORS.black); }
+
+  // ---------- geometry ----------
+  function fontPx(n) { return state.w / 100 * n.size * state.base; }
+  function fontStr(fs) { var f = FONTS[state.font]; return f.weight + " " + fs + "px " + f.family; }
+
+  function wrapLines(c, text, maxW) {
+    var out = [];
+    String(text || " ").split("\n").forEach(function (para) {
+      var words = para.split(/\s+/).filter(Boolean);
+      if (!words.length) { out.push(""); return; }
+      var line = words[0];
+      for (var i = 1; i < words.length; i++) {
+        var test = line + " " + words[i];
+        if (c.measureText(test).width <= maxW) line = test; else { out.push(line); line = words[i]; }
+      }
+      out.push(line);
+    });
+    return out;
+  }
+
+  function layout(n, c) {
+    var fs = fontPx(n);
+    c.font = fontStr(fs);
+    var lines = wrapLines(c, n.text, n.wrap * fs);
+    var lw = 0;
+    lines.forEach(function (l) { lw = Math.max(lw, c.measureText(l).width); });
+    var lineH = fs * 1.22;
+    var blockH = (lines.length - 1) * lineH + fs;
+    var padS = fs * 0.72;
+    var h = blockH + padS * 2;
+    var r = h / 2;
+    var padL = Math.max(r * 0.8, fs * 0.9);
+    var w = Math.max(lw + padL * 2, h);
+    return { fs: fs, lines: lines, lineH: lineH, blockH: blockH, lw: lw, padL: padL, w: w, h: h, r: r,
+             ang: n.vertical ? -Math.PI / 2 : 0 };
+  }
+
+  function toLocal(n, L, x, y) {
+    var dx = x - n.px, dy = y - n.py, c = Math.cos(-L.ang), s = Math.sin(-L.ang);
+    return { x: dx * c - dy * s, y: dx * s + dy * c };
+  }
+  function toGlobal(n, L, lx, ly) {
+    var c = Math.cos(L.ang), s = Math.sin(L.ang);
+    return { x: n.px + lx * c - ly * s, y: n.py + lx * s + ly * c };
+  }
+  function stadiumDist(L, lx, ly) {
+    var a = Math.max(L.w / 2 - L.r, 0);
+    return Math.hypot(Math.max(Math.abs(lx) - a, 0), ly);
+  }
+  function leaderStart(n, L) {
+    var t = toLocal(n, L, n.tx, n.ty);
+    if (stadiumDist(L, t.x, t.y) <= L.r) return null;
+    var lo = 0, hi = 1;
+    for (var i = 0; i < 40; i++) {
+      var mid = (lo + hi) / 2;
+      if (stadiumDist(L, t.x * mid, t.y * mid) > L.r) hi = mid; else lo = mid;
+    }
+    return toGlobal(n, L, t.x * hi, t.y * hi);
+  }
+
+  // ---------- drawing ----------
+  function penPx(s) { return Math.max(1, state.w / 100 * 0.22 * s.width); }
+  function drawStroke(c, s) {
+    var col = (COLORS[s.color] || COLORS.red).fill, pts = s.points, lw = penPx(s);
+    c.save();
+    c.strokeStyle = c.fillStyle = col; c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
+    if (pts.length === 1) { c.beginPath(); c.arc(pts[0][0], pts[0][1], lw / 2, 0, Math.PI * 2); c.fill(); c.restore(); return; }
+    c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+    if (pts.length === 2) c.lineTo(pts[1][0], pts[1][1]);
+    else {
+      for (var i = 1; i < pts.length - 1; i++) {
+        var mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+        c.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      var last = pts[pts.length - 1]; c.lineTo(last[0], last[1]);
+    }
+    c.stroke(); c.restore();
+  }
+
+  function drawNote(c, n, L) {
+    var col = colorOf(n);
+    var start = leaderStart(n, L);
+    if (start) {
+      var lw = Math.max(1.2, L.fs * 0.1), dot = Math.max(2, L.fs * 0.3);
+      c.lineCap = "round";
+      // faint halo so the leader reads over busy foliage, then the line itself
+      c.strokeStyle = c.fillStyle = col.halo;
+      c.lineWidth = lw * 2.6;
+      c.beginPath(); c.moveTo(start.x, start.y); c.lineTo(n.tx, n.ty); c.stroke();
+      c.beginPath(); c.arc(n.tx, n.ty, dot + lw * 0.8, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = c.fillStyle = col.fill;
+      c.lineWidth = lw;
+      c.beginPath(); c.moveTo(start.x, start.y); c.lineTo(n.tx, n.ty); c.stroke();
+      c.beginPath(); c.arc(n.tx, n.ty, dot, 0, Math.PI * 2); c.fill();
+    }
+    c.save();
+    c.translate(n.px, n.py); c.rotate(L.ang);
+    c.fillStyle = col.fill;
+    c.beginPath();
+    if (c.roundRect) c.roundRect(-L.w / 2, -L.h / 2, L.w, L.h, L.r);
+    else { var x = -L.w / 2, y = -L.h / 2, r = L.r; c.moveTo(x + r, y); c.arcTo(x + L.w, y, x + L.w, y + L.h, r); c.arcTo(x + L.w, y + L.h, x, y + L.h, r); c.arcTo(x, y + L.h, x, y, r); c.arcTo(x, y, x + L.w, y, r); c.closePath(); }
+    c.fill();
+    c.fillStyle = col.ink;
+    c.font = fontStr(L.fs);
+    c.textBaseline = "middle"; c.textAlign = "left";
+    var x0 = -L.w / 2 + L.padL, y0 = -L.blockH / 2 + L.fs / 2;
+    L.lines.forEach(function (line, i) { c.fillText(line, x0, y0 + i * L.lineH); });
+    c.restore();
+  }
+
+  function accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#d9442e"; }
+  function drawSelection(c, n, L) {
+    c.save();
+    c.translate(n.px, n.py); c.rotate(L.ang);
+    c.strokeStyle = accent();
+    c.lineWidth = 2 / view.s;
+    c.setLineDash([6 / view.s, 4 / view.s]);
+    var m = 5 / view.s;
+    c.beginPath();
+    if (c.roundRect) c.roundRect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m, L.r + m);
+    else c.rect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m);
+    c.stroke();
+    c.restore();
+    c.save();
+    c.strokeStyle = accent();
+    c.lineWidth = 2 / view.s;
+    c.beginPath(); c.arc(n.tx, n.ty, Math.max(L.fs * 0.6, 9 / view.s), 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+
+  function paint(c) {
+    c.drawImage(state.img, 0, 0, state.w, state.h);
+    state.strokes.forEach(function (s) { drawStroke(c, s); });
+    state.notes.forEach(function (n) { drawNote(c, n, layout(n, c)); });
+  }
+
+  function render() {
+    var r = stage.getBoundingClientRect();
+    view.dpr = window.devicePixelRatio || 1;
+    var cw = Math.max(1, Math.round(r.width * view.dpr)), ch = Math.max(1, Math.round(r.height * view.dpr));
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+    if (!state.img) return;
+    var pad = 24;
+    view.s = Math.min((r.width - pad * 2) / state.w, (r.height - pad * 2) / state.h);
+    view.ox = (r.width - state.w * view.s) / 2;
+    view.oy = (r.height - state.h * view.s) / 2;
+    ctx.setTransform(view.dpr * view.s, 0, 0, view.dpr * view.s, view.dpr * view.ox, view.dpr * view.oy);
+    ctx.imageSmoothingQuality = "high";
+    paint(ctx);
+    if (state.tool === "note" && state.sel >= 0 && state.notes[state.sel]) {
+      var n = state.notes[state.sel];
+      drawSelection(ctx, n, layout(n, ctx));
+    }
+  }
+
+  // ---------- state helpers ----------
+  var future = [];
+  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel }); }
+  function restore(s) {
+    var o = JSON.parse(s);
+    state.notes = o.notes; state.strokes = o.strokes || []; state.sel = Math.min(o.sel, state.notes.length - 1);
+  }
+  function snapshot() {
+    history.push(current());
+    if (history.length > 80) history.shift();
+    future = [];
+    $("undo").disabled = false;
+  }
+  function undo() {
+    var now = current();
+    while (history.length && history[history.length - 1] === now) history.pop();  // skip no-op snapshots
+    var s = history.pop();
+    if (!s) { status("Nothing to undo."); $("undo").disabled = true; return; }
+    future.push(current());
+    restore(s);
+    $("noteText").blur();
+    sync(); render();
+    status("Undone.");
+  }
+  function redo() {
+    var s = future.pop();
+    if (!s) { status("Nothing to redo."); return; }
+    history.push(current());
+    restore(s);
+    $("noteText").blur();
+    sync(); render();
+    status("Redone.");
+  }
+  function selected() { return state.sel >= 0 ? state.notes[state.sel] : null; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function focusText() { setTimeout(function () { var ta = $("noteText"); ta.focus(); ta.select(); }, 0); }
+  function addNote(x, y, deferFocus) {
+    snapshot();
+    var dx = state.w * 0.11 * (x > state.w / 2 ? -1 : 1);
+    var dy = -state.h * 0.1;
+    var n = {
+      id: state.nextId++, text: "New note", tx: x, ty: y,
+      px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
+      vertical: false, color: "black", size: 1, wrap: 14
+    };
+    var last = selected();
+    if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.size = last.size; n.wrap = last.wrap; }
+    state.notes.push(n);
+    state.sel = state.notes.length - 1;
+    sync(); render();
+    if (!deferFocus) focusText();
+  }
+
+  function setTool(t) {
+    state.tool = t;
+    $("toolNote").setAttribute("aria-pressed", String(t === "note"));
+    $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
+    $("penPanel").hidden = t !== "draw";
+    $("hint").textContent = t === "draw"
+      ? "Drag to draw · hold Shift for a straight line · switch back to Notes to add or move notes"
+      : "Press on a spot and drag out to place a note · a plain click auto-places it · drag a pill or its dot to move it";
+    canvas.style.cursor = "crosshair";
+    render();
+  }
+
+  // ---------- sidebar ----------
+  function swatchRow(el, current, onPick) {
+    el.innerHTML = "";
+    Object.keys(COLORS).forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(k === current));
+      var chip = document.createElement("span"); chip.className = "chip"; chip.style.background = COLORS[k].fill;
+      b.appendChild(chip); b.appendChild(document.createTextNode(COLORS[k].name));
+      b.addEventListener("click", function () { onPick(k); });
+      el.appendChild(b);
+    });
+  }
+
+  function sync() {
+    var list = $("list");
+    list.innerHTML = "";
+    state.notes.forEach(function (n, i) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.setAttribute("aria-current", i === state.sel ? "true" : "false");
+      var col = colorOf(n);
+      var num = document.createElement("span"); num.className = "num"; num.textContent = String(i + 1);
+      num.style.background = col.fill; num.style.color = col.ink;
+      var t = document.createElement("span"); t.className = "txt"; t.textContent = (n.text || "").split("\n")[0] || "(empty)";
+      b.appendChild(num); b.appendChild(t);
+      b.addEventListener("click", function () { state.sel = i; setTool("note"); sync(); render(); });
+      li.appendChild(b); list.appendChild(li);
+    });
+    $("listEmpty").hidden = state.notes.length > 0;
+    var n = selected();
+    $("editor").hidden = !n;
+    if (n) {
+      if (document.activeElement !== $("noteText")) $("noteText").value = n.text;
+      swatchRow($("noteColors"), n.color || (n.dark === false ? "white" : "black"), function (k) {
+        var m = selected(); if (!m) return; snapshot(); m.color = k; delete m.dark; sync(); render();
+      });
+      $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
+      $("oriH").setAttribute("aria-pressed", String(!n.vertical));
+      $("noteSize").value = n.size; $("noteSizeVal").textContent = Math.round(n.size * 100) + "%";
+      $("noteWrap").value = n.wrap; $("noteWrapVal").textContent = n.wrap + " em";
+    }
+    swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
+    $("penWidthVal").textContent = Math.round(state.pen.width * 100) + "%";
+    $("baseSizeVal").textContent = Math.round(state.base * 100) + "%";
+    $("undo").disabled = history.length === 0;
+    $("clearDraw").disabled = state.strokes.length === 0;
+    $("grammar").disabled = state.notes.length === 0;
+    $("export").disabled = !state.img;
+  }
+
+  var textTimer = null, textAtFocus = null;
+  $("noteText").addEventListener("focus", function (e) { textAtFocus = e.target.value; snapshot(); });
+  $("noteText").addEventListener("blur", function (e) {
+    // drop the snapshot taken on focus if the text didn't change, so undo doesn't need an extra press
+    if (e.target.value === textAtFocus && history.length && history[history.length - 1] === current()) history.pop();
+    textAtFocus = null; $("undo").disabled = history.length === 0;
+  });
+  $("noteText").addEventListener("input", function (e) {
+    var n = selected(); if (!n) return;
+    n.text = e.target.value;
+    clearTimeout(textTimer); textTimer = setTimeout(sync, 150);
+    render();
+  });
+  function setter(id, fn) {
+    $(id).addEventListener("click", function () { var n = selected(); if (!n) return; snapshot(); fn(n); sync(); render(); });
+  }
+  setter("oriV", function (n) { n.vertical = true; });
+  setter("oriH", function (n) { n.vertical = false; });
+  ["noteSize", "noteWrap"].forEach(function (id) {
+    $(id).addEventListener("pointerdown", snapshot);
+    $(id).addEventListener("keydown", snapshot);
+    $(id).addEventListener("input", function (e) {
+      var n = selected(); if (!n) return;
+      if (id === "noteSize") n.size = parseFloat(e.target.value); else n.wrap = parseInt(e.target.value, 10);
+      sync(); render();
+    });
+  });
+  $("del").addEventListener("click", deleteSel);
+  function deleteSel() {
+    if (state.sel < 0) return;
+    snapshot();
+    state.notes.splice(state.sel, 1);
+    state.sel = Math.min(state.sel, state.notes.length - 1);
+    sync(); render();
+  }
+  $("font").addEventListener("change", function (e) {
+    state.font = e.target.value;
+    document.fonts.load(fontStr(40)).then(render, render);
+  });
+  $("baseSize").addEventListener("input", function (e) { state.base = parseFloat(e.target.value); sync(); render(); });
+  $("penWidth").addEventListener("input", function (e) { state.pen.width = parseFloat(e.target.value); sync(); });
+  $("clearDraw").addEventListener("click", function () {
+    if (!state.strokes.length) return;
+    snapshot(); state.strokes = []; sync(); render(); status("Drawing cleared. Undo brings it back.");
+  });
+  $("undo").addEventListener("click", undo);
+  $("toolNote").addEventListener("click", function () { setTool("note"); });
+  $("toolDraw").addEventListener("click", function () { setTool("draw"); });
+
+  // ---------- pointer ----------
+  function toImg(e) {
+    var r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left - view.ox) / view.s, y: (e.clientY - r.top - view.oy) / view.s };
+  }
+  function hit(p) {
+    for (var i = state.notes.length - 1; i >= 0; i--) {
+      var n = state.notes[i], L = layout(n, ctx);
+      var tr = Math.max(L.fs * 0.7, 12 / view.s);
+      if (Math.hypot(p.x - n.tx, p.y - n.ty) <= tr) return { i: i, part: "target" };
+    }
+    for (var j = state.notes.length - 1; j >= 0; j--) {
+      var m = state.notes[j], M = layout(m, ctx), l = toLocal(m, M, p.x, p.y);
+      if (stadiumDist(M, l.x, l.y) <= M.r + 3 / view.s) return { i: j, part: "pill" };
+    }
+    return null;
+  }
+  function snapLine(a, p) {
+    var dx = p.x - a[0], dy = p.y - a[1], len = Math.hypot(dx, dy);
+    if (!len) return [p.x, p.y];
+    var ang = Math.atan2(dy, dx), step = Math.PI / 4, near = Math.round(ang / step) * step;
+    if (Math.abs(ang - near) < 0.07) ang = near;
+    return [a[0] + Math.cos(ang) * len, a[1] + Math.sin(ang) * len];
+  }
+  canvas.addEventListener("pointerdown", function (e) {
+    if (!state.img) return;
+    // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
+    canvas.focus({ preventScroll: true });
+    var p = toImg(e);
+    if (state.tool === "draw") {
+      if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return;
+      snapshot();
+      var s = { color: state.pen.color, width: state.pen.width, points: [[p.x, p.y]], straight: e.shiftKey };
+      state.strokes.push(s);
+      drag = { part: "stroke", stroke: s };
+      canvas.setPointerCapture(e.pointerId);
+      render();
+      return;
+    }
+    var h = hit(p);
+    if (h) {
+      snapshot();
+      state.sel = h.i;
+      var n = state.notes[h.i];
+      drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false };
+      canvas.setPointerCapture(e.pointerId);
+      sync(); render();
+    } else if (p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h) {
+      // press on the spot being described, drag out, release where the pill should sit
+      addNote(p.x, p.y, true);
+      drag = { part: "create", sx: e.clientX, sy: e.clientY, moved: false };
+      canvas.setPointerCapture(e.pointerId);
+    } else {
+      state.sel = -1; sync(); render();
+    }
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    if (!state.img) return;
+    var p = toImg(e);
+    if (!drag) {
+      if (state.tool === "note") {
+        var h = hit(p);
+        canvas.style.cursor = h ? (h.part === "target" ? "move" : "grab") : "crosshair";
+      }
+      return;
+    }
+    var x = clamp(p.x, 0, state.w), y = clamp(p.y, 0, state.h);
+    if (drag.part === "stroke") {
+      var s = drag.stroke;
+      if (e.shiftKey || s.straight) {
+        s.straight = true;
+        s.points = [s.points[0], snapLine(s.points[0], { x: x, y: y })];
+      } else {
+        var last = s.points[s.points.length - 1];
+        if (Math.hypot(x - last[0], y - last[1]) > 1.5 / view.s) s.points.push([x, y]);
+      }
+      render();
+      return;
+    }
+    var n = selected(); if (!n) return;
+    if (drag.part === "create") {
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+      drag.moved = true;
+      n.px = x; n.py = y;
+      render();
+      return;
+    }
+    x = clamp(p.x + drag.dx, 0, state.w); y = clamp(p.y + drag.dy, 0, state.h);
+    if (drag.part === "pill") { n.px = x; n.py = y; } else { n.tx = x; n.ty = y; }
+    drag.moved = true;
+    render();
+  });
+  function endDrag() {
+    if (!drag) return;
+    if (drag.part === "stroke") { drag = null; sync(); return; }
+    if (drag.part === "create") { drag = null; focusText(); return; }
+    if (!drag.moved) history.pop();
+    drag = null; $("undo").disabled = history.length === 0;
+  }
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+
+  document.addEventListener("keydown", function (e) {
+    var el = document.activeElement;
+    var typing = /^(TEXTAREA|INPUT|SELECT)$/.test(el && el.tagName) && !(el && el.type === "range");
+    var mod = e.ctrlKey || e.metaKey;
+    var k = e.key.toLowerCase();
+    // in the note text box, Ctrl/Cmd+Z undoes typing first; once nothing has been typed it undoes the markup
+    var textEdited = el === $("noteText") && el.value !== textAtFocus;
+    if (mod && (k === "z" || k === "y") && (!typing || !textEdited)) {
+      e.preventDefault();
+      if (k === "y" || e.shiftKey) redo(); else undo();
+      return;
+    }
+    if (typing || mod || e.altKey) return;
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
+    if (e.key === "Escape") { state.sel = -1; sync(); render(); }
+    if (e.key === "d" || e.key === "D") setTool("draw");
+    if (e.key === "n" || e.key === "N") setTool("note");
+  });
+
+  // ---------- loading images ----------
+  function loadFile(file) {
+    if (!file || !/^image\//.test(file.type)) { status("That file is not an image. Open a PNG, JPG or WebP render."); return; }
+    var url = URL.createObjectURL(file);
+    var im = new Image();
+    im.onload = function () {
+      state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
+      state.name = (file.name || "render").replace(/\.[^.]+$/, "");
+      state.notes = []; state.strokes = []; state.sel = -1; history = []; future = [];
+      $("empty").hidden = true; stage.classList.add("has-image");
+      $("docname").textContent = (file.name || "Pasted image") + " · " + state.w + " × " + state.h + " px";
+      sync(); render();
+      status("Image loaded. Press on a spot and drag out to add a note.");
+    };
+    im.onerror = function () { status("That image could not be read. Try exporting it as PNG or JPG."); };
+    im.src = url;
+  }
+  $("file").addEventListener("change", function (e) { loadFile(e.target.files[0]); e.target.value = ""; });
+  ["dragenter", "dragover"].forEach(function (t) {
+    stage.addEventListener(t, function (e) { e.preventDefault(); stage.classList.add("dragging"); });
+  });
+  ["dragleave", "drop"].forEach(function (t) {
+    stage.addEventListener(t, function (e) { e.preventDefault(); stage.classList.remove("dragging"); });
+  });
+  stage.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+  document.addEventListener("paste", function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image/") === 0) { loadFile(items[i].getAsFile()); e.preventDefault(); return; }
+    }
+  });
+
+  // ---------- export ----------
+  function status(msg) { $("status").textContent = msg; }
+  $("export").addEventListener("click", function () {
+    if (!state.img) return;
+    status("Preparing a " + state.w + " × " + state.h + " px PNG…");
+    var c = document.createElement("canvas");
+    c.width = state.w; c.height = state.h;
+    paint(c.getContext("2d"));
+    c.toBlob(function (blob) {
+      if (!blob) { status("The image is too large for this browser to export."); return; }
+      var filename = state.name + "_markup.png";
+      var url = URL.createObjectURL(blob);
+      try {
+        var a = document.createElement("a");
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        status("Saved " + filename + " (" + state.w + " × " + state.h + " px).");
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+      } catch (e) { showModal(url); }
+    }, "image/png");
+  });
+  function showModal(url) {
+    $("modalImg").src = url;
+    $("modal").classList.add("open");
+    $("modalClose").focus();
+  }
+  $("modalClose").addEventListener("click", function () { $("modal").classList.remove("open"); });
+
+  // ---------- grammar check (LanguageTool, note text only) ----------
+  var pendingFixes = [];
+  $("grammar").addEventListener("click", function () {
+    if (!state.notes.length) return;
+    var SEP = "\n\n", combined = "", ranges = [];
+    state.notes.forEach(function (n) { ranges.push([combined.length, combined.length + n.text.length]); combined += n.text + SEP; });
+    var btn = $("grammar");
+    btn.disabled = true; btn.textContent = "Checking…";
+    status("Checking " + state.notes.length + " note" + (state.notes.length === 1 ? "" : "s") + " with LanguageTool…");
+    var body = new URLSearchParams({ text: combined, language: "en-AU" });
+    fetch("https://api.languagetool.org/v2/check", { method: "POST", body: body })
+      .then(function (r) {
+        if (r.status === 429) throw new Error("rate");
+        if (!r.ok) throw new Error("http");
+        return r.json();
+      })
+      .then(function (data) {
+        pendingFixes = [];
+        (data.matches || []).forEach(function (m) {
+          var rep = m.replacements && m.replacements[0] && m.replacements[0].value;
+          if (rep === undefined) return;
+          for (var i = 0; i < ranges.length; i++) {
+            if (m.offset >= ranges[i][0] && m.offset + m.length <= ranges[i][1]) {
+              var off = m.offset - ranges[i][0], text = state.notes[i].text;
+              var orig = text.substr(off, m.length);
+              if (orig === rep) return;
+              var proper = m.rule && m.rule.issueType === "misspelling" && /^[A-Z]/.test(orig);
+              pendingFixes.push({ i: i, off: off, len: m.length, orig: orig, rep: rep,
+                                  why: m.shortMessage || m.message || "", on: !proper,
+                                  before: text.slice(Math.max(0, off - 24), off), after: text.slice(off + m.length, off + m.length + 24) });
+              return;
+            }
+          }
+        });
+        if (!pendingFixes.length) { status("Grammar check: no issues found."); return; }
+        showFixes();
+        status("Grammar check: " + pendingFixes.length + " suggestion" + (pendingFixes.length === 1 ? "" : "s") + ".");
+      })
+      .catch(function (e) {
+        status(e && e.message === "rate" ? "LanguageTool is busy. Try again in a minute."
+                                         : "Couldn't reach LanguageTool. Check your connection and try again.");
+      })
+      .then(function () { btn.disabled = state.notes.length === 0; btn.textContent = "Check grammar"; });
+  });
+  function showFixes() {
+    var ul = $("fixList"); ul.innerHTML = "";
+    $("fixIntro").textContent = "Tick the fixes you want, then apply. Names and street names are left unticked. Undo reverts the lot.";
+    pendingFixes.forEach(function (f, k) {
+      var li = document.createElement("li");
+      var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = f.on; cb.id = "fix" + k;
+      var box = document.createElement("label"); box.htmlFor = cb.id; box.style.color = "var(--ink)";
+      var line = document.createElement("span"); line.className = "now";
+      line.appendChild(document.createTextNode("Note " + (f.i + 1) + ": …" + f.before));
+      var was = document.createElement("span"); was.className = "was"; was.textContent = f.orig || "␣";
+      var now = document.createElement("mark"); now.textContent = f.rep || "(remove)";
+      line.appendChild(was); line.appendChild(document.createTextNode(" ")); line.appendChild(now);
+      line.appendChild(document.createTextNode(f.after + "…"));
+      var why = document.createElement("span"); why.className = "why"; why.textContent = f.why;
+      box.appendChild(line); box.appendChild(why);
+      li.appendChild(cb); li.appendChild(box); ul.appendChild(li);
+    });
+    $("fixModal").classList.add("open");
+    $("fixApply").focus();
+  }
+  $("fixCancel").addEventListener("click", function () { $("fixModal").classList.remove("open"); });
+  $("fixApply").addEventListener("click", function () {
+    var chosen = pendingFixes.filter(function (f, k) { return $("fix" + k).checked; });
+    if (chosen.length) {
+      snapshot();
+      var byNote = {};
+      chosen.forEach(function (f) { (byNote[f.i] = byNote[f.i] || []).push(f); });
+      Object.keys(byNote).forEach(function (i) {
+        var n = state.notes[i]; if (!n) return;
+        var t = n.text, floor = Infinity;
+        byNote[i].sort(function (a, b) { return b.off - a.off; }).forEach(function (f) {
+          if (f.off + f.len > floor) return;  // skip overlapping suggestions
+          t = t.slice(0, f.off) + f.rep + t.slice(f.off + f.len); floor = f.off;
+        });
+        n.text = t;
+      });
+      $("noteText").blur();
+    }
+    $("fixModal").classList.remove("open");
+    status(chosen.length ? "Applied " + chosen.length + " fix" + (chosen.length === 1 ? "" : "es") + "." : "No fixes applied.");
+    sync(); render();
+  });
+
+  // ---------- blank start ----------
+  function loadBlank() {
+    var c = document.createElement("canvas"); c.width = 1920; c.height = 1080;
+    var x = c.getContext("2d"); x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height);
+    var im = new Image();
+    im.onload = function () {
+      state.img = im; state.w = 1920; state.h = 1080; state.name = "markup";
+      $("empty").hidden = true; stage.classList.add("has-image");
+      $("docname").textContent = "Blank canvas · 1920 × 1080 px";
+      sync(); render();
+    };
+    im.src = c.toDataURL("image/png");
+  }
+
+  // ---------- boot ----------
+  new ResizeObserver(render).observe(stage);
+  setTool("note");
+  Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
+  sync();
+})();
+</script>
+</body>
+</html>
