@@ -115,6 +115,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .seg button { border: 0; border-radius: 0; justify-content: center; background: transparent; padding: 6px 10px; }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+/* The Draw / Notes switch is the main control, so it is larger than the other header buttons. */
+.seg.tools { border-radius: 8px; }
+.seg.tools button {
+  font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: 0.01em;
+  padding: 11px 22px; gap: 9px; min-width: 116px; min-height: 48px;
+}
+.seg.tools svg { flex: none; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: 12px; gap: 4px; }
 .swatches button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
@@ -168,9 +175,13 @@ input[type="file"] { display: none; }
 <body>
 <header>
   <h1>Render Markup <small id="docname">No image open</small></h1>
-  <div class="seg" role="group" aria-label="Tool">
-    <button id="toolNote" aria-pressed="true" title="Add and move notes (N)">Notes</button>
-    <button id="toolDraw" aria-pressed="false" title="Draw on the image (D) · hold Shift for a straight line">Draw</button>
+  <div class="seg tools" role="group" aria-label="What a left click does">
+    <button id="toolDraw" aria-pressed="true" title="Left click draws (D) · hold Shift for a straight line · the mouse wheel button or a right-click still adds a note">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg>Draw
+    </button>
+    <button id="toolNote" aria-pressed="false" title="Left click adds notes (N) · for laptops and touch screens without a mouse wheel button">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg>Notes
+    </button>
   </div>
   <label class="btn" for="file" title="Open a render (or drop / paste one onto the stage)">Open image</label>
   <input type="file" id="file" accept="image/*">
@@ -179,7 +190,7 @@ input[type="file"] { display: none; }
 </header>
 <main>
   <section id="stage" aria-label="Image stage">
-    <canvas id="view" tabindex="0" aria-label="Render with notes. N for notes, D to draw, Ctrl or Cmd+Z to undo."></canvas>
+    <canvas id="view" tabindex="0" aria-label="Render with notes. Left click draws, the wheel button or a right-click adds a note. D and N switch what a left click does. Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
     <div id="drop">Drop the render to open it</div>
     <div id="empty" hidden>
@@ -203,7 +214,7 @@ input[type="file"] { display: none; }
     <div class="section">
       <h2>Notes</h2>
       <ul id="list"></ul>
-      <p class="empty" id="listEmpty">No notes yet. Press on the spot you want to point at and drag out to where the note should sit.</p>
+      <p class="empty" id="listEmpty">No notes yet. Click the mouse wheel button on the spot you want to point at, or right-click it (two-finger tap on a trackpad). You can also switch to Notes and use a normal click.</p>
     </div>
     <div class="section" id="editor" hidden>
       <h2>Selected note</h2>
@@ -238,7 +249,7 @@ input[type="file"] { display: none; }
 </main>
 <footer>
   <span id="status">Blank canvas. Open, drop or paste a render to mark it up instead.</span>
-  <span><kbd>N</kbd> notes · <kbd>D</kbd> draw · <kbd>Del</kbd> removes the selected note · <kbd>Esc</kbd> deselects · <kbd>Ctrl/Cmd+Z</kbd> undo · paste an image with <kbd>Ctrl/Cmd+V</kbd></span>
+  <span><kbd>D</kbd> draw · <kbd>N</kbd> notes · <kbd>Del</kbd> removes the selected note · <kbd>Esc</kbd> deselects · <kbd>Ctrl/Cmd+Z</kbd> undo · paste an image with <kbd>Ctrl/Cmd+V</kbd></span>
 </footer>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="box">
@@ -273,7 +284,7 @@ input[type="file"] { display: none; }
     green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
   };
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, font: "cond", base: 1,
-                tool: "note", pen: { color: "red", width: 1 }, nextId: 1 };
+                tool: "draw", pen: { color: "red", width: 1 }, nextId: 1 };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
   var view = { s: 1, ox: 0, oy: 0, dpr: 1 };
   var history = [];
@@ -435,7 +446,7 @@ input[type="file"] { display: none; }
     ctx.setTransform(view.dpr * view.s, 0, 0, view.dpr * view.s, view.dpr * view.ox, view.dpr * view.oy);
     ctx.imageSmoothingQuality = "high";
     paint(ctx);
-    if (state.tool === "note" && state.sel >= 0 && state.notes[state.sel]) {
+    if (state.sel >= 0 && state.notes[state.sel]) {
       var n = state.notes[state.sel];
       drawSelection(ctx, n, layout(n, ctx));
     }
@@ -513,8 +524,8 @@ input[type="file"] { display: none; }
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
     $("penPanel").hidden = t !== "draw";
     $("hint").textContent = t === "draw"
-      ? "Drag to draw · hold Shift for a straight line · switch back to Notes to add or move notes"
-      : "Press on a spot and drag out to place a note · a plain click auto-places it · drag a pill or its dot to move it";
+      ? "Left-drag draws (Shift for a straight line) · wheel click or right-click adds a note · drag a pill or its dot to move it"
+      : "Click or drag out to place a note · drag a pill or its dot to move it · switch to Draw to sketch";
     canvas.style.cursor = "crosshair";
     render();
   }
@@ -545,7 +556,7 @@ input[type="file"] { display: none; }
       num.style.background = col.fill; num.style.color = col.ink;
       var t = document.createElement("span"); t.className = "txt"; t.textContent = (n.text || "").split("\n")[0] || "(empty)";
       b.appendChild(num); b.appendChild(t);
-      b.addEventListener("click", function () { state.sel = i; setTool("note"); sync(); render(); });
+      b.addEventListener("click", function () { state.sel = i; sync(); render(); });
       li.appendChild(b); list.appendChild(li);
     });
     $("listEmpty").hidden = state.notes.length > 0;
@@ -640,12 +651,20 @@ input[type="file"] { display: none; }
     if (Math.abs(ang - near) < 0.07) ang = near;
     return [a[0] + Math.cos(ang) * len, a[1] + Math.sin(ang) * len];
   }
+  // Left button (or a touch / trackpad click) does what the Draw / Notes switch says.
+  // The wheel button, the right button and Ctrl+click always add a note, whichever tool is on,
+  // so a mouse can draw and annotate without switching. Pills can be picked up with any of them.
+  function isNoteButton(e) { return e.button === 1 || e.button === 2 || (e.button === 0 && e.ctrlKey); }
   canvas.addEventListener("pointerdown", function (e) {
     if (!state.img) return;
+    var noteBtn = isNoteButton(e);
+    if (!noteBtn && e.button !== 0) return;
+    if (drag) endDrag();
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
     canvas.focus({ preventScroll: true });
     var p = toImg(e);
-    if (state.tool === "draw") {
+    var h = hit(p);
+    if (!h && !noteBtn && state.tool === "draw") {
       if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return;
       snapshot();
       var s = { color: state.pen.color, width: state.pen.width, points: [[p.x, p.y]], straight: e.shiftKey };
@@ -655,7 +674,6 @@ input[type="file"] { display: none; }
       render();
       return;
     }
-    var h = hit(p);
     if (h) {
       snapshot();
       state.sel = h.i;
@@ -676,10 +694,8 @@ input[type="file"] { display: none; }
     if (!state.img) return;
     var p = toImg(e);
     if (!drag) {
-      if (state.tool === "note") {
-        var h = hit(p);
-        canvas.style.cursor = h ? (h.part === "target" ? "move" : "grab") : "crosshair";
-      }
+      var h = hit(p);
+      canvas.style.cursor = h ? (h.part === "target" ? "move" : "grab") : "crosshair";
       return;
     }
     var x = clamp(p.x, 0, state.w), y = clamp(p.y, 0, state.h);
@@ -717,6 +733,10 @@ input[type="file"] { display: none; }
   }
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
+  // keep the browser's own wheel-button and right-button behaviour (autoscroll, context menu) off the image
+  canvas.addEventListener("mousedown", function (e) { if (e.button === 1) e.preventDefault(); });
+  canvas.addEventListener("auxclick", function (e) { e.preventDefault(); });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
   document.addEventListener("keydown", function (e) {
     var el = document.activeElement;
@@ -749,7 +769,7 @@ input[type="file"] { display: none; }
       state.blank = false; stage.classList.add("has-image");
       $("docname").textContent = (file.name || "Pasted image") + " · " + state.w + " × " + state.h + " px";
       sync(); render();
-      status("Image loaded. Press on a spot and drag out to add a note.");
+      status("Image loaded. Left-drag draws; wheel click or right-click adds a note.");
     };
     im.onerror = function () { status("That image could not be read. Try exporting it as PNG or JPG."); };
     im.src = url;
@@ -899,7 +919,7 @@ input[type="file"] { display: none; }
 
   // ---------- boot ----------
   new ResizeObserver(render).observe(stage);
-  setTool("note");
+  setTool("draw");
   Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
   sync();
 })();
