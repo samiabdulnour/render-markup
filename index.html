@@ -76,10 +76,22 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
   pointer-events: none;
 }
 #stage.dragging #drop { display: flex; }
-#empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 24px; }
-#empty[hidden] { display: none; }
-#empty .big { font-family: var(--font-display); font-weight: 600; font-size: 24px; margin: 0; }
-#empty .primaryish { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+/* Drop placeholder: sits on the blank white canvas, so its colours are fixed rather than themed.
+   Clicks pass through to the canvas (only the button is live), so marking up the blank canvas still works. */
+#empty {
+  position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; text-align: center; padding: 16px; pointer-events: none; overflow: hidden;
+  border: 2px dashed #b4b8c1; border-radius: 12px; color: #15171b;
+}
+#empty[hidden], #stage.dragging #empty { display: none; }
+#empty .ico { color: #8a8f9a; flex: none; }
+#empty .big { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; text-wrap: balance; }
+#empty .btn { pointer-events: auto; background: #15171b; color: #ffffff; border-color: #15171b; }
+#empty .note { color: #646872; }
+#empty kbd { border-color: #d3d5da; }
+#empty.compact { gap: 6px; padding: 8px; border-radius: 8px; }
+#empty.compact .ico, #empty.compact .alt { display: none; }
+#empty.compact .big { font-size: 18px; }
 #stage.has-image #hint { display: block; } #hint { display: none; }
 aside {
   border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto;
@@ -170,10 +182,12 @@ input[type="file"] { display: none; }
     <canvas id="view" tabindex="0" aria-label="Render with notes. N for notes, D to draw, Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
     <div id="drop">Drop the render to open it</div>
-    <div id="empty">
-      <p class="big">Open, drop or paste a render</p>
-      <label class="btn primaryish" for="file">Open image</label>
+    <div id="empty" hidden>
+      <svg class="ico" viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6v22"/><path d="M15 19l9 9 9-9"/><path d="M8 32v6a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3v-6"/></svg>
+      <p class="big">Drag and drop a render here</p>
+      <label class="btn" for="file">Open image</label>
       <p class="note">PNG, JPG or WebP · or paste with <kbd>Ctrl/Cmd+V</kbd></p>
+      <p class="note alt">Or just start marking up this blank canvas.</p>
     </div>
   </section>
   <aside>
@@ -203,9 +217,6 @@ input[type="file"] { display: none; }
       </div>
       <label for="noteSize">Text size <span class="val" id="noteSizeVal"></span>
         <input type="range" id="noteSize" min="0.4" max="3" step="0.05">
-      </label>
-      <label for="noteWrap">Line length <span class="val" id="noteWrapVal"></span>
-        <input type="range" id="noteWrap" min="4" max="40" step="1">
       </label>
       <button id="del" class="danger">Delete note</button>
     </div>
@@ -261,8 +272,9 @@ input[type="file"] { display: none; }
     red:   { name: "Red",   fill: "#d6301f", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
   };
-  var state = { img: null, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, font: "cond", base: 1,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, font: "cond", base: 1,
                 tool: "note", pen: { color: "red", width: 1 }, nextId: 1 };
+  var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
   var view = { s: 1, ox: 0, oy: 0, dpr: 1 };
   var history = [];
   var drag = null;
@@ -294,7 +306,7 @@ input[type="file"] { display: none; }
   function layout(n, c) {
     var fs = fontPx(n);
     c.font = fontStr(fs);
-    var lines = wrapLines(c, n.text, n.wrap * fs);
+    var lines = wrapLines(c, n.text, WRAP_EM * fs);
     var lw = 0;
     lines.forEach(function (l) { lw = Math.max(lw, c.measureText(l).width); });
     var lineH = fs * 1.22;
@@ -414,11 +426,12 @@ input[type="file"] { display: none; }
     if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
-    if (!state.img) return;
+    if (!state.img) { placeEmpty(); return; }
     var pad = 24;
     view.s = Math.min((r.width - pad * 2) / state.w, (r.height - pad * 2) / state.h);
     view.ox = (r.width - state.w * view.s) / 2;
     view.oy = (r.height - state.h * view.s) / 2;
+    placeEmpty();
     ctx.setTransform(view.dpr * view.s, 0, 0, view.dpr * view.s, view.dpr * view.ox, view.dpr * view.oy);
     ctx.imageSmoothingQuality = "high";
     paint(ctx);
@@ -426,6 +439,18 @@ input[type="file"] { display: none; }
       var n = state.notes[state.sel];
       drawSelection(ctx, n, layout(n, ctx));
     }
+  }
+
+  // The drop placeholder shows on the untouched blank canvas and tracks the canvas rectangle.
+  function placeEmpty() {
+    var el = $("empty");
+    var show = !!state.img && state.blank && !state.notes.length && !state.strokes.length;
+    el.hidden = !show;
+    if (!show) return;
+    var w = state.w * view.s, h = state.h * view.s, compact = h < 300 || w < 460, m = compact ? 8 : 20;
+    el.classList.toggle("compact", compact);
+    el.style.left = (view.ox + m) + "px"; el.style.top = (view.oy + m) + "px";
+    el.style.width = Math.max(0, w - 2 * m) + "px"; el.style.height = Math.max(0, h - 2 * m) + "px";
   }
 
   // ---------- state helpers ----------
@@ -472,10 +497,10 @@ input[type="file"] { display: none; }
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
-      vertical: false, color: "black", size: 1, wrap: 14
+      vertical: false, color: "black", size: 1
     };
     var last = selected();
-    if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.size = last.size; n.wrap = last.wrap; }
+    if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.size = last.size; }
     state.notes.push(n);
     state.sel = state.notes.length - 1;
     sync(); render();
@@ -534,7 +559,6 @@ input[type="file"] { display: none; }
       $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
       $("oriH").setAttribute("aria-pressed", String(!n.vertical));
       $("noteSize").value = n.size; $("noteSizeVal").textContent = Math.round(n.size * 100) + "%";
-      $("noteWrap").value = n.wrap; $("noteWrapVal").textContent = n.wrap + " em";
     }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
     $("penWidthVal").textContent = Math.round(state.pen.width * 100) + "%";
@@ -563,14 +587,12 @@ input[type="file"] { display: none; }
   }
   setter("oriV", function (n) { n.vertical = true; });
   setter("oriH", function (n) { n.vertical = false; });
-  ["noteSize", "noteWrap"].forEach(function (id) {
-    $(id).addEventListener("pointerdown", snapshot);
-    $(id).addEventListener("keydown", snapshot);
-    $(id).addEventListener("input", function (e) {
-      var n = selected(); if (!n) return;
-      if (id === "noteSize") n.size = parseFloat(e.target.value); else n.wrap = parseInt(e.target.value, 10);
-      sync(); render();
-    });
+  $("noteSize").addEventListener("pointerdown", snapshot);
+  $("noteSize").addEventListener("keydown", snapshot);
+  $("noteSize").addEventListener("input", function (e) {
+    var n = selected(); if (!n) return;
+    n.size = parseFloat(e.target.value);
+    sync(); render();
   });
   $("del").addEventListener("click", deleteSel);
   function deleteSel() {
@@ -724,7 +746,7 @@ input[type="file"] { display: none; }
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
       state.notes = []; state.strokes = []; state.sel = -1; history = []; future = [];
-      $("empty").hidden = true; stage.classList.add("has-image");
+      state.blank = false; stage.classList.add("has-image");
       $("docname").textContent = (file.name || "Pasted image") + " · " + state.w + " × " + state.h + " px";
       sync(); render();
       status("Image loaded. Press on a spot and drag out to add a note.");
@@ -868,7 +890,7 @@ input[type="file"] { display: none; }
     var im = new Image();
     im.onload = function () {
       state.img = im; state.w = 1920; state.h = 1080; state.name = "markup";
-      $("empty").hidden = true; stage.classList.add("has-image");
+      state.blank = true; stage.classList.add("has-image");
       $("docname").textContent = "Blank canvas · 1920 × 1080 px";
       sync(); render();
     };
