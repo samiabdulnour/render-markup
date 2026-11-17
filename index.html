@@ -134,7 +134,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent;
   padding: 6px 8px; gap: 10px;
 }
-#list li button[aria-current="true"] { border-color: var(--ink); }
+#list li button[aria-pressed="true"] { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+#list { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
+label[hidden] { display: none; }
 #list .num {
   font-family: var(--font-mono); font-size: 11px; min-width: 22px; height: 22px; border-radius: 11px;
   display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(0,0,0,0.2);
@@ -212,17 +214,21 @@ input[type="file"] { display: none; }
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
         <input type="range" id="penWidth" min="0.3" max="4" step="0.1" value="1">
       </label>
-      <p class="note">Drag to draw. Hold <kbd>Shift</kbd> for a straight line (it snaps to horizontal, vertical and 45° when close). Drag with the right mouse button to erase.</p>
+      <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
+        <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
+      </label>
+      <p class="note">Drag to draw, or drag with the right mouse button to erase. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close).</p>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
     <div class="section">
       <h2>Notes</h2>
       <ul id="list"></ul>
+      <p class="note" id="listTip" hidden>Shift-click selects a range · Ctrl/Cmd-click adds or removes one</p>
       <p class="empty" id="listEmpty">No notes yet. Click the mouse wheel button on the spot you want to point at, or right-click it (two-finger tap on a trackpad). You can also switch to Notes and use a normal click.</p>
     </div>
     <div class="section" id="editor" hidden>
-      <h2>Selected note</h2>
-      <label for="noteText">Text
+      <h2 id="editorTitle">Selected note</h2>
+      <label for="noteText" id="noteTextWrap">Text
         <textarea id="noteText" spellcheck="true"></textarea>
       </label>
       <div class="swatches" id="noteColors" role="group" aria-label="Pill colour"></div>
@@ -287,12 +293,13 @@ input[type="file"] { display: none; }
     red:   { name: "Red",   fill: "#d6301f", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
   };
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, font: "cond", base: 1,
-                tool: "draw", pen: { color: "red", width: 1 }, nextId: 1 };
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", base: 1,
+                tool: "draw", pen: { color: "red", width: 1 }, eraser: 10, nextId: 1 };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
   var view = { s: 1, ox: 0, oy: 0, dpr: 1 };
   var history = [];
   var drag = null;
+  var eraserPreview = false;   // true while the eraser size slider is being moved, to show the ring
 
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $("view"), ctx = canvas.getContext("2d"), stage = $("stage");
@@ -363,7 +370,7 @@ input[type="file"] { display: none; }
 
   // ---------- eraser ----------
   // The eraser rubs out only the ink it passes over, so a stroke can be trimmed or cut in two.
-  function eraserR() { return 10 / view.s; }  // about 10 screen px, in image px
+  function eraserR() { return state.eraser / view.s; }  // state.eraser is the radius in screen px; this is image px
   // A stroke as the dense run of points it is actually drawn through (the pen smooths between its raw points).
   function flatten(s) {
     var pts = s.points;
@@ -509,14 +516,15 @@ input[type="file"] { display: none; }
     ctx.setTransform(view.dpr * view.s, 0, 0, view.dpr * view.s, view.dpr * view.ox, view.dpr * view.oy);
     ctx.imageSmoothingQuality = "high";
     paint(ctx);
-    if (state.sel >= 0 && state.notes[state.sel]) {
-      var n = state.notes[state.sel];
-      drawSelection(ctx, n, layout(n, ctx));
-    }
-    if (drag && drag.part === "erase") {
+    state.picks.forEach(function (i) {
+      var n = state.notes[i];
+      if (n) drawSelection(ctx, n, layout(n, ctx));
+    });
+    var ring = drag && drag.part === "erase" ? drag.last : (eraserPreview ? [state.w / 2, state.h / 2] : null);
+    if (ring) {
       // eraser ring: dark over light so it shows on any render
       var er = eraserR();
-      ctx.beginPath(); ctx.arc(drag.last[0], drag.last[1], er, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(ring[0], ring[1], er, 0, Math.PI * 2);
       ctx.lineWidth = 3 / view.s; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
       ctx.lineWidth = 1.25 / view.s; ctx.strokeStyle = "#15171b"; ctx.stroke();
     }
@@ -536,10 +544,13 @@ input[type="file"] { display: none; }
 
   // ---------- state helpers ----------
   var future = [];
-  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel }); }
+  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel, picks: state.picks }); }
   function restore(s) {
     var o = JSON.parse(s);
     state.notes = o.notes; state.strokes = o.strokes || []; state.sel = Math.min(o.sel, state.notes.length - 1);
+    state.picks = (o.picks || []).filter(function (i) { return i < state.notes.length; });
+    if (state.sel < 0) state.picks = [];
+    else if (state.picks.indexOf(state.sel) < 0) state.picks = [state.sel];
   }
   function snapshot() {
     history.push(current());
@@ -567,7 +578,24 @@ input[type="file"] { display: none; }
     sync(); render();
     status("Redone.");
   }
+  // state.sel is the note the editor shows (and the anchor for Shift-click); state.picks lists every
+  // selected note and always includes it. Colour, orientation, size, delete and pill drags act on all picks.
   function selected() { return state.sel >= 0 ? state.notes[state.sel] : null; }
+  function select(i) { state.sel = i; state.picks = i >= 0 ? [i] : []; }
+  function picked() { return state.picks.map(function (i) { return state.notes[i]; }).filter(Boolean); }
+  function pickFromList(i, e) {
+    if (e.shiftKey && state.sel >= 0) {
+      // everything between the note clicked last and this one
+      var a = Math.min(state.sel, i), z = Math.max(state.sel, i);
+      state.picks = [];
+      for (var k = a; k <= z; k++) state.picks.push(k);
+    } else if (e.ctrlKey || e.metaKey) {
+      var at = state.picks.indexOf(i);
+      if (at < 0) { state.picks.push(i); state.picks.sort(function (x, y) { return x - y; }); state.sel = i; }
+      else if (state.picks.length === 1) select(-1);
+      else { state.picks.splice(at, 1); if (state.sel === i) state.sel = state.picks[state.picks.length - 1]; }
+    } else select(i);
+  }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   function focusText() { setTimeout(function () { var ta = $("noteText"); ta.focus(); ta.select(); }, 0); }
@@ -583,7 +611,7 @@ input[type="file"] { display: none; }
     var last = selected();
     if (last) { n.vertical = last.vertical; n.color = last.color || "black"; n.size = last.size; }
     state.notes.push(n);
-    state.sel = state.notes.length - 1;
+    select(state.notes.length - 1);
     sync(); render();
     if (!deferFocus) focusText();
   }
@@ -594,8 +622,8 @@ input[type="file"] { display: none; }
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
     $("penPanel").hidden = t !== "draw";
     $("hint").textContent = t === "draw"
-      ? "Left-drag draws (Shift for a straight line) · right-drag erases · wheel click or right-click adds a note · drag a pill or its dot to move it"
-      : "Click or drag out to place a note · drag a pill or its dot to move it · right-drag erases drawing · switch to Draw to sketch";
+      ? "Left-drag draws · right-drag erases · Shift makes either one straight · wheel click or right-click adds a note · drag a pill or its dot to move it"
+      : "Click or drag out to place a note · drag a pill or its dot to move it · right-drag erases drawing (Shift for straight) · switch to Draw to sketch";
     canvas.style.cursor = "crosshair";
     render();
   }
@@ -620,22 +648,27 @@ input[type="file"] { display: none; }
     state.notes.forEach(function (n, i) {
       var li = document.createElement("li");
       var b = document.createElement("button");
-      b.setAttribute("aria-current", i === state.sel ? "true" : "false");
+      b.setAttribute("aria-pressed", state.picks.indexOf(i) >= 0 ? "true" : "false");
       var col = colorOf(n);
       var num = document.createElement("span"); num.className = "num"; num.textContent = String(i + 1);
       num.style.background = col.fill; num.style.color = col.ink;
       var t = document.createElement("span"); t.className = "txt"; t.textContent = (n.text || "").split("\n")[0] || "(empty)";
       b.appendChild(num); b.appendChild(t);
-      b.addEventListener("click", function () { state.sel = i; sync(); render(); });
+      b.addEventListener("click", function (e) { pickFromList(i, e); sync(); render(); });
       li.appendChild(b); list.appendChild(li);
     });
     $("listEmpty").hidden = state.notes.length > 0;
-    var n = selected();
+    $("listTip").hidden = state.notes.length < 2;
+    var n = selected(), many = state.picks.length > 1;
     $("editor").hidden = !n;
     if (n) {
-      if (document.activeElement !== $("noteText")) $("noteText").value = n.text;
+      $("editorTitle").textContent = many ? state.picks.length + " notes selected" : "Selected note";
+      $("noteTextWrap").hidden = many;   // text is per note; everything else below applies to all selected
+      $("del").textContent = many ? "Delete " + state.picks.length + " notes" : "Delete note";
+      if (!many && document.activeElement !== $("noteText")) $("noteText").value = n.text;
       swatchRow($("noteColors"), n.color || (n.dark === false ? "white" : "black"), function (k) {
-        var m = selected(); if (!m) return; snapshot(); m.color = k; delete m.dark; sync(); render();
+        var ps = picked(); if (!ps.length) return;
+        snapshot(); ps.forEach(function (m) { m.color = k; delete m.dark; }); sync(); render();
       });
       $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
       $("oriH").setAttribute("aria-pressed", String(!n.vertical));
@@ -643,6 +676,7 @@ input[type="file"] { display: none; }
     }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
     $("penWidthVal").textContent = Math.round(state.pen.width * 100) + "%";
+    $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
     $("baseSizeVal").textContent = Math.round(state.base * 100) + "%";
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
@@ -664,23 +698,24 @@ input[type="file"] { display: none; }
     render();
   });
   function setter(id, fn) {
-    $(id).addEventListener("click", function () { var n = selected(); if (!n) return; snapshot(); fn(n); sync(); render(); });
+    $(id).addEventListener("click", function () { var ps = picked(); if (!ps.length) return; snapshot(); ps.forEach(fn); sync(); render(); });
   }
   setter("oriV", function (n) { n.vertical = true; });
   setter("oriH", function (n) { n.vertical = false; });
   $("noteSize").addEventListener("pointerdown", snapshot);
   $("noteSize").addEventListener("keydown", snapshot);
   $("noteSize").addEventListener("input", function (e) {
-    var n = selected(); if (!n) return;
-    n.size = parseFloat(e.target.value);
+    var v = parseFloat(e.target.value);
+    picked().forEach(function (n) { n.size = v; });
     sync(); render();
   });
   $("del").addEventListener("click", deleteSel);
   function deleteSel() {
     if (state.sel < 0) return;
     snapshot();
-    state.notes.splice(state.sel, 1);
-    state.sel = Math.min(state.sel, state.notes.length - 1);
+    var gone = state.picks.slice().sort(function (a, b) { return b - a; });
+    gone.forEach(function (i) { state.notes.splice(i, 1); });
+    select(Math.min(gone[gone.length - 1], state.notes.length - 1));
     sync(); render();
   }
   $("font").addEventListener("change", function (e) {
@@ -689,6 +724,11 @@ input[type="file"] { display: none; }
   });
   $("baseSize").addEventListener("input", function (e) { state.base = parseFloat(e.target.value); sync(); render(); });
   $("penWidth").addEventListener("input", function (e) { state.pen.width = parseFloat(e.target.value); sync(); });
+  // the slider is the eraser's width across; a ring in the middle of the image shows it while it is moved
+  $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; eraserPreview = true; sync(); render(); });
+  ["change", "blur", "pointerup", "keyup"].forEach(function (t) {
+    $("eraserSize").addEventListener(t, function () { if (eraserPreview) { eraserPreview = false; render(); } });
+  });
   $("clearDraw").addEventListener("click", function () {
     if (!state.strokes.length) return;
     snapshot(); state.strokes = []; sync(); render(); status("Drawing cleared. Undo brings it back.");
@@ -757,9 +797,15 @@ input[type="file"] { display: none; }
     }
     if (h) {
       snapshot();
-      state.sel = h.i;
-      var n = state.notes[h.i];
-      drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false };
+      if (h.part === "pill" && state.picks.length > 1 && state.picks.indexOf(h.i) >= 0) {
+        // one of several selected pills: a drag moves them all, a plain click narrows the selection to it
+        drag = { part: "pills", idx: h.i, sx: e.clientX, sy: e.clientY, x0: p.x, y0: p.y, moved: false,
+                 from: picked().map(function (m) { return [m.px, m.py]; }) };
+      } else {
+        select(h.i);
+        var n = state.notes[h.i];
+        drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false };
+      }
       canvas.setPointerCapture(e.pointerId);
       sync(); render();
     } else if (p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h) {
@@ -768,7 +814,7 @@ input[type="file"] { display: none; }
       drag = { part: "create", sx: e.clientX, sy: e.clientY, moved: false };
       canvas.setPointerCapture(e.pointerId);
     } else {
-      state.sel = -1; sync(); render();
+      select(-1); sync(); render();
     }
   });
   canvas.addEventListener("pointermove", function (e) {
@@ -785,7 +831,14 @@ input[type="file"] { display: none; }
     }
     if (drag.part === "erase") {
       var to = [p.x, p.y];
-      if (eraseAlong(drag.last, to)) drag.changed = true;
+      if (e.shiftKey || drag.straight) {
+        // straight eraser, like the straight pen: start again from the ink as it was when the drag began
+        // and rub out one straight band from the starting point to here
+        drag.straight = true;
+        to = snapLine(drag.start, { x: p.x, y: p.y });
+        state.strokes = drag.base;
+        drag.changed = eraseAlong(drag.start, to);
+      } else if (eraseAlong(drag.last, to)) drag.changed = true;
       drag.last = to;
       render();
       return;
@@ -800,6 +853,20 @@ input[type="file"] { display: none; }
         var last = s.points[s.points.length - 1];
         if (Math.hypot(x - last[0], y - last[1]) > 1.5 / view.s) s.points.push([x, y]);
       }
+      render();
+      return;
+    }
+    if (drag.part === "pills") {
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+      drag.moved = true;
+      // shift every selected pill by the same amount, stopping when the first one reaches an edge
+      var lo = [-Infinity, -Infinity], hi = [Infinity, Infinity];
+      drag.from.forEach(function (f) {
+        lo[0] = Math.max(lo[0], -f[0]); hi[0] = Math.min(hi[0], state.w - f[0]);
+        lo[1] = Math.max(lo[1], -f[1]); hi[1] = Math.min(hi[1], state.h - f[1]);
+      });
+      var mx = clamp(p.x - drag.x0, lo[0], hi[0]), my = clamp(p.y - drag.y0, lo[1], hi[1]);
+      picked().forEach(function (m, k) { m.px = drag.from[k][0] + mx; m.py = drag.from[k][1] + my; });
       render();
       return;
     }
@@ -818,6 +885,7 @@ input[type="file"] { display: none; }
   });
   function startErase() {
     snapshot();
+    drag.start = drag.last; drag.base = state.strokes;   // eraseAlong never changes a stroke in place
     drag.part = "erase"; drag.changed = eraseAlong(drag.last, drag.last);
     canvas.style.cursor = "none";
     render();
@@ -837,11 +905,14 @@ input[type="file"] { display: none; }
       // a plain right-click: select the note under the pointer, or drop a new one there
       if (cancelled === true) return;
       var p = { x: d.last[0], y: d.last[1] }, h = hit(p);
-      if (h) { state.sel = h.i; sync(); render(); }
+      if (h) { select(h.i); sync(); render(); }
       else if (p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h) addNote(p.x, p.y);
       return;
     }
-    if (!d.moved) history.pop();
+    if (!d.moved) {
+      history.pop();
+      if (d.part === "pills") { select(d.idx); sync(); render(); }
+    }
     $("undo").disabled = history.length === 0;
   }
   canvas.addEventListener("pointerup", function () { endDrag(false); });
@@ -865,7 +936,7 @@ input[type="file"] { display: none; }
     }
     if (typing || mod || e.altKey) return;
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
-    if (e.key === "Escape") { state.sel = -1; sync(); render(); }
+    if (e.key === "Escape") { select(-1); sync(); render(); }
     if (e.key === "d" || e.key === "D") setTool("draw");
     if (e.key === "n" || e.key === "N") setTool("note");
   });
@@ -878,7 +949,7 @@ input[type="file"] { display: none; }
     im.onload = function () {
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
-      state.notes = []; state.strokes = []; state.sel = -1; history = []; future = [];
+      state.notes = []; state.strokes = []; select(-1); history = []; future = [];
       state.blank = false; stage.classList.add("has-image");
       $("docname").textContent = (file.name || "Pasted image") + " · " + state.w + " × " + state.h + " px";
       sync(); render();
