@@ -451,6 +451,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- drawing ----------
   function penPx(s) { return Math.max(1, state.w / 100 * 0.22 * s.width); }
+  // Sizes as shown to the user: in pixels of the image, which is what ends up in the export.
+  function penLabel(width) { var v = penPx({ width: width }); return (v < 10 ? Math.round(v * 10) / 10 : Math.round(v)) + " px"; }
+  function textLabel(n) { return Math.round(fontPx(n)) + " px"; }
 
   // ---------- eraser ----------
   // The eraser rubs out only the ink it passes over, so a stroke can be trimmed or cut in two.
@@ -682,9 +685,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       var n = state.notes[i];
       if (n) drawSelection(ctx, n, layout(n, ctx));
     });
-    // Previews while a size is being changed, by Ctrl + right-drag or by a slider, each with a label giving the size.
+    // Previews while a size is being changed, by Ctrl + drag or by a slider. Text and eraser sizes get a label
+    // with the number; the pen tip is shown at its real size and needs none.
     var sizing = drag && drag.part === "size" ? drag.what : null, hud = null;
-    var mid = [view.cx, view.cy], pct = function (v) { return Math.round(v * 100) + "%"; };   // mid: the middle of what is on screen
+    var mid = [view.cx, view.cy];                        // the middle of what is on screen
     var tipAt = sizing === "pen" ? drag.last : (sliderPreview === "pen" ? mid : null);
     if (tipAt) {
       // the pen tip at its real size
@@ -693,16 +697,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
       ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip, 0, Math.PI * 2);
       ctx.fillStyle = (COLORS[state.pen.color] || COLORS.red).fill; ctx.fill();
-      hud = { text: "Line width " + pct(state.pen.width), at: tipAt, r: tip };
     } else if (sizing === "new") {
       // the note being placed, where it will go, at its size so far
       var ML = layout(drag.made, ctx);
       ctx.save(); ctx.globalAlpha = 0.9; drawNote(ctx, drag.made, ML); ctx.restore();
-      hud = { text: "Text size " + pct(drag.made.size), at: [drag.made.px, drag.made.py], r: (drag.made.vertical ? ML.w : ML.h) / 2 };
+      hud = { text: "Text size " + textLabel(drag.made), at: [drag.made.px, drag.made.py], r: (drag.made.vertical ? ML.w : ML.h) / 2 };
     } else if (sizing === "notes") {
       // the notes themselves are the preview; the label sits over the one the drag began on
       var held = drag.note, many = picked().length, HL = layout(held, ctx);
-      hud = { text: "Text size " + pct(held.size) + (many > 1 ? " · " + many + " notes" : ""),
+      hud = { text: "Text size " + textLabel(held) + (many > 1 ? " · " + many + " notes" : ""),
               at: [held.px, held.py], r: (held.vertical ? HL.w : HL.h) / 2 };
     }
     var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (sliderPreview === "eraser" ? mid : null);
@@ -891,10 +894,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       });
       $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
       $("oriH").setAttribute("aria-pressed", String(!n.vertical));
-      $("noteSize").value = n.size; $("noteSizeVal").textContent = Math.round(n.size * 100) + "%";
+      $("noteSize").value = n.size; $("noteSizeVal").textContent = textLabel(n);
     }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
-    $("penWidthVal").textContent = Math.round(state.pen.width * 100) + "%";
+    $("penWidthVal").textContent = penLabel(state.pen.width);
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
     if (document.activeElement !== $("penWidth")) $("penWidth").value = state.pen.width;
     if (document.activeElement !== $("eraserSize")) $("eraserSize").value = state.eraser * 2;
@@ -1194,22 +1197,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   function dragSize(e) {
     trackPointer(e);
-    var dx = drag.dx, pct = function (v) { return Math.round(v * 100) + "%"; };
-    var tail = " · move right for bigger, left for smaller";
+    var dx = drag.dx, tail = " · move right for bigger, left for smaller";
     if (drag.what === "eraser") {
       state.eraser = clamp(Math.round(drag.from + dx / 2), 3, 100);        // one pixel of drag is one pixel across
       status("Eraser size " + Math.round(state.eraser * 2) + " px" + tail);
     } else if (drag.what === "pen") {
       state.pen.width = clamp(step5(drag.from + dx / 100), 0.3, 4);        // 100 px of drag is 100%
-      status("Line width " + pct(state.pen.width) + tail);
+      status("Line width " + penLabel(state.pen.width) + tail);
     } else if (drag.what === "notes") {
       var ps = picked();
       ps.forEach(function (n, k) { n.size = clamp(step5(drag.from[k] + dx / 100), 0.25, 4); });
       drag.changed = ps.some(function (n, k) { return n.size !== drag.from[k]; });
-      status("Text size " + pct(ps[0].size) + (ps.length > 1 ? " for " + ps.length + " notes" : "") + tail);
+      status("Text size " + textLabel(ps[0]) + (ps.length > 1 ? " for " + ps.length + " notes" : "") + tail);
     } else {
       drag.made.size = clamp(step5(drag.from + dx / 100), 0.25, 4);
-      status("Text size " + pct(drag.made.size) + tail + " · let go to add the note");
+      status("Text size " + textLabel(drag.made) + tail + " · let go to add the note");
     }
     sync(); render();
   }
