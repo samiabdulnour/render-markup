@@ -117,6 +117,8 @@ aside h2 {
 }
 .section { display: flex; flex-direction: column; gap: 10px; }
 .section[hidden] { display: none; }
+#notesPanel { display: flex; flex-direction: column; gap: 18px; }
+#notesPanel[hidden] { display: none; }
 label { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 textarea, select, input[type="range"] { font: inherit; color: var(--ink); }
 textarea {
@@ -252,7 +254,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 <main>
   <nav id="pages" aria-label="Pages" hidden><ol id="pageList"></ol></nav>
   <section id="stage" aria-label="Image stage">
-    <canvas id="view" tabindex="0" aria-label="Render with notes. Left click draws, the wheel button adds a note, dragging with the right button erases, a right-click opens a menu. D and N swap what the left click and the wheel button do. Ctrl or Cmd+Z to undo."></canvas>
+    <canvas id="view" tabindex="0" aria-label="Render with notes. The left button draws, the wheel button erases, dragging with the right button adds a note, a right-click opens a menu. D and N show the pen settings or the notes. Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
     <div id="hud" hidden></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
@@ -267,11 +269,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   </section>
   <aside>
     <div class="toolbar">
-      <div class="seg tools" role="group" aria-label="What a left click does">
-        <button id="toolDraw" aria-pressed="true" title="Left click draws (D) · hold Shift for a straight line · right-drag erases · the mouse wheel button still adds a note · right-click for a menu">
+      <div class="seg tools" role="group" aria-label="Settings shown: pen or notes">
+        <button id="toolDraw" aria-pressed="true" title="Pen and eraser settings (D). On a touch screen a finger draws while this is on.">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg>Draw
         </button>
-        <button id="toolNote" aria-pressed="false" title="Left click adds notes (N) · the mouse wheel button draws instead · on laptops and touch screens a normal click places notes">
+        <button id="toolNote" aria-pressed="false" title="Notes and their settings (N). On a touch screen a tap places a note while this is on.">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg>Notes
         </button>
       </div>
@@ -290,17 +292,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
-      <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
+      <label for="eraserSize" title="The wheel button erases. It has the same tip as the pen, round or square.">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
       </label>
-      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser has the same tip as the pen, round or square, and also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd>, press a mouse button and move the mouse to resize what that button does: the line, the note or the eraser. Right or up is bigger, left or down smaller. The cursor stays put while you do.</p>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
+    <div id="notesPanel" hidden>
     <div class="section">
       <h2>Notes</h2>
-      <ul id="list"></ul>
-      <p class="note" id="listTip" hidden>Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all</p>
-      <p class="empty" id="listEmpty">No notes yet. Click the mouse wheel button on the spot you want to point at, or right-click it and choose Add note here (on a trackpad, a two-finger tap). You can also switch to Notes and use a normal click.</p>
+      <ul id="list" title="Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
+      <p class="empty" id="listEmpty">No notes yet. Drag with the right mouse button to add one.</p>
     </div>
     <div class="section" id="editor" hidden>
       <h2 id="editorTitle">Selected note</h2>
@@ -313,6 +314,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="oriH" aria-pressed="true">Horizontal</button>
         <button id="oriV" aria-pressed="false">Vertical</button>
       </div>
+      <div class="seg" role="group" aria-label="Arrow">
+        <button id="arrowOn" aria-pressed="true" title="A line from the note to a dot on the spot it describes">Arrow</button>
+        <button id="arrowOff" aria-pressed="false" title="Just the note, with no line and no dot">No arrow</button>
+      </div>
       <label for="noteSize">Text size <span class="val" id="noteSizeVal"></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
       </label>
@@ -321,7 +326,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <div class="section">
       <h2>All notes</h2>
       <button id="grammar" title="Proofread every note with LanguageTool; you review each fix before it applies">Check grammar</button>
-      <p class="note">Grammar check sends only the note text to LanguageTool. Images stay in your browser.</p>
+      <p class="note">Sends only the note text to LanguageTool.</p>
       <label for="font">Typeface
         <select id="font">
           <option value="cond">Condensed sans</option>
@@ -329,11 +334,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         </select>
       </label>
     </div>
+    </div>
   </aside>
 </main>
 <footer>
   <span id="status">Blank canvas. Open, drop or paste a render to mark it up instead.</span>
-  <span><kbd>D</kbd> draw · <kbd>N</kbd> notes · <kbd>Del</kbd> removes the selected note · <kbd>Esc</kbd> deselects · <kbd>Ctrl/Cmd+Z</kbd> undo · paste an image with <kbd>Ctrl/Cmd+V</kbd></span>
+  <span><kbd>D</kbd> pen · <kbd>N</kbd> notes · <kbd>Del</kbd> removes the selected note · <kbd>Esc</kbd> deselects · <kbd>Ctrl/Cmd+Z</kbd> undo · paste an image with <kbd>Ctrl/Cmd+V</kbd></span>
 </footer>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="box">
@@ -460,6 +466,20 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function outside(L, lx, ly, grow) {
     var g = grow || 0;
     return Math.hypot(Math.max(Math.abs(lx) - g - (L.w / 2 - L.cr), 0), Math.max(Math.abs(ly) - g - (L.h / 2 - L.cr), 0)) - L.cr;
+  }
+  // A note whose dot sits under its own pill has no leader and no dot to see: a plain comment. The pill is on
+  // top there, so the dot cannot be picked up through it, and it stays under the pill when the pill is moved.
+  function bare(n, L) { L = L || layout(n, ctx); var t = toLocal(n, L, n.tx, n.ty); return outside(L, t.x, t.y) <= 0; }
+  function tuck(n) { if (bare(n)) { n.tx = n.px; n.ty = n.py; } }          // keep a hidden dot in the middle of its pill
+  function dropArrow(n) { n.tx = n.px; n.ty = n.py; }
+  // bring the dot back out of a plain comment: below and to one side, the way a new note is laid out
+  function giveArrow(n) {
+    if (!bare(n)) return;
+    var sx = n.px - state.w * 0.11 >= 0 ? -1 : 1, sy = n.py + state.h * 0.1 <= state.h ? 1 : -1;
+    for (var k = 1; k <= 6; k++) {
+      n.tx = clamp(n.px + sx * state.w * 0.11 * k, 0, state.w); n.ty = clamp(n.py + sy * state.h * 0.1 * k, 0, state.h);
+      if (!bare(n)) return;
+    }
   }
   function leaderStart(n, L) {
     var t = toLocal(n, L, n.tx, n.ty);
@@ -657,6 +677,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     else c.rect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m);
     c.stroke();
     c.restore();
+    if (bare(n, L)) return;                    // no dot to mark: it is under the pill
     c.save();
     c.strokeStyle = accent();
     c.lineWidth = 2 / view.s;
@@ -848,6 +869,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!state.notes.length) { status("There are no notes to select."); return; }
     state.picks = state.notes.map(function (n, i) { return i; });
     if (state.sel < 0) state.sel = state.picks[state.picks.length - 1];
+    showPanel("note");
     sync(); render();
     status(state.notes.length === 1 ? "1 note selected." : "All " + state.notes.length + " notes selected.");
   }
@@ -887,21 +909,29 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     snapshot();
     state.notes.push(made || newNote(x, y));
     select(state.notes.length - 1);
+    showPanel("note");
     sync(); render();
     if (!deferFocus) focusText();
   }
 
+  // The Draw / Notes switch says which settings the side panel shows: the pen's or the notes'. The mouse works
+  // the same either way. A finger or a stylus has no other buttons, so for those it also says what a touch does.
+  var COARSE = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   function setTool(t) {
     state.tool = t;
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
     $("penPanel").hidden = t !== "draw";
-    $("hint").textContent = t === "draw"
-      ? "Left-drag draws · right-drag erases · Shift keeps lines straight · wheel click adds a note · right-click for a menu · drag a pill or its dot to move it"
-      : "Left click or drag out places a note · wheel-drag draws · right-drag erases · Shift keeps lines straight · right-click for a menu · drag a pill or its dot to move it";
+    $("notesPanel").hidden = t !== "note";
+    $("hint").textContent = COARSE
+      ? (t === "draw" ? "Drag to draw · switch to Notes to place notes · drag a pill or its dot to move it"
+                      : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
+      : "Left-drag draws · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
     canvas.style.cursor = "crosshair";
     render();
   }
+  // show the settings for what is being used, without touching anything else
+  function showPanel(t) { if (state.tool !== t) setTool(t); }
 
   // ---------- sidebar ----------
   function swatchRow(el, current, onPick, palette) {
@@ -947,7 +977,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       li.appendChild(b); list.appendChild(li);
     });
     $("listEmpty").hidden = state.notes.length > 0;
-    $("listTip").hidden = state.notes.length < 2;
     var n = selected(), many = state.picks.length > 1;
     $("editor").hidden = !n;
     if (n) {
@@ -966,6 +995,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       });
       $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
       $("oriH").setAttribute("aria-pressed", String(!n.vertical));
+      var plain = bare(n);
+      $("arrowOn").setAttribute("aria-pressed", String(!plain));
+      $("arrowOff").setAttribute("aria-pressed", String(plain));
       $("noteSize").value = n.size; $("noteSizeVal").textContent = textLabel(n);
     }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
@@ -1002,8 +1034,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   setter("oriV", function (n) { n.vertical = true; });
   setter("oriH", function (n) { n.vertical = false; });
-  $("noteSize").addEventListener("pointerdown", snapshot);
-  $("noteSize").addEventListener("keydown", snapshot);
+  setter("arrowOn", giveArrow);
+  setter("arrowOff", dropArrow);
+  var sizeByMouse = false;
+  $("noteSize").addEventListener("pointerdown", function (e) { sizeByMouse = e.pointerType === "mouse"; snapshot(); });
+  $("noteSize").addEventListener("keydown", function () { sizeByMouse = false; snapshot(); });
+  // one note resized with the mouse: straight into its text box when the slider is let go
+  $("noteSize").addEventListener("change", function () {
+    var n = sizeByMouse && state.picks.length === 1 ? selected() : null;
+    sizeByMouse = false;
+    if (n) focusText(n.text !== "New note");
+  });
   $("noteSize").addEventListener("input", function (e) {
     var v = parseFloat(e.target.value);
     picked().forEach(function (n) { n.size = v; });
@@ -1060,7 +1101,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     for (var i = state.notes.length - 1; i >= 0; i--) {
       var n = state.notes[i], L = layout(n, ctx);
       var tr = Math.max(L.fs * 0.7, 12 / view.s);
-      if (Math.hypot(p.x - n.tx, p.y - n.ty) <= tr) return { i: i, part: "target" };
+      if (Math.hypot(p.x - n.tx, p.y - n.ty) <= tr && !bare(n, L)) return { i: i, part: "target" };
     }
     for (var j = state.notes.length - 1; j >= 0; j--) {
       var m = state.notes[j], M = layout(m, ctx), l = toLocal(m, M, p.x, p.y);
@@ -1088,23 +1129,62 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     t = Math.max(t, 0);
     return [a[0] + ux * t, a[1] + uy * t];
   }
-  // Left button (or a touch / trackpad click) does what the Draw / Notes switch says, and the wheel
-  // button does the other one, so a mouse can draw and annotate without switching. The right button erases when dragged and adds a note on a plain click
-  // (a two-finger tap on a trackpad). Pills can be picked up with the left or wheel button.
+  // The mouse always works the same way: the left button draws, the wheel button erases, and the right button
+  // adds a note when it is dragged and opens the pop-up menu on a plain click (a two-finger tap on a trackpad).
+  // A finger or a stylus has only the one "button", so it does what the Draw / Notes switch says.
+  // Pills and their dots can be picked up with the left or the right button.
   var IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || "");
   // on a Mac, Ctrl+click is how a one-button mouse right-clicks
   function isRightButton(e) { return e.button === 2 || (IS_MAC && e.button === 0 && e.ctrlKey); }
-  // the wheel button does whichever of draw / note the left button is not doing
-  function isOtherButton(e) { return e.button === 1; }
   // Ctrl (or Alt) held while pressing a button: a drag then resizes that button's tool instead of using it.
   // A Mac's Ctrl+click is already a right-click, so there only Alt counts for the left button.
   function isSizeKey(e) { return e.altKey || (e.ctrlKey && !(IS_MAC && e.button === 0)); }
+  // Start using a tool at image point p: pick up the note that is there, or else draw a line (drawNow) or put a
+  // note down and drag its pill out. o gives Shift and where on screen the button went down. True if it began.
+  function beginTool(p, drawNow, o) {
+    var h = hit(p), onImage = p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h;
+    if (!h && drawNow) {
+      if (!onImage) return false;
+      snapshot();
+      var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: o.shift };
+      state.strokes.push(s);
+      drag = { part: "stroke", stroke: s };
+      showPanel("draw");
+      render();
+      return true;
+    }
+    if (h) {
+      snapshot();
+      if (h.part === "pill" && state.picks.length > 1 && state.picks.indexOf(h.i) >= 0) {
+        // one of several selected pills: a drag moves them all, a plain click narrows the selection to it
+        drag = { part: "pills", idx: h.i, sx: o.sx, sy: o.sy, x0: p.x, y0: p.y, moved: false,
+                 from: picked().map(function (m) { return [m.px, m.py, bare(m)]; }) };
+      } else {
+        select(h.i);
+        var n = state.notes[h.i];
+        drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false, bare: bare(n) };
+      }
+      showPanel("note");
+      sync(); render();
+      return true;
+    }
+    if (onImage) {
+      // press on the spot being described, drag out, release where the pill should sit
+      addNote(p.x, p.y, true);
+      if (o.shift) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
+      drag = { part: "create", sx: o.sx, sy: o.sy, moved: false };
+      return true;
+    }
+    select(-1); sync(); render();
+    return false;
+  }
   canvas.addEventListener("pointerdown", function (e) {
     if (!state.img) return;
-    var rightBtn = isRightButton(e), otherBtn = !rightBtn && isOtherButton(e), penEraser = e.button === 5;
-    if (!rightBtn && !otherBtn && !penEraser && e.button !== 0) return;
-    // Draw on: left draws, wheel adds a note. Notes on: left adds a note, wheel draws.
-    var drawNow = (state.tool === "draw") !== otherBtn;
+    var rightBtn = isRightButton(e), wheelBtn = !rightBtn && e.button === 1, penEraser = e.button === 5;
+    if (!rightBtn && !wheelBtn && !penEraser && e.button !== 0) return;
+    // a mouse's left button always draws; a finger or a stylus does what the Draw / Notes switch says
+    var byTouch = e.pointerType === "touch" || e.pointerType === "pen";
+    var drawNow = !byTouch || state.tool === "draw";
     if (drag) endDrag(true);
     var wasTyping = document.activeElement === $("noteText");
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
@@ -1117,54 +1197,30 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       return;
     }
     var p = toImg(e);
-    if (rightBtn || penEraser) {
-      // wait to see whether this is a click (menu) or a drag (eraser); a stylus eraser tip erases at once.
-      // With Ctrl (or Alt) held, the drag changes the eraser's size instead of erasing.
-      drag = { part: "rclick", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: !penEraser && isSizeKey(e), tool: "eraser" };
+    if (wheelBtn || penEraser) {
+      // the wheel button is the eraser, and so is the eraser end of a stylus: it rubs out from the moment it goes
+      // down. With Ctrl (or Alt) held, a drag changes the eraser's size instead, and a click does nothing.
+      drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: !penEraser && isSizeKey(e), tool: "eraser" };
       canvas.setPointerCapture(e.pointerId);
-      if (penEraser) startErase(); else if (drag.sizing) holdPointer(e);
+      if (drag.sizing) holdPointer(e); else startErase();
+      return;
+    }
+    if (rightBtn) {
+      // wait to see whether this is a click (the pop-up menu) or a drag (a note, dragged out from here, or a
+      // pill or dot picked up). With Ctrl (or Alt) held, the drag changes the note's text size instead.
+      drag = { part: "rclick", right: true, sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: isSizeKey(e), tool: "note", typing: wasTyping };
+      canvas.setPointerCapture(e.pointerId);
+      if (drag.sizing) holdPointer(e);
       return;
     }
     if (isSizeKey(e)) {
-      // Ctrl + left or wheel button: a drag resizes what that button does (the line, or the note); a click does nothing
+      // Ctrl + left button: a drag resizes the line (for a finger on Notes, the note); a click does nothing
       drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: true, tool: drawNow ? "pen" : "note", typing: wasTyping };
       canvas.setPointerCapture(e.pointerId);
       holdPointer(e);
       return;
     }
-    var h = hit(p);
-    if (!h && drawNow) {
-      if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return;
-      snapshot();
-      var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: e.shiftKey };
-      state.strokes.push(s);
-      drag = { part: "stroke", stroke: s };
-      canvas.setPointerCapture(e.pointerId);
-      render();
-      return;
-    }
-    if (h) {
-      snapshot();
-      if (h.part === "pill" && state.picks.length > 1 && state.picks.indexOf(h.i) >= 0) {
-        // one of several selected pills: a drag moves them all, a plain click narrows the selection to it
-        drag = { part: "pills", idx: h.i, sx: e.clientX, sy: e.clientY, x0: p.x, y0: p.y, moved: false,
-                 from: picked().map(function (m) { return [m.px, m.py]; }) };
-      } else {
-        select(h.i);
-        var n = state.notes[h.i];
-        drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false };
-      }
-      canvas.setPointerCapture(e.pointerId);
-      sync(); render();
-    } else if (p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h) {
-      // press on the spot being described, drag out, release where the pill should sit
-      addNote(p.x, p.y, true);
-      if (e.shiftKey) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
-      drag = { part: "create", sx: e.clientX, sy: e.clientY, moved: false };
-      canvas.setPointerCapture(e.pointerId);
-    } else {
-      select(-1); sync(); render();
-    }
+    if (beginTool(p, drawNow, { shift: e.shiftKey, sx: e.clientX, sy: e.clientY })) canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove", function (e) {
     if (!state.img) return;
@@ -1185,10 +1241,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         if (Math.hypot(drag.dx, drag.dy) < 5) return;
         startSizing();
       } else {
+        // the right button, dragged: put a note down where it was pressed, or pick up the note that is there
         if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
-        startErase();
+        var was = drag;
+        drag = null;
+        if (!beginTool({ x: was.last[0], y: was.last[1] }, false, { shift: e.shiftKey, sx: was.sx, sy: was.sy })) drag = { part: "idle" };
+        drag.right = true;
       }
     }
+    if (drag.part === "idle") return;
     if (drag.part === "size") { dragSize(e); return; }
     if (drag.part === "erase") {
       var to = [p.x, p.y];
@@ -1232,7 +1293,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         lo[1] = Math.max(lo[1], -f[1]); hi[1] = Math.min(hi[1], state.h - f[1]);
       });
       var mx = clamp(p.x - drag.x0, lo[0], hi[0]), my = clamp(p.y - drag.y0, lo[1], hi[1]);
-      picked().forEach(function (m, k) { m.px = drag.from[k][0] + mx; m.py = drag.from[k][1] + my; });
+      picked().forEach(function (m, k) {
+        m.px = drag.from[k][0] + mx; m.py = drag.from[k][1] + my;
+        if (drag.from[k][2]) dropArrow(m);          // a plain comment keeps its dot under it
+      });
       render();
       return;
     }
@@ -1247,15 +1311,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     x = clamp(p.x + drag.dx, 0, state.w); y = clamp(p.y + drag.dy, 0, state.h);
     // with Shift the end being dragged keeps the leader straight from the end that stays put
-    if (drag.part === "pill") { q = e.shiftKey ? snapNote([n.tx, n.ty], x, y) : [x, y]; n.px = q[0]; n.py = q[1]; }
-    else { q = e.shiftKey ? snapNote([n.px, n.py], x, y) : [x, y]; n.tx = q[0]; n.ty = q[1]; }
+    if (drag.part === "pill") {
+      q = e.shiftKey && !drag.bare ? snapNote([n.tx, n.ty], x, y) : [x, y]; n.px = q[0]; n.py = q[1];
+      if (drag.bare) dropArrow(n);                  // a plain comment keeps its dot under it
+    } else { q = e.shiftKey ? snapNote([n.px, n.py], x, y) : [x, y]; n.tx = q[0]; n.ty = q[1]; }
     drag.moved = true;
     render();
   });
   // ---------- Ctrl + drag: change the size of the tool on that button, as in Photoshop ----------
   // Holding Ctrl and dragging with a mouse button resizes what that button does instead of using it:
-  // the left button's line (or note, when the switch is on Notes), the wheel button's note (or line), and the
-  // right button's eraser. Right and up are bigger, left and down are smaller, and the two add up.
+  // the left button's line, the wheel button's eraser and the right button's note.
+  // Right and up are bigger, left and down are smaller, and the two add up.
   function step5(v) { return Math.round(v * 20) / 20; }   // sizes move in steps of 5%
   function startSizing() {
     var tool = drag.tool, h = tool === "note" ? hit({ x: drag.last[0], y: drag.last[1] }) : null;
@@ -1265,6 +1331,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     else if (h) {
       // on a note: that note, with the rest of its selection
       if (state.picks.indexOf(h.i) < 0) { select(h.i); }
+      showPanel("note");
       snapshot();
       drag.note = state.notes[h.i];
       drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
@@ -1341,7 +1408,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function endDrag(cancelled) {
     if (!drag) return;
     var d = drag; drag = null;
+    if (d.right) lastRightDrag = Date.now();
+    if (d.sizing) lastSizing = Date.now();
     if (d.part === "pan") { canvas.style.cursor = spaceDown ? "grab" : "crosshair"; return; }
+    if (d.part === "idle") return;
     if (d.sizing) freePointer();             // the cursor comes back where it was held
     if (d.part === "sizewait") {
       // Ctrl + click without moving. The note button still does its job; the drawing button does nothing.
@@ -1353,7 +1423,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       return;
     }
     if (d.part === "stroke") { sync(); return; }
-    if (d.part === "create") { focusText(); return; }
+    if (d.part === "create") { var made = selected(); if (made) { tuck(made); render(); } focusText(); return; }
     if (d.part === "size") {
       lastRightDrag = Date.now();
       if (d.what === "notes" && !d.changed) history.pop();   // nothing changed, so leave undo as it was
@@ -1364,8 +1434,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         return;
       }
       sync(); render();
-      // back to typing, if the note's text box had the keyboard when the button went down
-      var one = d.what === "notes" && d.typing && state.picks.length === 1 ? selected() : null;
+      // one note resized: straight into its text box, so it can be typed at once
+      var one = d.what === "notes" && cancelled !== true && state.picks.length === 1 ? selected() : null;
       if (one) focusText(one.text !== "New note");
       return;
     }
@@ -1384,6 +1454,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!d.moved) {
       history.pop();
       if (d.part === "pills") { select(d.idx); sync(); render(); }
+    } else {
+      // a dot left under its own pill: the note is a plain comment now, and the dot stays in the middle of it
+      picked().forEach(tuck);
+      sync(); render();
     }
     $("undo").disabled = history.length === 0;
   }
@@ -1394,9 +1468,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   canvas.addEventListener("auxclick", function (e) { e.preventDefault(); });
   canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   // a right-drag that ends off the image (over the side panel, say) must not bring up the browser's menu
-  var lastRightDrag = 0;
+  var lastRightDrag = 0, lastSizing = 0;
+  // Alt works for resizing too, and letting go of Alt on its own would otherwise put the keyboard in the browser's menu
+  document.addEventListener("keyup", function (e) { if (e.key === "Alt" && ((drag && drag.sizing) || Date.now() - lastSizing < 3000)) e.preventDefault(); });
   document.addEventListener("contextmenu", function (e) {
-    if ((drag && (drag.part === "erase" || drag.part === "rclick" || drag.part === "size")) || Date.now() - lastRightDrag < 600 || $("menu").contains(e.target)) e.preventDefault();
+    if ((drag && drag.right) || Date.now() - lastRightDrag < 600 || $("menu").contains(e.target)) e.preventDefault();
   });
 
   // ---------- right-click pop-up menu ----------
@@ -1429,6 +1505,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (h) {
       // a note: act on it, or on the whole selection if it is part of one
       if (state.picks.indexOf(h.i) < 0) select(h.i); else state.sel = h.i;
+      showPanel("note");
       sync(); render();
       var n = state.notes[h.i], many = state.picks.length > 1;
       if (!many) add(menuItem("Edit text", "", focusText));
@@ -1444,6 +1521,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(sh);
       add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
+      }));
+      var plain = bare(n);
+      add(menuItem(plain ? "Add arrow" : "Remove arrow", "", function () {
+        snapshot(); picked().forEach(plain ? giveArrow : dropArrow); sync(); render();
       }));
       rule();
       add(menuItem(many ? "Delete " + state.picks.length + " notes" : "Delete note", "Del", deleteSel, { danger: true }));
@@ -1678,7 +1759,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     sync(); render();
     doc.pages.forEach(function (q, k) { markPage(k); });
     if (pg.el) pg.el.scrollIntoView({ block: "nearest", inline: "nearest" });
-    var ready = "Page " + pg.n + " of " + total + ". Left-drag draws, right-drag erases, wheel click adds a note.";
+    var ready = "Page " + pg.n + " of " + total + ". Left-drag draws, the wheel button erases, right-drag adds a note.";
     if (pg.img) { pg.used = ++useClock; status(ready); return; }
     status("Drawing page " + pg.n + "…");
     renderPage(pg).then(function (c) {
@@ -1859,7 +1940,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       state.blank = false; stage.classList.add("has-image");
       $("docname").textContent = (file.name || "Pasted image") + " · " + state.w + " × " + state.h + " px";
       sync(); render();
-      status("Image loaded. Left-drag draws, right-drag erases, wheel click adds a note.");
+      status("Image loaded. Left-drag draws, the wheel button erases, right-drag adds a note.");
     };
     im.onerror = function () { status("That image could not be read. Try exporting it as PNG or JPG."); };
     im.src = url;
@@ -2046,6 +2127,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // ---------- boot ----------
   new ResizeObserver(render).observe(stage);
   setTool("draw");
+  if (COARSE) $("listEmpty").textContent = "No notes yet. Tap the image to add one.";
   Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
   sync();
 })();
