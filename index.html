@@ -855,7 +855,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
-      vertical: false, color: "black", shape: "pill", size: 1
+      vertical: false, color: "red", shape: "pill", size: 1      // red unless a note has been selected before
     };
     // a new note looks like the selected one, or failing that like the note that was selected last
     var last = selected() || state.style;
