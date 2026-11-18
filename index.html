@@ -283,7 +283,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
       </label>
-      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd> and drag with the right button to change sizes: sideways for the line width, up or down for the eraser.</p>
+      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd>, press a mouse button and move sideways to resize what that button does: the line, the note or the eraser. The cursor stays put while you do.</p>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
     <div class="section">
@@ -984,10 +984,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // button does the other one, so a mouse can draw and annotate without switching. The right button erases when dragged and adds a note on a plain click
   // (a two-finger tap on a trackpad). Pills can be picked up with the left or wheel button.
   var IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || "");
-  // on a Mac, Ctrl+click is how a one-button mouse right-clicks; elsewhere it adds a note
+  // on a Mac, Ctrl+click is how a one-button mouse right-clicks
   function isRightButton(e) { return e.button === 2 || (IS_MAC && e.button === 0 && e.ctrlKey); }
-  // the wheel button (or Ctrl+click) does whichever of draw / note the left button is not doing
-  function isOtherButton(e) { return e.button === 1 || (!IS_MAC && e.button === 0 && e.ctrlKey); }
+  // the wheel button does whichever of draw / note the left button is not doing
+  function isOtherButton(e) { return e.button === 1; }
+  // Ctrl (or Alt) held while pressing a button: a drag then resizes that button's tool instead of using it.
+  // A Mac's Ctrl+click is already a right-click, so there only Alt counts for the left button.
+  function isSizeKey(e) { return e.altKey || (e.ctrlKey && !(IS_MAC && e.button === 0)); }
   canvas.addEventListener("pointerdown", function (e) {
     if (!state.img) return;
     var rightBtn = isRightButton(e), otherBtn = !rightBtn && isOtherButton(e), penEraser = e.button === 5;
@@ -1006,11 +1009,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     var p = toImg(e);
     if (rightBtn || penEraser) {
-      // wait to see whether this is a click (note) or a drag (eraser); a stylus eraser tip erases at once
-      // with Ctrl (or Alt) held, dragging the real right button changes a size instead of erasing
-      drag = { part: "rclick", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: e.button === 2 && (e.ctrlKey || e.altKey) };
+      // wait to see whether this is a click (menu) or a drag (eraser); a stylus eraser tip erases at once.
+      // With Ctrl (or Alt) held, the drag changes the eraser's size instead of erasing.
+      drag = { part: "rclick", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: !penEraser && isSizeKey(e), tool: "eraser" };
       canvas.setPointerCapture(e.pointerId);
-      if (penEraser) startErase();
+      if (penEraser) startErase(); else if (drag.sizing) holdPointer(e);
+      return;
+    }
+    if (isSizeKey(e)) {
+      // Ctrl + left or wheel button: a drag resizes what that button does (the line, or the note); a click does nothing
+      drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: true, tool: drawNow ? "pen" : "note" };
+      canvas.setPointerCapture(e.pointerId);
+      holdPointer(e);
       return;
     }
     var h = hit(p);
@@ -1059,9 +1069,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       render();
       return;
     }
-    if (drag.part === "rclick") {
-      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
-      if (drag.sizing) startSizing(e); else startErase();
+    if (drag.part === "rclick" || drag.part === "sizewait") {
+      if (drag.sizing) {
+        trackPointer(e);
+        if (Math.hypot(drag.dx, drag.dy) < 5) return;
+        startSizing();
+      } else {
+        if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
+        startErase();
+      }
     }
     if (drag.part === "size") { dragSize(e); return; }
     if (drag.part === "erase") {
@@ -1123,37 +1139,65 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     drag.moved = true;
     render();
   });
-  // ---------- Ctrl + right-drag: change a size, as in Photoshop ----------
-  // Sideways changes the size of what the left button is set to: the line width on Draw, the text size on Notes.
-  // Started on a note, it changes that note (or the whole selection it belongs to). Up and down changes the
-  // eraser, which has no mode of its own. The direction is fixed by the first few pixels of the drag.
+  // ---------- Ctrl + drag: change the size of the tool on that button, as in Photoshop ----------
+  // Holding Ctrl and dragging sideways with a mouse button resizes what that button does instead of using it:
+  // the left button's line (or note, when the switch is on Notes), the wheel button's note (or line), and the
+  // right button's eraser. Right is bigger, left is smaller.
   function step5(v) { return Math.round(v * 20) / 20; }   // sizes move in steps of 5%
-  function startSizing(e) {
-    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy, h = hit({ x: drag.last[0], y: drag.last[1] });
+  function startSizing() {
+    var tool = drag.tool, h = tool === "note" ? hit({ x: drag.last[0], y: drag.last[1] }) : null;
     drag.part = "size";
-    if (Math.abs(dy) > Math.abs(dx)) { drag.what = "eraser"; drag.from = state.eraser; }
-    else if (h || (state.tool === "note" && state.picks.length)) {
+    if (tool === "eraser") { drag.what = "eraser"; drag.from = state.eraser; }
+    else if (tool === "pen") { drag.what = "pen"; drag.from = state.pen.width; }
+    else if (h || state.picks.length) {
+      // the note under the pointer (with the rest of its selection), or else whatever is selected
       if (h && state.picks.indexOf(h.i) < 0) { select(h.i); }
       snapshot();
       drag.note = h ? state.notes[h.i] : null;
       drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
-    } else if (state.tool === "draw") { drag.what = "pen"; drag.from = state.pen.width; }
-    else {
-      // Notes with nothing selected: the size the next notes will have
+    } else {
+      // no note there and none selected: the size the next notes will have
       if (!state.style) state.style = { vertical: false, color: "black", shape: "pill", size: 1 };
       drag.what = "next"; drag.from = state.style.size;
     }
-    canvas.style.cursor = drag.what === "eraser" ? "ns-resize" : "ew-resize";
-    dragSize(e);
+    canvas.style.cursor = "none";
+  }
+  // The cursor stays where it is while a size is changed: from the moment the button goes down with Ctrl held,
+  // the pointer is locked in place and hidden, and only the mouse's movement is read. It comes back at the same
+  // spot when the button is released. Where the browser will not lock it, its position is used instead.
+  function holdPointer(e) {
+    drag.dx = 0; drag.dy = 0; drag.counted = e;
+    if (!canvas.requestPointerLock) return;
+    try { var asked = canvas.requestPointerLock(); if (asked && asked.catch) asked.catch(function () {}); } catch (err) { /* not allowed here */ }
+  }
+  function freePointer() { if (document.pointerLockElement === canvas) document.exitPointerLock(); }
+  // How far the mouse has moved since the button went down, kept in drag.dx and drag.dy. While the pointer is
+  // locked its position does not change, so the movement reported with each event is added up; each event counts once.
+  function trackPointer(e) {
+    if (document.pointerLockElement === canvas) {
+      if (!drag.locked) { drag.locked = true; drag.lockX = e.clientX; drag.lockY = e.clientY; }
+      if (e !== drag.counted) {
+        drag.counted = e;
+        var mx = e.movementX || 0, my = e.movementY || 0;
+        // a jump bigger than a hand can make in one step is a glitch, not movement
+        if (Math.abs(mx) <= 250 && Math.abs(my) <= 250) { drag.dx += mx; drag.dy += my; }
+      }
+    } else {
+      // not locked (or the lock was given up, which leaves the cursor where it was held): go by the position
+      if (drag.locked) { drag.locked = false; drag.sx = drag.lockX - drag.dx; drag.sy = drag.lockY - drag.dy; }
+      drag.counted = e;
+      drag.dx = e.clientX - drag.sx; drag.dy = e.clientY - drag.sy;
+    }
   }
   function dragSize(e) {
-    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy, pct = function (v) { return Math.round(v * 100) + "%"; };
-    var tail = drag.what === "eraser" ? " · drag sideways for the line or note size" : " · drag up or down for the eraser size";
+    trackPointer(e);
+    var dx = drag.dx, pct = function (v) { return Math.round(v * 100) + "%"; };
+    var tail = " · move right for bigger, left for smaller";
     if (drag.what === "eraser") {
-      state.eraser = clamp(Math.round(drag.from - dy / 2), 3, 100);        // up is bigger; one pixel of drag is one pixel across
+      state.eraser = clamp(Math.round(drag.from + dx / 2), 3, 100);        // one pixel of drag is one pixel across
       status("Eraser size " + Math.round(state.eraser * 2) + " px" + tail);
     } else if (drag.what === "pen") {
-      state.pen.width = clamp(step5(drag.from + dx / 100), 0.3, 4);   // 100 px of drag is 100%
+      state.pen.width = clamp(step5(drag.from + dx / 100), 0.3, 4);        // 100 px of drag is 100%
       status("Line width " + pct(state.pen.width) + tail);
     } else if (drag.what === "notes") {
       var ps = picked();
@@ -1166,6 +1210,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     sync(); render();
   }
+  document.addEventListener("pointerlockchange", function () {
+    // if the lock only arrives after the button is already up, let go of it at once
+    if (document.pointerLockElement === canvas && !(drag && drag.sizing)) document.exitPointerLock();
+  });
   function startErase() {
     snapshot();
     // what was there when the drag began, for the straight eraser; erasing never changes a stroke or note in place
@@ -1181,6 +1229,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!drag) return;
     var d = drag; drag = null;
     if (d.part === "pan") { canvas.style.cursor = spaceDown ? "grab" : "crosshair"; return; }
+    if (d.sizing) freePointer();             // the cursor comes back where it was held
+    if (d.part === "sizewait") return;       // Ctrl + click without a drag: nothing to do
     if (d.part === "stroke") { sync(); return; }
     if (d.part === "create") { focusText(); return; }
     if (d.part === "size") {
