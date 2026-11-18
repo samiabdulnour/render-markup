@@ -293,7 +293,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
       <label for="eraserSize" title="The wheel button erases. It has the same tip as the pen, round or square.">Eraser size <span class="val" id="eraserSizeVal"></span>
-        <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
+        <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
       </label>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
@@ -392,7 +392,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
-                tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 10, nextId: 1,
+                tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
