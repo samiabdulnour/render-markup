@@ -282,6 +282,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="inkPen" aria-pressed="true" title="A solid line">Pen</button>
         <button id="inkHi" aria-pressed="false" title="A wide see-through line, for marking an area without hiding it">Highlighter</button>
       </div>
+      <div class="seg" role="group" aria-label="Tip shape">
+        <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded">Round tip</button>
+        <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker">Square tip</button>
+      </div>
       <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
@@ -382,9 +386,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
-                tool: "draw", pen: { color: "red", width: 1, hi: false }, eraser: 10, nextId: 1,
-                // the pen and the highlighter each remember their own colour and width
-                inks: { pen: { color: "red", width: 1 }, hi: { color: "yellow", width: 6 } } };
+                tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 10, nextId: 1,
+                // the pen and the highlighter each remember their own colour, width and tip
+                inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
   // s is screen px per image px; ox/oy place the image on the stage. zoom is a multiple of the scale that
   // fits the whole image (1 = fitted), and cx/cy is the image point shown at the middle of the stage.
@@ -545,7 +549,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (!hitAny) { out.push(s); return; }
       if (run.length > 1) pieces.push(run);
       changed = true;
-      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, points: pp, flat: true }); });
+      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, tip: s.tip, points: pp, flat: true }); });
     });
     if (changed) state.strokes = out;
     return changed;
@@ -554,7 +558,27 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var col = (PEN_COLORS[s.color] || PEN_COLORS.red).fill, pts = s.points, lw = penPx(s);
     c.save();
     if (s.hi) c.globalAlpha = HI_ALPHA;      // a highlighter stroke lets the image show through, evenly along its length
-    c.strokeStyle = c.fillStyle = col; c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
+    c.strokeStyle = c.fillStyle = col;
+    if (s.tip === "square") {
+      // A square tip is a square brush: an upright square swept along the line, as in a paint program. Ends and
+      // single clicks are square, a turn has a sharp outer corner, and a slanted line comes out a little wider.
+      // Each step of the line adds the shape swept between two positions of the square (always wound the same
+      // way), and the whole lot is filled once, so a see-through line stays even where the steps overlap.
+      var h = lw / 2, path = pts.length > 2 ? flatten(s) : pts;
+      var X = [-1, 1, 1, -1], Y = [-1, -1, 1, 1];                 // the square's corners, clockwise from top-left
+      c.beginPath();
+      if (path.length === 1) c.rect(path[0][0] - h, path[0][1] - h, lw, lw);
+      for (var k = 0; k < path.length - 1; k++) {
+        var A = path[k], B = path[k + 1];
+        // of each square, leave out the corner that points into the other one: A's towards B, B's towards A
+        var skipA = (B[0] >= A[0] ? (B[1] >= A[1] ? 2 : 1) : (B[1] >= A[1] ? 3 : 0)), skipB = (skipA + 2) % 4, j, q;
+        for (j = 1; j <= 3; j++) { q = (skipA + j) % 4; if (j === 1) c.moveTo(A[0] + X[q] * h, A[1] + Y[q] * h); else c.lineTo(A[0] + X[q] * h, A[1] + Y[q] * h); }
+        for (j = 1; j <= 3; j++) { q = (skipB + j) % 4; c.lineTo(B[0] + X[q] * h, B[1] + Y[q] * h); }
+        c.closePath();
+      }
+      c.fill(); c.restore(); return;
+    }
+    c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
     if (pts.length === 1) { c.beginPath(); c.arc(pts[0][0], pts[0][1], lw / 2, 0, Math.PI * 2); c.fill(); c.restore(); return; }
     c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
     if (pts.length === 2) c.lineTo(pts[1][0], pts[1][1]);
@@ -710,9 +734,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (tipAt) {
       // the pen tip at its real size
       var tip = penPx({ width: state.pen.width }) / 2;
-      ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip + 1.5 / view.s, 0, Math.PI * 2);
+      var shape = function (r) {
+        ctx.beginPath();
+        if (state.pen.tip === "square") ctx.rect(tipAt[0] - r, tipAt[1] - r, r * 2, r * 2); else ctx.arc(tipAt[0], tipAt[1], r, 0, Math.PI * 2);
+      };
+      shape(tip + 1.5 / view.s);
       ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
-      ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip, 0, Math.PI * 2);
+      shape(tip);
       ctx.fillStyle = (PEN_COLORS[state.pen.color] || PEN_COLORS.red).fill;
       if (state.pen.hi) {
         // the highlighter tip is see-through like its line, with an outline so its size still reads
@@ -922,6 +950,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
     $("inkPen").setAttribute("aria-pressed", String(!state.pen.hi));
     $("inkHi").setAttribute("aria-pressed", String(!!state.pen.hi));
+    $("tipRound").setAttribute("aria-pressed", String(state.pen.tip !== "square"));
+    $("tipSquare").setAttribute("aria-pressed", String(state.pen.tip === "square"));
     $("penWidthVal").textContent = penLabel(state.pen.width);
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
     if (document.activeElement !== $("penWidth")) $("penWidth").value = penToSlider(state.pen.width);
@@ -976,14 +1006,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Pen or Highlighter: each keeps the colour and width it was last used with
   function setInk(hi) {
     if (!!state.pen.hi === hi) return;
-    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width };
+    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
     var next = state.inks[hi ? "hi" : "pen"];
-    state.pen = { color: next.color, width: next.width, hi: hi };
+    state.pen = { color: next.color, width: next.width, hi: hi, tip: next.tip || "round" };
     sync();
     status(hi ? "Highlighter: a wide see-through line. Pen switches back." : "Pen.");
   }
   $("inkPen").addEventListener("click", function () { setInk(false); });
   $("inkHi").addEventListener("click", function () { setInk(true); });
+  $("tipRound").addEventListener("click", function () { state.pen.tip = "round"; sync(); });
+  $("tipSquare").addEventListener("click", function () { state.pen.tip = "square"; sync(); });
   $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; sliderPreview = "eraser"; sync(); render(); });
   ["penWidth", "eraserSize"].forEach(function (id) {
     ["change", "blur", "pointerup", "keyup"].forEach(function (t) {
@@ -1070,7 +1102,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!h && drawNow) {
       if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return;
       snapshot();
-      var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, points: [[p.x, p.y]], straight: e.shiftKey };
+      var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: e.shiftKey };
       state.strokes.push(s);
       drag = { part: "stroke", stroke: s };
       canvas.setPointerCapture(e.pointerId);
