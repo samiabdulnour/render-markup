@@ -694,19 +694,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip, 0, Math.PI * 2);
       ctx.fillStyle = (COLORS[state.pen.color] || COLORS.red).fill; ctx.fill();
       hud = { text: "Line width " + pct(state.pen.width), at: tipAt, r: tip };
-    } else if (sizing === "next") {
-      // a sample of the next note at its real size
-      var sample = { text: "New note", tx: drag.last[0], ty: drag.last[1], px: drag.last[0], py: drag.last[1],
-                     vertical: state.style.vertical, color: state.style.color, shape: state.style.shape, size: state.style.size };
-      var SL = layout(sample, ctx);
-      ctx.save(); ctx.globalAlpha = 0.8; drawNote(ctx, sample, SL); ctx.restore();
-      hud = { text: "Text size " + pct(state.style.size), at: drag.last, r: (sample.vertical ? SL.w : SL.h) / 2 };
+    } else if (sizing === "new") {
+      // the note being placed, where it will go, at its size so far
+      var ML = layout(drag.made, ctx);
+      ctx.save(); ctx.globalAlpha = 0.9; drawNote(ctx, drag.made, ML); ctx.restore();
+      hud = { text: "Text size " + pct(drag.made.size), at: [drag.made.px, drag.made.py], r: (drag.made.vertical ? ML.w : ML.h) / 2 };
     } else if (sizing === "notes") {
       // the notes themselves are the preview; the label sits over the one the drag began on
-      var held = drag.note && state.notes.indexOf(drag.note) >= 0 ? drag.note : null, many = picked().length;
-      var HL = held ? layout(held, ctx) : null;
-      hud = { text: "Text size " + pct((held || picked()[0]).size) + (many > 1 ? " · " + many + " notes" : ""),
-              at: held ? [held.px, held.py] : drag.last, r: held ? (held.vertical ? HL.w : HL.h) / 2 : 14 / view.s };
+      var held = drag.note, many = picked().length, HL = layout(held, ctx);
+      hud = { text: "Text size " + pct(held.size) + (many > 1 ? " · " + many + " notes" : ""),
+              at: [held.px, held.py], r: (held.vertical ? HL.w : HL.h) / 2 };
     }
     var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (sliderPreview === "eraser" ? mid : null);
     if (ring) {
@@ -795,9 +792,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-  function focusText() { setTimeout(function () { var ta = $("noteText"); ta.focus(); ta.select(); }, 0); }
-  function addNote(x, y, deferFocus) {
-    snapshot();
+  // Put the keyboard in the note's text box. The text is selected so typing replaces it, unless keep is set,
+  // which leaves the caret where it was (for a note that already has its own text).
+  function focusText(keep) { setTimeout(function () { var ta = $("noteText"); ta.focus(); if (!keep) ta.select(); }, 0); }
+  // A new note pointing at (x, y), with its pill set off to one side; not yet part of the image.
+  function newNote(x, y) {
     var dx = state.w * 0.11 * (x > state.w / 2 ? -1 : 1);
     var dy = -state.h * 0.1;
     var n = {
@@ -808,7 +807,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     // a new note looks like the selected one, or failing that like the note that was selected last
     var last = selected() || state.style;
     if (last) { n.vertical = !!last.vertical; n.color = last.color || "black"; n.shape = shapeOf(last); n.size = last.size; }
-    state.notes.push(n);
+    return n;
+  }
+  function addNote(x, y, deferFocus, made) {
+    snapshot();
+    state.notes.push(made || newNote(x, y));
     select(state.notes.length - 1);
     sync(); render();
     if (!deferFocus) focusText();
@@ -998,6 +1001,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     // Draw on: left draws, wheel adds a note. Notes on: left adds a note, wheel draws.
     var drawNow = (state.tool === "draw") !== otherBtn;
     if (drag) endDrag(true);
+    var wasTyping = document.activeElement === $("noteText");
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
     canvas.focus({ preventScroll: true });
     if (spaceDown && e.button === 0) {
@@ -1018,7 +1022,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     if (isSizeKey(e)) {
       // Ctrl + left or wheel button: a drag resizes what that button does (the line, or the note); a click does nothing
-      drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: true, tool: drawNow ? "pen" : "note" };
+      drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: true, tool: drawNow ? "pen" : "note", typing: wasTyping };
       canvas.setPointerCapture(e.pointerId);
       holdPointer(e);
       return;
@@ -1149,16 +1153,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     drag.part = "size";
     if (tool === "eraser") { drag.what = "eraser"; drag.from = state.eraser; }
     else if (tool === "pen") { drag.what = "pen"; drag.from = state.pen.width; }
-    else if (h || state.picks.length) {
-      // the note under the pointer (with the rest of its selection), or else whatever is selected
-      if (h && state.picks.indexOf(h.i) < 0) { select(h.i); }
+    else if (h) {
+      // on a note: that note, with the rest of its selection
+      if (state.picks.indexOf(h.i) < 0) { select(h.i); }
       snapshot();
-      drag.note = h ? state.notes[h.i] : null;
+      drag.note = state.notes[h.i];
       drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
     } else {
-      // no note there and none selected: the size the next notes will have
-      if (!state.style) state.style = { vertical: false, color: "black", shape: "pill", size: 1 };
-      drag.what = "next"; drag.from = state.style.size;
+      // on empty image: a new note, shown where it will go while its size is set, and added on release
+      drag.what = "new"; drag.made = newNote(drag.last[0], drag.last[1]); drag.from = drag.made.size;
     }
     canvas.style.cursor = "none";
   }
@@ -1205,8 +1208,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       drag.changed = ps.some(function (n, k) { return n.size !== drag.from[k]; });
       status("Text size " + pct(ps[0].size) + (ps.length > 1 ? " for " + ps.length + " notes" : "") + tail);
     } else {
-      state.style.size = clamp(step5(drag.from + dx / 100), 0.25, 4);
-      status("Text size " + pct(state.style.size) + " for new notes" + tail);
+      drag.made.size = clamp(step5(drag.from + dx / 100), 0.25, 4);
+      status("Text size " + pct(drag.made.size) + tail + " · let go to add the note");
     }
     sync(); render();
   }
@@ -1230,14 +1233,30 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var d = drag; drag = null;
     if (d.part === "pan") { canvas.style.cursor = spaceDown ? "grab" : "crosshair"; return; }
     if (d.sizing) freePointer();             // the cursor comes back where it was held
-    if (d.part === "sizewait") return;       // Ctrl + click without a drag: nothing to do
+    if (d.part === "sizewait") {
+      // Ctrl + click without moving. The note button still does its job; the drawing button does nothing.
+      if (d.tool === "note" && cancelled !== true) {
+        var at = { x: d.last[0], y: d.last[1] }, on = hit(at);
+        if (on) { select(on.i); sync(); render(); if (d.typing) focusText(selected().text !== "New note"); }
+        else if (at.x >= 0 && at.y >= 0 && at.x <= state.w && at.y <= state.h) addNote(at.x, at.y);
+      }
+      return;
+    }
     if (d.part === "stroke") { sync(); return; }
     if (d.part === "create") { focusText(); return; }
     if (d.part === "size") {
       lastRightDrag = Date.now();
       if (d.what === "notes" && !d.changed) history.pop();   // nothing changed, so leave undo as it was
       canvas.style.cursor = "crosshair";
+      if (d.what === "new") {
+        // the note that was being sized goes onto the image, ready for its text
+        if (cancelled !== true) addNote(0, 0, false, d.made); else { sync(); render(); }
+        return;
+      }
       sync(); render();
+      // back to typing, if the note's text box had the keyboard when the button went down
+      var one = d.what === "notes" && d.typing && state.picks.length === 1 ? selected() : null;
+      if (one) focusText(one.text !== "New note");
       return;
     }
     if (d.part === "erase") {
