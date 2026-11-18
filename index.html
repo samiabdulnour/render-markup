@@ -293,7 +293,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
       </label>
-      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser has the same tip as the pen, round or square, and also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd>, press a mouse button and move sideways to resize what that button does: the line, the note or the eraser. The cursor stays put while you do.</p>
+      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser has the same tip as the pen, round or square, and also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd>, press a mouse button and move the mouse to resize what that button does: the line, the note or the eraser. Right or up is bigger, left or down smaller. The cursor stays put while you do.</p>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
     <div class="section">
@@ -1253,9 +1253,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     render();
   });
   // ---------- Ctrl + drag: change the size of the tool on that button, as in Photoshop ----------
-  // Holding Ctrl and dragging sideways with a mouse button resizes what that button does instead of using it:
+  // Holding Ctrl and dragging with a mouse button resizes what that button does instead of using it:
   // the left button's line (or note, when the switch is on Notes), the wheel button's note (or line), and the
-  // right button's eraser. Right is bigger, left is smaller.
+  // right button's eraser. Right and up are bigger, left and down are smaller, and the two add up.
   function step5(v) { return Math.round(v * 20) / 20; }   // sizes move in steps of 5%
   function startSizing() {
     var tool = drag.tool, h = tool === "note" ? hit({ x: drag.last[0], y: drag.last[1] }) : null;
@@ -1303,12 +1303,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   function dragSize(e) {
     trackPointer(e);
-    var dx = drag.dx, tail = " · move right for bigger, left for smaller";
+    // sideways and up-and-down movement both count: right and up for bigger, left and down for smaller
+    var dx = drag.dx - drag.dy, tail = " · move right or up for bigger, left or down for smaller";
     if (drag.what === "eraser") {
-      state.eraser = clamp(Math.round(drag.from + dx / 2), 3, 100);        // one pixel of drag is one pixel across
+      state.eraser = clamp(Math.round(drag.from + dx / 2), 3, 100);        // one pixel of movement is one pixel across
       status("Eraser size " + Math.round(state.eraser * 2) + " px" + tail);
     } else if (drag.what === "pen") {
-      // the width doubles for every 120 px moved right and halves for every 120 px left
+      // the width doubles for every 120 px moved right or up, and halves for every 120 px left or down
       state.pen.width = clamp(Math.round(drag.from * Math.pow(2, dx / 120) * 100) / 100, PEN_MIN, PEN_MAX);
       status("Line width " + penLabel(state.pen.width) + tail);
     } else if (drag.what === "notes") {
