@@ -283,8 +283,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="inkHi" aria-pressed="false" title="A wide see-through line, for marking an area without hiding it">Highlighter</button>
       </div>
       <div class="seg" role="group" aria-label="Tip shape">
-        <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded">Round tip</button>
-        <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker">Square tip</button>
+        <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded; the eraser is round">Round tip</button>
+        <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker; the eraser is square too">Square tip</button>
       </div>
       <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
@@ -293,7 +293,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
       </label>
-      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd>, press a mouse button and move sideways to resize what that button does: the line, the note or the eraser. The cursor stays put while you do.</p>
+      <p class="note">Drag to draw, or drag with the right mouse button to erase; the eraser has the same tip as the pen, round or square, and also removes any note whose pill it touches. Hold <kbd>Shift</kbd> for a straight line or a straight eraser (it snaps to horizontal, vertical and 45° when close). Hold <kbd>Ctrl</kbd>, press a mouse button and move sideways to resize what that button does: the line, the note or the eraser. The cursor stays put while you do.</p>
       <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
     <div class="section">
@@ -307,7 +307,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="noteText" id="noteTextWrap">Text
         <textarea id="noteText" spellcheck="true"></textarea>
       </label>
-      <div class="swatches" id="noteColors" role="group" aria-label="Colour"></div>
+      <div class="swatches five" id="noteColors" role="group" aria-label="Colour"></div>
       <div class="swatches" id="noteShapes" role="group" aria-label="Shape"></div>
       <div class="seg" role="group" aria-label="Orientation">
         <button id="oriH" aria-pressed="true">Horizontal</button>
@@ -366,11 +366,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     white: { name: "White", fill: "#ffffff", ink: "#111214", halo: "rgba(0,0,0,0.35)" },
     red:   { name: "Red",   fill: "#d6301f", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
-    green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
+    green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
+    yellow: { name: "Yellow", fill: "#ffd400", ink: "#111214", halo: "rgba(0,0,0,0.35)" }
   };
-  // The pen has the note colours plus yellow, which is there for the highlighter.
-  var PEN_COLORS = { black: COLORS.black, white: COLORS.white, red: COLORS.red, green: COLORS.green,
-                     yellow: { name: "Yellow", fill: "#ffd400" } };
+  // The pen draws in the same colours as the notes.
+  var PEN_COLORS = COLORS;
   // Line width is a multiple of a unit that scales with the image (0.22% of its width). The slider runs from
   // PEN_MIN to PEN_MAX on a logarithmic scale, so thin lines keep fine control while wide ones are in reach.
   var PEN_MIN = 0.3, PEN_MAX = 24, HI_ALPHA = 0.4;
@@ -455,8 +455,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     return { x: n.px + lx * c - ly * s, y: n.py + lx * s + ly * c };
   }
   // How far a point (in the note's own axes) lies outside its shape; zero or less means inside.
-  function outside(L, lx, ly) {
-    return Math.hypot(Math.max(Math.abs(lx) - (L.w / 2 - L.cr), 0), Math.max(Math.abs(ly) - (L.h / 2 - L.cr), 0)) - L.cr;
+  // How far a point is outside a note's shape (0 or less: inside). With grow, how far an upright square of that
+  // half-width round the point is from the shape; notes sit level or on end, so the square stays upright.
+  function outside(L, lx, ly, grow) {
+    var g = grow || 0;
+    return Math.hypot(Math.max(Math.abs(lx) - g - (L.w / 2 - L.cr), 0), Math.max(Math.abs(ly) - g - (L.h / 2 - L.cr), 0)) - L.cr;
   }
   function leaderStart(n, L) {
     var t = toLocal(n, L, n.tx, n.ty);
@@ -478,6 +481,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // ---------- eraser ----------
   // The eraser rubs out only the ink it passes over, so a stroke can be trimmed or cut in two.
   function eraserR() { return state.eraser / view.s; }  // state.eraser is the radius in screen px; this is image px
+  // The eraser has the tip the pen has: a circle, or an upright square of the same width.
+  function eraserSquare() { return state.pen.tip === "square"; }
   // A stroke as the dense run of points it is actually drawn through (the pen smooths between its raw points).
   function flatten(s) {
     var pts = s.points;
@@ -508,15 +513,30 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var t = len2 ? clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2, 0, 1) : 0;
     return Math.hypot(p[0] - (a[0] + dx * t), p[1] - (a[1] + dy * t));
   }
+  // The same for an upright square swept from a to b: the smallest half-width of square, centred somewhere on
+  // the segment, that reaches p. The larger of |x| and |y| is lowest at an end, where one of them is zero, or
+  // where the two are equal, so those are the only places to look.
+  function boxDistToSeg(p, a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], ux = p[0] - a[0], uy = p[1] - a[1];
+    function f(t) { return Math.max(Math.abs(ux - t * dx), Math.abs(uy - t * dy)); }
+    var best = Math.min(f(0), f(1)), ts = [];
+    if (dx) ts.push(ux / dx);
+    if (dy) ts.push(uy / dy);
+    if (dx - dy) ts.push((ux - uy) / (dx - dy));
+    if (dx + dy) ts.push((ux + uy) / (dx + dy));
+    for (var i = 0; i < ts.length; i++) if (ts[i] > 0 && ts[i] < 1) best = Math.min(best, f(ts[i]));
+    return best;
+  }
   // Remove every note whose pill the eraser touches as it moves from a to b. Only the pill counts, not the
   // leader or the dot, so rubbing out a sketch drawn around a dot does not take the note with it.
   function eraseNotesAlong(a, b) {
     var r = eraserR(), steps = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / (r / 2)));
+    var square = eraserSquare();
     var keep = state.notes.filter(function (n) {
       var L = layout(n, ctx);
       for (var i = 0; i <= steps; i++) {
         var l = toLocal(n, L, a[0] + (b[0] - a[0]) * i / steps, a[1] + (b[1] - a[1]) * i / steps);
-        if (outside(L, l.x, l.y) <= r) return false;
+        if (square ? outside(L, l.x, l.y, r) <= 0 : outside(L, l.x, l.y) <= r) return false;
       }
       return true;
     });
@@ -531,7 +551,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   // Erase everything within reach of the eraser as it moves from a to b. Returns true if any ink went.
   function eraseAlong(a, b) {
-    var r = eraserR(), changed = false, out = [];
+    var r = eraserR(), changed = false, out = [], dist = eraserSquare() ? boxDistToSeg : distToSeg;
     state.strokes.forEach(function (s) {
       var reach = r + penPx(s) / 2, pts = s.points, i;
       var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -543,7 +563,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
           y1 < Math.min(a[1], b[1]) - reach || y0 > Math.max(a[1], b[1]) + reach) { out.push(s); return; }
       var flat = flatten(s), run = [], pieces = [], hitAny = false;
       for (i = 0; i < flat.length; i++) {
-        if (distToSeg(flat[i], a, b) <= reach) { hitAny = true; if (run.length > 1) pieces.push(run); run = []; }
+        if (dist(flat[i], a, b) <= reach) { hitAny = true; if (run.length > 1) pieces.push(run); run = []; }
         else run.push(flat[i]);
       }
       if (!hitAny) { out.push(s); return; }
@@ -760,9 +780,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (sliderPreview === "eraser" ? mid : null);
     if (ring) {
-      // eraser ring: dark over light so it shows on any render
+      // eraser outline, a ring or a square like the pen's tip: dark over light so it shows on any render
       var er = eraserR();
-      ctx.beginPath(); ctx.arc(ring[0], ring[1], er, 0, Math.PI * 2);
+      ctx.beginPath();
+      if (eraserSquare()) ctx.rect(ring[0] - er, ring[1] - er, er * 2, er * 2); else ctx.arc(ring[0], ring[1], er, 0, Math.PI * 2);
       ctx.lineWidth = 3 / view.s; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
       ctx.lineWidth = 1.25 / view.s; ctx.strokeStyle = "#15171b"; ctx.stroke();
       if (sizing === "eraser" || sliderPreview === "eraser") hud = { text: "Eraser size " + Math.round(state.eraser * 2) + " px", at: ring, r: er };
@@ -876,8 +897,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
     $("penPanel").hidden = t !== "draw";
     $("hint").textContent = t === "draw"
-      ? "Left-drag draws · right-drag erases · Shift makes either one straight · wheel click adds a note · right-click for a menu · drag a pill or its dot to move it"
-      : "Left click or drag out places a note · wheel-drag draws · right-drag erases · Shift makes drawing or erasing straight · right-click for a menu · drag a pill or its dot to move it";
+      ? "Left-drag draws · right-drag erases · Shift keeps lines straight · wheel click adds a note · right-click for a menu · drag a pill or its dot to move it"
+      : "Left click or drag out places a note · wheel-drag draws · right-drag erases · Shift keeps lines straight · right-click for a menu · drag a pill or its dot to move it";
     canvas.style.cursor = "crosshair";
     render();
   }
@@ -1054,6 +1075,19 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (Math.abs(ang - near) < 0.07) ang = near;
     return [a[0] + Math.cos(ang) * len, a[1] + Math.sin(ang) * len];
   }
+  // Shift while placing or moving a note keeps its leader straight: the end being moved stays on the nearest of
+  // the eight directions (level, upright or 45°) from the other end a, and inside the image.
+  function snapNote(a, x, y) {
+    var dx = x - a[0], dy = y - a[1];
+    if (!dx && !dy) return [x, y];
+    var k = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
+    var ux = [1, 1, 0, -1, -1, -1, 0, 1][k], uy = [0, 1, 1, 1, 0, -1, -1, -1][k];
+    var t = (dx * ux + dy * uy) / (ux * ux + uy * uy);
+    if (ux) t = Math.min(t, (ux > 0 ? state.w - a[0] : a[0]));
+    if (uy) t = Math.min(t, (uy > 0 ? state.h - a[1] : a[1]));
+    t = Math.max(t, 0);
+    return [a[0] + ux * t, a[1] + uy * t];
+  }
   // Left button (or a touch / trackpad click) does what the Draw / Notes switch says, and the wheel
   // button does the other one, so a mouse can draw and annotate without switching. The right button erases when dragged and adds a note on a plain click
   // (a two-finger tap on a trackpad). Pills can be picked up with the left or wheel button.
@@ -1125,6 +1159,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     } else if (p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h) {
       // press on the spot being described, drag out, release where the pill should sit
       addNote(p.x, p.y, true);
+      if (e.shiftKey) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
       drag = { part: "create", sx: e.clientX, sy: e.clientY, moved: false };
       canvas.setPointerCapture(e.pointerId);
     } else {
@@ -1205,12 +1240,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag.part === "create") {
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
       drag.moved = true;
-      n.px = x; n.py = y;
+      var q = e.shiftKey ? snapNote([n.tx, n.ty], x, y) : [x, y];
+      n.px = q[0]; n.py = q[1];
       render();
       return;
     }
     x = clamp(p.x + drag.dx, 0, state.w); y = clamp(p.y + drag.dy, 0, state.h);
-    if (drag.part === "pill") { n.px = x; n.py = y; } else { n.tx = x; n.ty = y; }
+    // with Shift the end being dragged keeps the leader straight from the end that stays put
+    if (drag.part === "pill") { q = e.shiftKey ? snapNote([n.tx, n.ty], x, y) : [x, y]; n.px = q[0]; n.py = q[1]; }
+    else { q = e.shiftKey ? snapNote([n.px, n.py], x, y) : [x, y]; n.tx = q[0]; n.ty = q[1]; }
     drag.moved = true;
     render();
   });
@@ -1393,7 +1431,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       sync(); render();
       var n = state.notes[h.i], many = state.picks.length > 1;
       if (!many) add(menuItem("Edit text", "", focusText));
-      var sw = document.createElement("div"); sw.className = "swatches"; sw.setAttribute("role", "group"); sw.setAttribute("aria-label", "Pill colour");
+      var sw = document.createElement("div"); sw.className = "swatches five"; sw.setAttribute("role", "group"); sw.setAttribute("aria-label", "Pill colour");
       swatchRow(sw, n.color || (n.dark === false ? "white" : "black"), function (k) {
         closeMenu(); snapshot(); picked().forEach(function (x) { x.color = k; delete x.dark; }); sync(); render();
       });
