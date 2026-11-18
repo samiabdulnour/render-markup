@@ -139,6 +139,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .seg.tools button { padding: 7px 10px; }
 .seg.tools svg { flex: none; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.swatches.five { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.swatches.five button { padding: 6px 2px; font-size: 11.5px; }
 .swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: 12px; gap: 4px; }
 .swatches button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .swatches svg.shape { flex: none; display: block; }
@@ -276,9 +278,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     </div>
     <div class="section" id="penPanel" hidden>
       <h2>Pen</h2>
-      <div class="swatches" id="penColors" role="group" aria-label="Pen colour"></div>
+      <div class="seg" role="group" aria-label="Kind of line">
+        <button id="inkPen" aria-pressed="true" title="A solid line">Pen</button>
+        <button id="inkHi" aria-pressed="false" title="A wide see-through line, for marking an area without hiding it">Highlighter</button>
+      </div>
+      <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
-        <input type="range" id="penWidth" min="0.3" max="4" step="0.05" value="1">
+        <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
       <label for="eraserSize">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="20">
@@ -358,6 +364,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     red:   { name: "Red",   fill: "#d6301f", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     green: { name: "Green", fill: "#1d8a4b", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" }
   };
+  // The pen has the note colours plus yellow, which is there for the highlighter.
+  var PEN_COLORS = { black: COLORS.black, white: COLORS.white, red: COLORS.red, green: COLORS.green,
+                     yellow: { name: "Yellow", fill: "#ffd400" } };
+  // Line width is a multiple of a unit that scales with the image (0.22% of its width). The slider runs from
+  // PEN_MIN to PEN_MAX on a logarithmic scale, so thin lines keep fine control while wide ones are in reach.
+  var PEN_MIN = 0.3, PEN_MAX = 24, HI_ALPHA = 0.4;
+  function penFromSlider(v) { return Math.round(PEN_MIN * Math.pow(PEN_MAX / PEN_MIN, v / 1000) * 100) / 100; }
+  function penToSlider(w) { return Math.round(1000 * Math.log(w / PEN_MIN) / Math.log(PEN_MAX / PEN_MIN)); }
   // Note shapes. Each is a box with rounded corners: a pill rounds them fully, a circle is a square box
   // rounded fully, a rectangle not at all. The icon is the shape drawn in a 22 x 12 chip.
   var SHAPES = {
@@ -368,7 +382,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
-                tool: "draw", pen: { color: "red", width: 1 }, eraser: 10, nextId: 1 };
+                tool: "draw", pen: { color: "red", width: 1, hi: false }, eraser: 10, nextId: 1,
+                // the pen and the highlighter each remember their own colour and width
+                inks: { pen: { color: "red", width: 1 }, hi: { color: "yellow", width: 6 } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
   // s is screen px per image px; ox/oy place the image on the stage. zoom is a multiple of the scale that
   // fits the whole image (1 = fitted), and cx/cy is the image point shown at the middle of the stage.
@@ -529,14 +545,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (!hitAny) { out.push(s); return; }
       if (run.length > 1) pieces.push(run);
       changed = true;
-      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, points: pp, flat: true }); });
+      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, points: pp, flat: true }); });
     });
     if (changed) state.strokes = out;
     return changed;
   }
   function drawStroke(c, s) {
-    var col = (COLORS[s.color] || COLORS.red).fill, pts = s.points, lw = penPx(s);
+    var col = (PEN_COLORS[s.color] || PEN_COLORS.red).fill, pts = s.points, lw = penPx(s);
     c.save();
+    if (s.hi) c.globalAlpha = HI_ALPHA;      // a highlighter stroke lets the image show through, evenly along its length
     c.strokeStyle = c.fillStyle = col; c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
     if (pts.length === 1) { c.beginPath(); c.arc(pts[0][0], pts[0][1], lw / 2, 0, Math.PI * 2); c.fill(); c.restore(); return; }
     c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
@@ -696,7 +713,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip + 1.5 / view.s, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
       ctx.beginPath(); ctx.arc(tipAt[0], tipAt[1], tip, 0, Math.PI * 2);
-      ctx.fillStyle = (COLORS[state.pen.color] || COLORS.red).fill; ctx.fill();
+      ctx.fillStyle = (PEN_COLORS[state.pen.color] || PEN_COLORS.red).fill;
+      if (state.pen.hi) {
+        // the highlighter tip is see-through like its line, with an outline so its size still reads
+        ctx.save(); ctx.globalAlpha = HI_ALPHA; ctx.fill(); ctx.restore();
+        ctx.lineWidth = 1 / view.s; ctx.strokeStyle = "rgba(21,23,27,0.55)"; ctx.stroke();
+      } else ctx.fill();
     } else if (sizing === "new") {
       // the note being placed, where it will go, at its size so far
       var ML = layout(drag.made, ctx);
@@ -833,14 +855,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
 
   // ---------- sidebar ----------
-  function swatchRow(el, current, onPick) {
+  function swatchRow(el, current, onPick, palette) {
+    palette = palette || COLORS;
     el.innerHTML = "";
-    Object.keys(COLORS).forEach(function (k) {
+    Object.keys(palette).forEach(function (k) {
       var b = document.createElement("button");
       b.type = "button";
       b.setAttribute("aria-pressed", String(k === current));
-      var chip = document.createElement("span"); chip.className = "chip"; chip.style.background = COLORS[k].fill;
-      b.appendChild(chip); b.appendChild(document.createTextNode(COLORS[k].name));
+      var chip = document.createElement("span"); chip.className = "chip"; chip.style.background = palette[k].fill;
+      b.appendChild(chip); b.appendChild(document.createTextNode(palette[k].name));
       b.addEventListener("click", function () { onPick(k); });
       el.appendChild(b);
     });
@@ -896,10 +919,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       $("oriH").setAttribute("aria-pressed", String(!n.vertical));
       $("noteSize").value = n.size; $("noteSizeVal").textContent = textLabel(n);
     }
-    swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); });
+    swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
+    $("inkPen").setAttribute("aria-pressed", String(!state.pen.hi));
+    $("inkHi").setAttribute("aria-pressed", String(!!state.pen.hi));
     $("penWidthVal").textContent = penLabel(state.pen.width);
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
-    if (document.activeElement !== $("penWidth")) $("penWidth").value = state.pen.width;
+    if (document.activeElement !== $("penWidth")) $("penWidth").value = penToSlider(state.pen.width);
     if (document.activeElement !== $("eraserSize")) $("eraserSize").value = state.eraser * 2;
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
@@ -947,7 +972,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     document.fonts.load(fontStr(40)).then(render, render);
   });
   // while either size slider is moved, the pen tip or the eraser ring shows in the middle of the image with its size
-  $("penWidth").addEventListener("input", function (e) { state.pen.width = parseFloat(e.target.value); sliderPreview = "pen"; sync(); render(); });
+  $("penWidth").addEventListener("input", function (e) { state.pen.width = penFromSlider(parseFloat(e.target.value)); sliderPreview = "pen"; sync(); render(); });
+  // Pen or Highlighter: each keeps the colour and width it was last used with
+  function setInk(hi) {
+    if (!!state.pen.hi === hi) return;
+    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width };
+    var next = state.inks[hi ? "hi" : "pen"];
+    state.pen = { color: next.color, width: next.width, hi: hi };
+    sync();
+    status(hi ? "Highlighter: a wide see-through line. Pen switches back." : "Pen.");
+  }
+  $("inkPen").addEventListener("click", function () { setInk(false); });
+  $("inkHi").addEventListener("click", function () { setInk(true); });
   $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; sliderPreview = "eraser"; sync(); render(); });
   ["penWidth", "eraserSize"].forEach(function (id) {
     ["change", "blur", "pointerup", "keyup"].forEach(function (t) {
@@ -1034,7 +1070,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!h && drawNow) {
       if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return;
       snapshot();
-      var s = { color: state.pen.color, width: state.pen.width, points: [[p.x, p.y]], straight: e.shiftKey };
+      var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, points: [[p.x, p.y]], straight: e.shiftKey };
       state.strokes.push(s);
       drag = { part: "stroke", stroke: s };
       canvas.setPointerCapture(e.pointerId);
@@ -1202,7 +1238,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       state.eraser = clamp(Math.round(drag.from + dx / 2), 3, 100);        // one pixel of drag is one pixel across
       status("Eraser size " + Math.round(state.eraser * 2) + " px" + tail);
     } else if (drag.what === "pen") {
-      state.pen.width = clamp(step5(drag.from + dx / 100), 0.3, 4);        // 100 px of drag is 100%
+      // the width doubles for every 120 px moved right and halves for every 120 px left
+      state.pen.width = clamp(Math.round(drag.from * Math.pow(2, dx / 120) * 100) / 100, PEN_MIN, PEN_MAX);
       status("Line width " + penLabel(state.pen.width) + tail);
     } else if (drag.what === "notes") {
       var ps = picked();
