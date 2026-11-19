@@ -142,6 +142,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 #tools button:hover { border-color: var(--line); }
 #tools button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 #tools svg { flex: none; }
+label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; cursor: pointer; }
+label.check input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
 .field { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .field[hidden] { display: none; }
 .ratio { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
@@ -274,6 +276,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <div id="hud" hidden></div>
     <div id="tools" role="toolbar" aria-label="Tools" aria-orientation="vertical">
       <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
+      <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 20H20"/><path d="M4.4 15.4l9.9-9.9a2 2 0 0 1 2.8 0l2.4 2.4a2 2 0 0 1 0 2.8L11.6 18.6a2 2 0 0 1-1.4.6H8.3a2 2 0 0 1-1.4-.6l-2.5-2.5a2 2 0 0 1 0-2.7z"/><path d="M9 10.8l5.2 5.2"/></svg></button>
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
     </div>
@@ -299,13 +302,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker; the eraser is square too">Square tip</button>
       </div>
       <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
+      <label class="check" title="Lines drawn with Shift get their length written along them, in the scale and units set under Measure."><input type="checkbox" id="showLen"> Show the length of straight lines</label>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
-      <label for="eraserSize" title="The wheel button erases. It has the same tip as the pen, round or square.">Eraser size <span class="val" id="eraserSizeVal"></span>
+      <button id="clearDraw" class="danger">Clear drawing</button>
+    </div>
+    <div class="section" id="erasePanel" hidden>
+      <h2>Eraser</h2>
+      <label for="eraserSize" title="The wheel button erases with any tool on. The eraser has the same tip as the pen, round or square.">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
       </label>
-      <button id="clearDraw" class="danger">Clear drawing</button>
     </div>
     <div class="section" id="measurePanel" hidden>
       <h2>Measure</h2>
@@ -423,7 +430,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
-                scale: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 },
+                scale: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: false,
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
@@ -433,6 +440,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var PAD = 24, spaceDown = false;
   var history = [];
   var drag = null;
+  var hoverAt = null;          // where the pointer is over the image while the Eraser is on, for its outline
   var sliderPreview = null;    // "pen" or "eraser" while that size slider is being moved, to show the size on the image
 
   var $ = function (id) { return document.getElementById(id); };
@@ -590,17 +598,23 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     c.save(); c.lineCap = "round";
     path(); c.strokeStyle = col.halo; c.lineWidth = lw * 2.6; c.stroke();     // a faint halo so it reads on any render
     path(); c.strokeStyle = col.fill; c.lineWidth = lw; c.stroke();
-    // the length, along the line and just above it, never upside down: an upright line reads from the right,
-    // bottom to top, with its length on the left, as on a drawing
-    var ang = Math.atan2(dy, dx), eps = 1e-6;
+    c.restore();
+    writeLength(c, a, b, col, fs, lw * 1.5 + fs * 0.25);
+  }
+  // The length of the line from a to b, written along it, gap above it, never upside down: an upright line
+  // reads from the right, bottom to top, with its length on the left, as on a drawing.
+  function writeLength(c, a, b, col, fs, gap) {
+    var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx), eps = 1e-6;
+    if (len < 0.5) return;
     if (ang >= Math.PI / 2 - eps) ang -= Math.PI; else if (ang < -Math.PI / 2 - eps) ang += Math.PI;
+    c.save();
     c.translate((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); c.rotate(ang);
     c.font = fontStr(fs); c.textAlign = "center"; c.textBaseline = "alphabetic"; c.lineJoin = "round";
-    var text = lengthText(len), y = -(lw * 1.5 + fs * 0.25);
+    var text = lengthText(len);
     c.lineWidth = Math.max(2, fs * 0.24);
     c.strokeStyle = col.ink === "#ffffff" ? "rgba(255,255,255,0.88)" : "rgba(17,18,20,0.78)";
-    c.strokeText(text, 0, y);
-    c.fillStyle = col.fill; c.fillText(text, 0, y);
+    c.strokeText(text, 0, -gap);
+    c.fillStyle = col.fill; c.fillText(text, 0, -gap);
     c.restore();
   }
   // Sizes as shown to the user: in pixels of the image, which is what ends up in the export.
@@ -709,8 +723,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (changed) state.strokes = out;
     return changed;
   }
+  // A line drawn with Shift while Show length is on has its length written along it (always solid, even on
+  // a highlighter line), at the size of a note's text, in the scale and units set under Measure.
   function drawStroke(c, s) {
     if (s.dim) { drawDim(c, s); return; }
+    drawLine(c, s);
+    if (s.len && s.straight && s.points.length === 2) {
+      var fs = state.w / 100;
+      writeLength(c, s.points[0], s.points[1], PEN_COLORS[s.color] || PEN_COLORS.red, fs, penPx(s) / 2 + fs * 0.3);
+    }
+  }
+  function drawLine(c, s) {
     var col = (PEN_COLORS[s.color] || PEN_COLORS.red).fill, pts = s.points, lw = penPx(s);
     c.save();
     if (s.hi) c.globalAlpha = HI_ALPHA;      // a highlighter stroke lets the image show through, evenly along its length
@@ -920,7 +943,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       hud = { text: "Text size " + textLabel(held) + (many > 1 ? " · " + many + " notes" : ""),
               at: [held.px, held.py], r: (held.vertical ? HL.w : HL.h) / 2 };
     }
-    var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : (sliderPreview === "eraser" ? mid : null);
+    var ring = drag && (drag.part === "erase" || sizing === "eraser") ? drag.last : sliderPreview === "eraser" ? mid
+             : !drag && state.tool === "erase" && hoverAt ? hoverAt : null;
     if (ring) {
       // eraser outline, a ring or a square like the pen's tip: dark over light so it shows on any render
       var er = eraserR();
@@ -1056,15 +1080,20 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
     $("toolMeasure").setAttribute("aria-pressed", String(t === "measure"));
+    $("toolErase").setAttribute("aria-pressed", String(t === "erase"));
     $("penPanel").hidden = t !== "draw";
+    $("erasePanel").hidden = t !== "erase";
     $("notesPanel").hidden = t !== "note";
     $("measurePanel").hidden = t !== "measure";
     $("hint").textContent = COARSE
       ? (t === "draw" ? "Drag to draw · switch to Notes to place notes · drag a pill or its dot to move it"
          : t === "measure" ? "Drag to measure · drag a pill or its dot to move it"
+         : t === "erase" ? "Drag to erase"
          : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
+      : t === "erase" ? "Left-drag erases · right-drag adds a note · right-click for a menu · Shift erases in a straight line"
       : (t === "measure" ? "Left-drag measures" : "Left-drag draws") + " · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
     canvas.style.cursor = "crosshair";
+    if (t !== "erase") hoverAt = null;
     render();
   }
   // show the settings for what is being used, without touching anything else
@@ -1145,6 +1174,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
     if (document.activeElement !== $("penWidth")) $("penWidth").value = penToSlider(state.pen.width);
     if (document.activeElement !== $("eraserSize")) $("eraserSize").value = state.eraser * 2;
+    $("showLen").checked = !!state.showLen;
     swatchRow($("dimColors"), state.dim.color, function (k) { state.dim.color = k; sync(); });
     if (document.activeElement !== $("dimSize")) $("dimSize").value = state.dim.size;
     $("dimSizeVal").textContent = textLabel(state.dim);
@@ -1238,6 +1268,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       $(id).addEventListener(t, function () { if (sliderPreview) { sliderPreview = null; render(); } });
     });
   });
+  $("showLen").addEventListener("change", function (e) {
+    state.showLen = e.target.checked; sync();
+    status(state.showLen ? "Lines drawn with Shift now show their length." : "Lines drawn with Shift no longer show their length.");
+  });
   $("dimSize").addEventListener("input", function (e) { state.dim.size = parseFloat(e.target.value); sync(); });
   $("unit").addEventListener("change", function (e) { if (UNITS[e.target.value]) state.unit = e.target.value; sync(); render(); });
   // The scale is typed as 1:100. On a PDF the paper size is known; on an image its resolution says how big
@@ -1271,6 +1305,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("toolNote").addEventListener("click", function () { setTool("note"); });
   $("toolDraw").addEventListener("click", function () { setTool("draw"); });
   $("toolMeasure").addEventListener("click", function () { setTool("measure"); });
+  $("toolErase").addEventListener("click", function () { setTool("erase"); });
 
   // ---------- pointer ----------
   function toImg(e) {
@@ -1327,6 +1362,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (!onImage) return false;
       snapshot();
       var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: o.shift };
+      if (o.shift && state.showLen) s.len = true;
       state.strokes.push(s);
       drag = { part: "stroke", stroke: s };
       showPanel("draw");
@@ -1377,9 +1413,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       return;
     }
     var p = toImg(e);
-    if (wheelBtn || penEraser) {
-      // the wheel button is the eraser, and so is the eraser end of a stylus: it rubs out from the moment it goes
-      // down. With Ctrl (or Alt) held, a drag changes the eraser's size instead, and a click does nothing.
+    if (wheelBtn || penEraser || (state.tool === "erase" && e.button === 0)) {
+      // the wheel button is the eraser, and so is the eraser end of a stylus, and the left button (or a finger)
+      // with the Eraser on: it rubs out from the moment it goes down. With Ctrl (or Alt) held, a drag changes
+      // the eraser's size instead, and a click does nothing.
       drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: !penEraser && isSizeKey(e), tool: "eraser" };
       canvas.setPointerCapture(e.pointerId);
       if (drag.sizing) holdPointer(e); else startErase();
@@ -1419,6 +1456,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!state.img) return;
     var p = toImg(e);
     if (!drag) {
+      if (state.tool === "erase") {
+        // the eraser's outline follows the pointer, so it is clear what it will rub out
+        canvas.style.cursor = spaceDown ? "grab" : "crosshair";
+        hoverAt = [p.x, p.y]; render();
+        return;
+      }
       var h = hit(p);
       canvas.style.cursor = spaceDown ? "grab" : h ? (h.part === "target" ? "move" : "grab") : "crosshair";
       return;
@@ -1474,6 +1517,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag.part === "stroke") {
       var s = drag.stroke;
       if (e.shiftKey || s.straight) {
+        if (!s.straight && state.showLen) s.len = true;
         s.straight = true;
         s.points = [s.points[0], snapLine(s.points[0], { x: x, y: y })];
       } else {
@@ -1678,6 +1722,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("undo").disabled = history.length === 0;
   }
   canvas.addEventListener("pointerup", function () { endDrag(false); });
+  canvas.addEventListener("pointerleave", function () { if (hoverAt) { hoverAt = null; render(); } });
   canvas.addEventListener("pointercancel", function () { endDrag(true); });
   // keep the browser's own wheel-button and right-button behaviour (autoscroll, context menu) off the image
   canvas.addEventListener("mousedown", function (e) { if (e.button === 1) e.preventDefault(); });
@@ -1869,6 +1914,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.key === "d" || e.key === "D") setTool("draw");
     if (e.key === "n" || e.key === "N") setTool("note");
     if (e.key === "m" || e.key === "M") setTool("measure");
+    if (e.key === "e" || e.key === "E") setTool("erase");
   });
 
   function spaceUp() { if (spaceDown) { spaceDown = false; if (!drag) canvas.style.cursor = "crosshair"; } }
@@ -2393,7 +2439,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
     var text = JSON.stringify({ v: 1, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
-                                style: state.style, font: state.font, dim: state.dim, unit: state.unit });
+                                style: state.style, font: state.font, dim: state.dim, unit: state.unit, showLen: !!state.showLen });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -2420,6 +2466,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (FONTS[d.font]) { state.font = d.font; $("font").value = d.font; }
     if (d.dim && typeof d.dim === "object") state.dim = { color: COLORS[d.dim.color] ? d.dim.color : "red", size: num(d.dim.size, 0.25, 4, 1) };
     if (UNITS[d.unit]) state.unit = d.unit;
+    state.showLen = d.showLen === true;
   }
 
   // ---------- boot ----------
