@@ -610,7 +610,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
 
   // ---------- drawing ----------
-  function penPx(s) { return s.dim ? dimLine(s) : Math.max(1, state.w / 100 * 0.22 * s.width); }
+  function penPx(s) { return s.erase ? s.r * 2 : s.dim ? dimLine(s) : Math.max(1, state.w / 100 * 0.22 * s.width); }
   // ---------- dimensions ----------
   // A dimension is a straight line with its length written along it. It is kept with the drawing, as a stroke
   // marked dim, with its own colour and size (the size of its text, as for a note; the line is a tenth of that).
@@ -778,10 +778,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     return true;
   }
   // Erase everything within reach of the eraser as it moves from a to b. Returns true if any ink went.
+  // The eraser rubs out exactly the area it passes over, as an eraser on paper does: each pass is kept as an
+  // erase stroke and painted out of the ink drawn before it (paintMarkup), so it can take a sliver off the edge of
+  // a thick line, or a channel down its middle. Where it covers a line's whole width, those parts of the line
+  // also go from the drawing itself, so a line rubbed out completely is gone (and Clear drawing knows it).
+  // A dimension goes whole. Returns true if the eraser touched any ink at all.
   function eraseAlong(a, b) {
-    var r = eraserR(), changed = false, out = [], dist = eraserSquare() ? boxDistToSeg : distToSeg;
+    var r = eraserR(), touched = false, changed = false, out = [], dist = eraserSquare() ? boxDistToSeg : distToSeg;
     state.strokes.forEach(function (s) {
-      var reach = r + penPx(s) / 2, pts = s.points, i;
+      if (s.erase) { out.push(s); return; }
+      var lw = penPx(s), reach = r + lw / 2, inner = r - lw / 2, pts = s.points, i;
       var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (i = 0; i < pts.length; i++) {
         if (pts[i][0] < x0) x0 = pts[i][0]; if (pts[i][0] > x1) x1 = pts[i][0];
@@ -792,22 +798,32 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (s.dim) {
         // a dimension cut in two would no longer mean anything: the eraser takes it away whole
         var whole = flatten(s);
-        for (i = 0; i < whole.length; i++) if (dist(whole[i], a, b) <= reach) { changed = true; return; }
+        for (i = 0; i < whole.length; i++) if (dist(whole[i], a, b) <= reach) { changed = touched = true; return; }
         out.push(s); return;
       }
-      var flat = flatten(s), run = [], pieces = [], hitAny = false;
+      var flat = flatten(s), run = [], pieces = [], covered = false;
       for (i = 0; i < flat.length; i++) {
-        if (dist(flat[i], a, b) <= reach) { hitAny = true; if (run.length > 1) pieces.push(run); run = []; }
+        var d = dist(flat[i], a, b);
+        if (d <= reach) touched = true;
+        // this point's whole width is under the eraser: the line can go from here
+        if (d <= inner) { covered = true; if (run.length > 1) pieces.push(run); run = []; }
         else run.push(flat[i]);
       }
-      if (!hitAny) { out.push(s); return; }
+      if (!covered) { out.push(s); return; }
       if (run.length > 1) pieces.push(run);
       changed = true;
       pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, tip: s.tip, points: pp, flat: true }); });
     });
     if (changed) state.strokes = out;
-    return changed;
+    return touched || changed;
   }
+  // An erase stroke is drawn like a line of the eraser's width and tip, painted out rather than in.
+  function drawErase(c, s) {
+    c.save(); c.globalCompositeOperation = "destination-out";
+    drawLine(c, s);
+    c.restore();
+  }
+  var inkLayer = null;      // where the ink is drawn and erased before it goes on the picture on screen
   function drawStroke(c, s) {
     if (s.dim) { drawDim(c, s); return; }
     drawLine(c, s);
@@ -903,8 +919,22 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     c.restore();
   }
 
+  // The ink (pen and highlighter lines, with the eraser's passes) is drawn on a layer of its own, so the eraser
+  // takes out ink and never the picture under it; then the dimensions, and the notes on top.
   function paintMarkup(c) {
-    state.strokes.forEach(function (s) { drawStroke(c, s); });
+    var ink = [], dims = [], erased = false;
+    state.strokes.forEach(function (s) { if (s.dim) dims.push(s); else { ink.push(s); if (s.erase) erased = true; } });
+    if (!erased) ink.forEach(function (s) { drawStroke(c, s); });
+    else {
+      var L = c === ctx ? (inkLayer = inkLayer || document.createElement("canvas")) : document.createElement("canvas");
+      if (L.width !== c.canvas.width || L.height !== c.canvas.height) { L.width = c.canvas.width; L.height = c.canvas.height; }
+      var lc = L.getContext("2d");
+      lc.setTransform(1, 0, 0, 1, 0, 0); lc.clearRect(0, 0, L.width, L.height);
+      lc.setTransform(c.getTransform());
+      ink.forEach(function (s) { if (s.erase) drawErase(lc, s); else drawStroke(lc, s); });
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(L, 0, 0); c.restore();
+    }
+    dims.forEach(function (s) { drawStroke(c, s); });
     state.notes.forEach(function (n) { drawNote(c, n, layout(n, c)); });
   }
   function paint(c) {
@@ -1627,9 +1657,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         state.sel = drag.baseSel; state.picks = drag.basePicks.slice();
         var inkGone = eraseAlong(drag.start, to), notesGone = eraseNotesAlong(drag.start, to);
         drag.changed = inkGone || notesGone;
+        drag.es = { erase: true, r: drag.es.r, tip: drag.es.tip, points: [drag.start.slice(), to.slice()] };
+        state.strokes = state.strokes.concat([drag.es]);
       } else {
         if (eraseAlong(drag.last, to)) drag.changed = true;
         if (eraseNotesAlong(drag.last, to)) drag.changed = true;
+        drag.es.points.push([to[0], to[1]]);
       }
       drag.last = to;
       render();
@@ -1778,6 +1811,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     drag.part = "erase";
     var inkGone = eraseAlong(drag.last, drag.last), notesGone = eraseNotesAlong(drag.last, drag.last);
     drag.changed = inkGone || notesGone;
+    // the pass itself, painted out of the ink drawn before it
+    drag.es = { erase: true, r: eraserR(), tip: eraserSquare() ? "square" : "round", points: [[drag.last[0], drag.last[1]]] };
+    state.strokes = state.strokes.concat([drag.es]);
     canvas.style.cursor = "none";
     render();
   }
@@ -1831,7 +1867,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     if (d.part === "erase") {
       lastRightDrag = Date.now();
-      if (!d.changed) history.pop();   // nothing was rubbed out, so leave undo as it was
+      if (!d.changed) {
+        // nothing was rubbed out: no erase stroke, and undo as it was
+        state.strokes = state.strokes.filter(function (s) { return s !== d.es; });
+        history.pop();
+      }
+      // once there is no ink left, the eraser's passes have nothing to rub out
+      if (!state.strokes.some(function (s) { return !s.erase && !s.dim; })) state.strokes = state.strokes.filter(function (s) { return !s.erase; });
       canvas.style.cursor = "crosshair";
       sync(); render();
       return;
@@ -1871,7 +1913,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function strokeAt(p) {
     var q = [p.x, p.y];
     for (var i = state.strokes.length - 1; i >= 0; i--) {
-      var st = state.strokes[i], flat = flatten(st), reach = penPx(st) / 2 + 6 / view.s;
+      var st = state.strokes[i];
+      if (st.erase) continue;
+      var flat = flatten(st), reach = penPx(st) / 2 + 6 / view.s;
       if (flat.length === 1) { if (Math.hypot(q[0] - flat[0][0], q[1] - flat[0][1]) <= reach) return i; continue; }
       for (var k = 0; k < flat.length - 1; k++) if (distToSeg(q, flat[k], flat[k + 1]) <= reach) return i;
     }
