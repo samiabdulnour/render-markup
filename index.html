@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Barlow+Condensed:wght@500;700&family=Architects+Daughter&display=swap" rel="stylesheet">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
@@ -419,6 +419,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="font">Typeface
         <select id="font">
           <option value="cond">Condensed sans</option>
+          <option value="condBold">Condensed sans bold</option>
+          <option value="arial">Arial</option>
+          <option value="arialBold">Arial bold</option>
+          <option value="tech">Technical</option>
+          <option value="techBold">Technical bold</option>
+          <option value="hand">Architect's hand</option>
           <option value="mono">Mono</option>
         </select>
       </label>
@@ -459,9 +465,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 <script>
 (function () {
   "use strict";
+  // The typefaces notes and lengths can be set in. Arial is the computer's own; the rest come from Google Fonts
+  // with the page. Architect's hand is hand lettering of the kind on a drawing; Technical is a tall, narrow face.
   var FONTS = {
-    cond: { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
-    mono: { family: '"IBM Plex Mono", Menlo, Consolas, monospace', weight: 500 }
+    cond:      { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
+    condBold:  { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 700 },
+    arial:     { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif', weight: 400 },
+    arialBold: { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif', weight: 700 },
+    tech:      { family: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
+    techBold:  { family: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif', weight: 700 },
+    hand:      { family: '"Architects Daughter", "Comic Sans MS", cursive', weight: 400 },
+    mono:      { family: '"IBM Plex Mono", Menlo, Consolas, monospace', weight: 500 }
   };
   var COLORS = {
     black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
@@ -492,7 +506,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
-                scale: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: false,
+                // ratio: the scale the drawings are at (100 for 1:100), or null. One for every page and drawing, kept
+                // for next time; with the paper size of a page, or an image's dpi, it gives the length of a pixel.
+                ratio: null, pageRatio: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: true,
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
@@ -603,12 +619,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function dimLen(s) { var a = s.points[0], b = s.points[s.points.length - 1]; return Math.hypot(b[0] - a[0], b[1] - a[1]); }
   // a length in image px, in the units chosen; in px until the scale is set
   function lengthText(px) {
-    if (!state.scale) return Math.round(px) + " px";
-    var v = px * state.scale / UNITS[state.unit];
+    var k = mmPerPx();
+    if (!k) return Math.round(px) + " px";
+    var v = px * k / UNITS[state.unit];
     return (state.unit === "mm" ? String(Math.round(v)) : state.unit === "cm" ? String(Math.round(v * 10) / 10) : v.toFixed(2)) + " " + state.unit;
   }
   // millimetres on paper per image px: from the page size for a PDF, from the resolution for an image
   function paperMmPerPx() { if (!doc) return 25.4 / (state.dpi || 96); var pg = doc.pages[doc.cur]; return 25.4 / 72 * pg.wPt / pg.w; }
+  // real millimetres per image px at the scale set, on this page or image; 0 with no scale
+  // The scale this page (or image) is at. Once a page has dimensions on it, it keeps the scale they were placed
+  // at (pageRatio), whatever scale is set later on another page; a page without any follows the scale set last.
+  function pageRatio() { return state.pageRatio != null ? state.pageRatio : state.ratio; }
+  function hasDims() { return state.strokes.some(function (s) { return s.dim; }); }
+  // the scale typed on this page: the one set from now on, and this page's own if it has dimensions
+  function setRatio(v) { state.ratio = v; state.pageRatio = hasDims() ? v : null; }
+  function mmPerPx() { var k = pageRatio(); return k ? k * paperMmPerPx() : 0; }
   // "1:100", "1 : 100" or just "100" (NaN for anything else)
   function parseRatio(t) {
     var m = String(t).replace(/\s+/g, "").replace(",", ".").match(/^(?:1[:\/])?(\d*\.?\d+)$/);
@@ -673,12 +698,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     c.translate((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); c.rotate(ang);
     c.font = fontStr(fs); c.textAlign = "center"; c.textBaseline = "alphabetic"; c.lineJoin = "round";
     var text = lengthText(len);
-    // a light outline keeps dark text (black, red, green) readable on a busy render; yellow and white text
-    // go without one, as a dark outline round them reads as a black rim
-    if (col.ink === "#ffffff") {
-      c.lineWidth = Math.max(2, fs * 0.24); c.strokeStyle = "rgba(255,255,255,0.88)";
-      c.strokeText(text, 0, -gap);
-    }
+    // plain text in the colour, with no outline of any kind
     c.fillStyle = col.fill; c.fillText(text, 0, -gap);
     c.restore();
   }
@@ -919,6 +939,39 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     render();
   }
   function panBy(dx, dy) { view.cx += dx / view.s; view.cy += dy / view.s; render(); }
+  // On a PDF the wheel reads through the document, as a PDF viewer does: down the page, and past its foot on to
+  // the top of the next one; up, and past its top back to the foot of the one before. With the page fitted, each
+  // turn of the wheel is a page. Past an edge the turns add up to one notch (100 px) before the page changes, and
+  // a page changes at most every 350 ms, so a trackpad's flick does not run through the whole document.
+  var pageWheel = 0, pageFlipAt = 0;
+  function wheelPage(dy) {
+    if (!doc || !dy) return false;
+    var r = stage.getBoundingClientRect(), ih = state.h * view.s;
+    var fits = ih <= r.height - PAD * 2 + 0.5;
+    var atTop = fits || view.oy >= PAD - 0.5, atBottom = fits || view.oy + ih <= r.height - PAD + 0.5;
+    var down = dy > 0;
+    if (down ? !atBottom : !atTop) { pageWheel = 0; return false; }          // room left on this page: scroll it
+    if (down ? doc.cur >= doc.pages.length - 1 : doc.cur <= 0) { pageWheel = 0; return true; }
+    if (pageWheel && (pageWheel > 0) !== down) pageWheel = 0;
+    pageWheel += dy;
+    if (Math.abs(pageWheel) < 100 || Date.now() - pageFlipAt < 350) return true;
+    pageWheel = 0; pageFlipAt = Date.now();
+    flipPage(down ? 1 : -1);
+    return true;
+  }
+  // the next page from its top, or the one before from its foot, at the same zoom and across at the same place
+  // The paper stays the same size on screen, so a page of another size is not shown bigger or smaller.
+  function flipPage(step) {
+    var was = doc.pages[doc.cur], zoom = view.zoom, across = state.w ? view.cx / state.w : 0.5;
+    var paper = view.s * was.w / was.wPt;                  // screen px per point of paper
+    showPage(doc.cur + step);
+    if (zoom > 1) {
+      var pg = doc.pages[doc.cur];
+      view.zoom = Math.max(1, paper / (pg.w / pg.wPt) / fitScale(stage.getBoundingClientRect()));
+      view.cx = across * state.w; view.cy = step > 0 ? 0 : state.h;
+      render();
+    }
+  }
   stage.addEventListener("wheel", function (e) {
     if (!state.img) return;
     // mouse wheels report lines or pages on some systems; bring everything to pixels
@@ -932,6 +985,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-dy * k));
       return;
     }
+    if (!e.shiftKey && Math.abs(dy) >= Math.abs(dx) && wheelPage(dy)) { e.preventDefault(); return; }
     if (view.zoom <= 1) return;        // nothing to scroll when the whole image is in view
     e.preventDefault();
     if (e.shiftKey && !dx) { dx = dy; dy = 0; }   // Shift + wheel scrolls sideways
@@ -1034,11 +1088,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- state helpers ----------
   var future = [];
-  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel, picks: state.picks, scale: state.scale, dpi: state.dpi }); }
+  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel, picks: state.picks, dpi: state.dpi }); }
   function restore(s) {
     var o = JSON.parse(s);
     state.notes = o.notes; state.strokes = o.strokes || []; state.sel = Math.min(o.sel, state.notes.length - 1);
-    state.scale = typeof o.scale === "number" ? o.scale : null;
     if (typeof o.dpi === "number") state.dpi = o.dpi;
     state.picks = (o.picks || []).filter(function (i) { return i < state.notes.length; });
     if (state.sel < 0) state.picks = [];
@@ -1250,7 +1303,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("dpiWrap").hidden = !!doc;
     ["scaleRatio", "lenScale"].forEach(function (id) {
       if (document.activeElement === $(id)) return;
-      $(id).value = state.scale ? "1:" + ratioText(state.scale / paper) : "";
+      $(id).value = pageRatio() ? "1:" + ratioText(pageRatio()) : "";
       $(id).removeAttribute("aria-invalid");
     });
     if (document.activeElement !== $("scaleDpi")) $("scaleDpi").value = String(state.dpi);
@@ -1343,7 +1396,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     state.showLen = e.target.checked; sync();
     if (switchByPointer) e.target.blur();      // clicked, not tabbed to: no focus ring left on it
     switchByPointer = false;
-    if (state.showLen && !state.scale) {
+    if (state.showLen && !pageRatio()) {
       // ask for the scale right there, under the switch
       $("lenScale").focus();
       status("Type the scale, such as 1:100, to show lengths in real units; until then they show in pixels.");
@@ -1354,11 +1407,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // The scale is typed as 1:100. On a PDF the paper size is known; on an image its resolution says how big
   // a pixel is on paper. Empty clears it.
   function scaleTyped(e) {
-    var raw = String(e.target.value).trim(), v = parseRatio(raw), next = raw === "" ? null : v > 0 ? v * paperMmPerPx() : undefined;
+    var raw = String(e.target.value).trim(), v = parseRatio(raw), next = raw === "" ? null : v > 0 ? v : undefined;
     if (next === undefined) { e.target.setAttribute("aria-invalid", "true"); status("Type the scale as 1:100, or just 100."); return; }
     e.target.removeAttribute("aria-invalid");
-    if (next === state.scale) { sync(); return; }
-    snapshot(); state.scale = next; sync(); render();
+    if (next === pageRatio() && next === state.ratio) { sync(); return; }
+    setRatio(next); sync(); render();
     status(next ? "Scale 1:" + ratioText(v) + ". Every dimension shows its real length." : "Scale cleared. Dimensions show pixels.");
   }
   $("scaleRatio").addEventListener("change", scaleTyped);
@@ -1368,9 +1421,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var v = parseFloat(String(e.target.value).replace(",", "."));
     if (!(v > 0) || v === state.dpi) { sync(); return; }
     snapshot();
-    var ratio = state.scale ? state.scale / paperMmPerPx() : 0;
     state.dpi = v;
-    if (ratio) state.scale = ratio * paperMmPerPx();
     sync(); render();
   });
   ["scaleRatio", "scaleDpi", "lenScale"].forEach(function (id) {
@@ -1756,8 +1807,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         history.pop(); sync(); render();
         return;
       }
+      // the page's first dimension fixes its scale: a scale set later on another page leaves it as it is
+      if (state.pageRatio == null && state.ratio) state.pageRatio = state.ratio;
       sync(); render();
-      if (!state.scale) status("Type the scale, such as 1:100, in the panel to show real lengths.");
+      if (!pageRatio()) status("Type the scale, such as 1:100, in the panel to show real lengths.");
       return;
     }
     if (d.part === "create") { var made = selected(); if (made) { tuck(made); render(); } focusText(); return; }
@@ -1831,7 +1884,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     asking = s;
     var box = $("scaleBox"), a = s.points[0], b = s.points[s.points.length - 1];
     $("scaleUnit").value = state.unit;
-    $("scaleLen").value = state.scale ? lengthText(dimLen(s)).replace(/ \S+$/, "") : "";
+    $("scaleLen").value = pageRatio() ? lengthText(dimLen(s)).replace(/ \S+$/, "") : "";
     $("scaleLen").removeAttribute("aria-invalid");
     box.hidden = false;
     var r = canvas.getBoundingClientRect(), br = box.getBoundingClientRect();
@@ -1851,7 +1904,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!asking || state.strokes.indexOf(asking) < 0 || !dimLen(asking)) { closeAsk(); return; }
     if (!(v > 0) || !UNITS[unit]) { $("scaleLen").setAttribute("aria-invalid", "true"); $("scaleLen").focus(); return; }
     var len = dimLen(asking);
-    snapshot(); state.unit = unit; state.scale = v * UNITS[unit] / len;
+    state.unit = unit; setRatio(v * UNITS[unit] / len / paperMmPerPx());
     closeAsk(); sync(); render();
     status("Scale set. Every dimension now shows its real length.");
   });
@@ -2068,7 +2121,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
           return { n: i + 1, proxy: proxy, wPt: vp.width, hPt: vp.height,
                    w: Math.max(1, Math.round(vp.width * k)), h: Math.max(1, Math.round(vp.height * k)),
                    img: null, rendering: null, used: 0, el: null, thumb: null,
-                   notes: [], strokes: [], sel: -1, picks: [], scale: null, history: [], future: [] };
+                   notes: [], strokes: [], sel: -1, picks: [], history: [], future: [] };
         })
       };
       state.name = doc.name; state.blank = false; stage.classList.add("has-image");
@@ -2119,7 +2172,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function stashPage() {
     if (!doc) return;
     var pg = doc.pages[doc.cur];
-    pg.notes = state.notes; pg.strokes = state.strokes; pg.sel = state.sel; pg.picks = state.picks; pg.scale = state.scale;
+    pg.notes = state.notes; pg.strokes = state.strokes; pg.sel = state.sel; pg.picks = state.picks; pg.pageRatio = state.pageRatio;
     pg.history = history; pg.future = future;
   }
   function showPage(i, first) {
@@ -2130,7 +2183,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!first) stashPage();
     doc.cur = i;
     var pg = doc.pages[i], total = doc.pages.length;
-    state.notes = pg.notes; state.strokes = pg.strokes; state.sel = pg.sel; state.picks = pg.picks; state.scale = pg.scale || null;
+    state.notes = pg.notes; state.strokes = pg.strokes; state.sel = pg.sel; state.picks = pg.picks; state.pageRatio = pg.pageRatio != null ? pg.pageRatio : null;
     closeAsk(true);
     history = pg.history; future = pg.future;
     state.w = pg.w; state.h = pg.h; state.img = pg.img || whitePage();
@@ -2316,7 +2369,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
       view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
-      state.notes = []; state.strokes = []; state.scale = null; state.dpi = 96; select(-1); history = []; future = [];
+      state.notes = []; state.strokes = []; state.dpi = 96; state.pageRatio = null; select(-1); history = []; future = [];
       closeAsk(true);
       readDpi(file).then(function (d) { if (d && token === loadToken && !doc) { state.dpi = d; sync(); } });
       state.blank = false; stage.classList.add("has-image");
@@ -2508,15 +2561,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- settings kept for next time ----------
   // The pen and the highlighter (colour, width, tip, and which of the two is in use), the eraser size, the look
-  // of the next note (colour, shape, size, orientation), the dimension colour, size and units, and the typeface are kept in this browser, so the
+  // of the next note (colour, shape, size, orientation), the dimension colour, size and units, the scale, Show line length and the typeface are kept in this browser, so the
   // next visit starts where this one left off. It always opens on Draw. Images, PDFs and notes are never stored.
   // Where the browser keeps nothing (a private window, blocked site data), the page simply starts afresh.
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
-    var text = JSON.stringify({ v: 1, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
-                                style: state.style, font: state.font, dim: state.dim, unit: state.unit, showLen: !!state.showLen });
+    var text = JSON.stringify({ v: 2, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
+                                style: state.style, font: state.font, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
+                                ratio: state.ratio });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -2543,7 +2597,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (FONTS[d.font]) { state.font = d.font; $("font").value = d.font; }
     if (d.dim && typeof d.dim === "object") state.dim = { color: COLORS[d.dim.color] ? d.dim.color : "red", size: num(d.dim.size, 0.25, 4, 1) };
     if (UNITS[d.unit]) state.unit = d.unit;
-    state.showLen = d.showLen === true;
+    // Show line length starts on; a choice saved before it did (version 1) is not held to
+    if (d.v >= 2 && typeof d.showLen === "boolean") state.showLen = d.showLen;
+    if (typeof d.ratio === "number" && isFinite(d.ratio) && d.ratio > 0) state.ratio = d.ratio;
   }
 
   // ---------- boot ----------
