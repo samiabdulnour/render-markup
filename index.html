@@ -10,15 +10,32 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet. */
+/* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
+
+   The look is Loriini's (samiabdulnour/loriini, app/theme.py and scripts/make_icons.py): a light grey surround,
+   white cards with a one-pixel edge, flat (nothing lifted), eight-pixel corners on a control and twelve on a card.
+   What is chosen or switched on is pale lemon with the words in ink, and the one action the page leads to
+   (Export) is the one lemon button. A button's edge turns lemon under the pointer; a field's edge is darker
+   than a button's, because it is typed in, and goes ink when it has the keyboard. */
 :root {
-  --bg: #e6e7ea;
-  --panel: #f8f8f9;
-  --ink: #15171b;
-  --muted: #646872;
-  --line: #d3d5da;
-  --accent: #d9442e;
-  --stage: #d9dbdf;
+  --chrome: #efefef;        /* the surround: header, footer, side panel, page strip */
+  --card: #ffffff;          /* cards, buttons, fields, menus */
+  --ink: #1f1f1f;
+  --body: #3c3c3c;
+  --muted: #6a6a6a;         /* hints; 5.3:1 on white */
+  --divider: #e1e1e1;       /* a card's edge and the rules inside it */
+  --face-edge: #cdcdcd;     /* a button's edge */
+  --field-edge: #888888;    /* a field's edge: something to type in */
+  --chosen: #fff07a;        /* chosen or switched on: Loriini's pale lemon, carrying ink */
+  --chosen-tint: #fff9cf;
+  --chosen-edge: #e6d65a;
+  --chosen-hover: #ffea55;
+  --chosen-down: #f2dc3a;
+  --on-chosen: #1f1f1f;
+  --off: #eaeaea;           /* a control that cannot be used */
+  --danger: #c0392b;
+  --accent: #d9442e;        /* marks on the image (the selected note), the drop outline */
+  --stage: #dedede;
   --font-display: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
   --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "IBM Plex Mono", Menlo, Consolas, monospace;
@@ -28,25 +45,27 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #17181b; --panel: #1f2125; --ink: #ecedef; --muted: #9a9ea8;
-    --line: #33363c; --accent: #f0624b; --stage: #121315; color-scheme: dark;
+    --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #d2d4d8; --muted: #9a9ea8; --divider: #34373d;
+    --face-edge: #474a52; --field-edge: #80848e; --chosen-tint: #3a3720; --chosen-edge: #b8ab45; --off: #2b2d32;
+    --danger: #f0624b; --accent: #f0624b; --stage: #121315; color-scheme: dark;
     --switch-off: #4a4d55; --switch-off-knob: #d6d8dd; --switch-on: #fff07a; --switch-on-knob: #1f2125;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #17181b; --panel: #1f2125; --ink: #ecedef; --muted: #9a9ea8;
-  --line: #33363c; --accent: #f0624b; --stage: #121315; color-scheme: dark;
+  --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #d2d4d8; --muted: #9a9ea8; --divider: #34373d;
+  --face-edge: #474a52; --field-edge: #80848e; --chosen-tint: #3a3720; --chosen-edge: #b8ab45; --off: #2b2d32;
+  --danger: #f0624b; --accent: #f0624b; --stage: #121315; color-scheme: dark;
   --switch-off: #4a4d55; --switch-off-knob: #d6d8dd; --switch-on: #fff07a; --switch-on-knob: #1f2125;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  background: var(--chrome); color: var(--ink); font-family: var(--font-body);
   font-size: 14px; line-height: 1.45; display: flex; flex-direction: column;
 }
 header {
   display: flex; align-items: center; gap: 10px; padding: 10px 16px;
-  border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap;
+  border-bottom: 1px solid var(--divider); background: var(--chrome); flex-wrap: wrap;
 }
 header h1 {
   font-family: var(--font-display); font-weight: 600; font-size: 18px;
@@ -54,41 +73,46 @@ header h1 {
 }
 header h1 small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 8px; }
 button, .btn {
-  font: inherit; font-weight: 500; border: 1px solid var(--line); background: var(--panel);
-  color: var(--ink); border-radius: 6px; padding: 7px 12px; cursor: pointer;
+  font: inherit; font-weight: 500; border: 1px solid var(--face-edge); background: var(--card);
+  color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
 }
-button:hover, .btn:hover { border-color: var(--muted); }
+button:hover, .btn:hover { border-color: var(--chosen-edge); }
+button:active, .btn:active { background: var(--chosen-tint); border-color: var(--chosen-edge); }
 button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px;
+  outline: 2px solid var(--ink); outline-offset: 2px;
 }
-button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
-button.danger { color: var(--accent); }
-button[disabled] { opacity: 0.45; cursor: default; }
+/* the one filled control: the action the page leads to */
+button.primary, #empty .btn { background: var(--chosen); color: var(--on-chosen); border-color: var(--chosen); }
+button.primary:hover, #empty .btn:hover { background: var(--chosen-hover); border-color: var(--chosen-edge); }
+button.primary:active, #empty .btn:active { background: var(--chosen-down); border-color: var(--chosen-edge); }
+button.danger { color: var(--danger); }
+button[disabled], button[disabled]:hover, button[disabled]:active {
+  background: var(--off); border-color: var(--divider); color: var(--muted); cursor: default;
+}
 main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
 #stage { position: relative; background: var(--stage); min-height: 320px; overflow: hidden; touch-action: none; }
 #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
 #view:focus { outline: none; }
 #hint {
-  position: absolute; left: 12px; bottom: 12px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: var(--muted); pointer-events: none;
+  position: absolute; left: 12px; bottom: 12px; background: var(--card); border: 1px solid var(--divider);
+  border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--muted); pointer-events: none;
 }
 /* Zoom read-out in the corner of the stage; a click fits the image again */
 #zoom {
   position: absolute; top: 12px; right: 12px; padding: 4px 9px; font-family: var(--font-mono); font-size: 12px;
-  color: var(--muted); background: var(--panel); border-color: var(--line);
+  color: var(--muted); background: var(--card); border-color: var(--divider);
 }
 #zoom[hidden] { display: none; }
 #zoom.zoomed { color: var(--ink); }
 /* Size label shown beside the preview while a size is being changed. Fixed colours: it sits over the image. */
 #hud {
-  position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; background: #15171b; color: #ffffff;
-  font-family: var(--font-mono); font-size: 12px; line-height: 1; padding: 6px 9px; border-radius: 5px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+  position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; background: #1f1f1f; color: #ffffff;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1; padding: 6px 9px; border-radius: 8px;
 }
 #hud[hidden] { display: none; }
 #drop {
-  position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 10px;
+  position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 12px;
   display: none; align-items: center; justify-content: center; font-family: var(--font-display);
   font-size: 22px; color: var(--accent); background: color-mix(in srgb, var(--stage) 80%, transparent);
   pointer-events: none;
@@ -99,52 +123,59 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
 #empty {
   position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; text-align: center; padding: 16px; pointer-events: none; overflow: hidden;
-  border: 2px dashed #b4b8c1; border-radius: 12px; color: #15171b;
+  border: 2px dashed #c8c8c8; border-radius: 12px; color: #1f1f1f;
 }
 #empty[hidden], #stage.dragging #empty { display: none; }
-#empty .ico { color: #8a8f9a; flex: none; }
+#empty .ico { color: #888888; flex: none; }
 #empty .big { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; text-wrap: balance; }
-#empty .btn { pointer-events: auto; background: #15171b; color: #ffffff; border-color: #15171b; }
-#empty .note { color: #646872; }
-#empty kbd { border-color: #d3d5da; }
+#empty .btn { pointer-events: auto; color: #1f1f1f; }
+#empty .note { color: #6a6a6a; }
+#empty kbd { border-color: #cdcdcd; background: #ffffff; color: #1f1f1f; }
 #empty.compact { gap: 6px; padding: 8px; border-radius: 8px; }
 #empty.compact .ico, #empty.compact .alt { display: none; }
 #empty.compact .big { font-size: 18px; }
 #stage.has-image #hint { display: block; } #hint { display: none; }
+/* The side panel: the surround, with every group of settings on a white card under its caption */
 aside {
-  border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto;
-  display: flex; flex-direction: column; gap: 18px; padding: 16px;
+  border-left: 1px solid var(--divider); background: var(--chrome); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px;
 }
-aside h2 {
-  font-family: var(--font-display); font-weight: 600; font-size: 13px; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px;
+.section {
+  display: flex; flex-direction: column; gap: 10px; background: var(--card);
+  border: 1px solid var(--divider); border-radius: 12px; padding: 12px;
 }
-.section { display: flex; flex-direction: column; gap: 10px; }
 .section[hidden] { display: none; }
-#notesPanel { display: flex; flex-direction: column; gap: 18px; }
+aside h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); margin: -12px -12px 2px; padding: 8px 12px;
+  border-bottom: 1px solid var(--divider);
+}
+#notesPanel { display: flex; flex-direction: column; gap: 8px; }
 #notesPanel[hidden] { display: none; }
 label { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 textarea, select, input[type="range"] { font: inherit; color: var(--ink); }
 textarea {
-  width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--line); border-radius: 6px;
-  background: var(--bg); padding: 8px; line-height: 1.4;
+  width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--field-edge); border-radius: 8px;
+  background: var(--card); padding: 8px; line-height: 1.4;
 }
-select { border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 6px 8px; }
-input[type="range"] { width: 100%; accent-color: var(--accent); }
-.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+select { border: 1px solid var(--field-edge); border-radius: 8px; background: var(--card); padding: 6px 8px; }
+textarea:focus, select:focus, input.entry:focus, .scalebox input:focus { outline: none; border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+input[type="range"] { width: 100%; accent-color: var(--body); }
+/* a segmented control: the chosen segment filled in lemon, as Archicad marks the segment that is on */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--face-edge); border-radius: 8px; overflow: hidden; background: var(--card); }
 .seg button { border: 0; border-radius: 0; justify-content: center; background: transparent; padding: 6px 10px; }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
-/* Draw, Notes and Measure float over the top-left corner of the stage. The image is fitted to the right of
-   them, so they only ever cover it once it is zoomed in, and then it can be moved out from under them. */
+.seg button + button { border-left: 1px solid var(--face-edge); }
+.seg button:hover { background: var(--chosen-tint); }
+.seg button[aria-pressed="true"] { background: var(--chosen); color: var(--on-chosen); }
+/* Draw, Eraser, Notes and Measure float over the top-left corner of the stage. The image is fitted to the right
+   of them, so they only ever cover it once it is zoomed in, and then it can be moved out from under them. */
 #tools {
   position: absolute; top: 12px; left: 12px; z-index: 4; display: flex; flex-direction: column; gap: 4px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 4px;
 }
 #tools button { width: 36px; height: 36px; padding: 0; justify-content: center; border-color: transparent; background: transparent; }
-#tools button:hover { border-color: var(--line); }
-#tools button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+#tools button:hover { background: var(--chosen-tint); border-color: transparent; }
+#tools button[aria-pressed="true"] { background: var(--chosen); color: var(--on-chosen); border-color: var(--chosen); }
 #tools svg { flex: none; }
 /* An on/off switch, the one Loriini uses: a 28 x 16 pill with a 12 px knob two pixels in from the edge.
    Off it is grey with a white knob; on it is ink with a knob in Loriini's pale lemon. */
@@ -159,18 +190,18 @@ label.check input::before {
 }
 label.check input:checked { background: var(--switch-on); }
 label.check input:checked::before { transform: translateX(12px); background: var(--switch-on-knob); }
-label.check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.check input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { label.check input, label.check input::before { transition: none; } }
 .field { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .field[hidden] { display: none; }
 .ratio { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
 .ratio .pre { flex: none; white-space: nowrap; }
 input.entry, .scalebox input {
-  font: inherit; color: var(--ink); width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px;
-  background: var(--bg); padding: 6px 8px;
+  font: inherit; color: var(--ink); width: 100%; min-width: 0; border: 1px solid var(--field-edge); border-radius: 8px;
+  background: var(--card); padding: 6px 8px;
 }
-.scalebox input[aria-invalid="true"], input.entry[aria-invalid="true"] { border-color: var(--accent); }
-.menu.scalebox { padding: 10px; gap: 8px; min-width: 230px; }
+.scalebox input[aria-invalid="true"], input.entry[aria-invalid="true"] { border-color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
+.menu.scalebox { padding: 12px; gap: 8px; min-width: 230px; }
 .scalebox .row { display: flex; gap: 6px; }
 .scalebox select { flex: none; }
 .scalebox .row button { flex: 1; justify-content: center; }
@@ -178,16 +209,17 @@ input.entry, .scalebox input {
 .swatches.five { grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .swatches.five button { padding: 6px 2px; font-size: 11.5px; }
 .swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: 12px; gap: 4px; }
-.swatches button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.swatches button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen-edge); color: var(--on-chosen); }
 .swatches svg.shape { flex: none; display: block; }
-.chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.25); display: inline-block; }
+.chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent); display: inline-block; }
 .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink); }
-#list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+#list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 #list li button {
   width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent;
   padding: 6px 8px; gap: 10px;
 }
-#list li button[aria-pressed="true"] { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+#list li button:hover { background: var(--chosen-tint); border-color: transparent; }
+#list li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #list { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
 label[hidden] { display: none; }
 #list .num {
@@ -198,7 +230,7 @@ label[hidden] { display: none; }
 .empty, .note { color: var(--muted); font-size: 12.5px; margin: 0; }
 #editor[hidden], #del[hidden] { display: none; }
 footer {
-  border-top: 1px solid var(--line); background: var(--panel); padding: 6px 16px; font-size: 12.5px;
+  border-top: 1px solid var(--divider); background: var(--chrome); padding: 6px 16px; font-size: 12.5px;
   color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap;
 }
 footer #status { color: var(--ink); }
@@ -208,44 +240,45 @@ footer #status { color: var(--ink); }
   footer #status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   footer > span:last-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
-kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
-/* Right-click pop-up menu */
+kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
+/* Right-click pop-up menu: a card; it floats over the image, so it alone keeps a soft shadow to say so */
 .menu {
-  position: fixed; z-index: 30; min-width: 200px; max-width: 280px; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 8px; padding: 4px; display: flex; flex-direction: column;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.12);
+  position: fixed; z-index: 30; min-width: 200px; max-width: 280px; background: var(--card);
+  border: 1px solid var(--divider); border-radius: 12px; padding: 4px; display: flex; flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.14);
 }
 .menu[hidden] { display: none; }
 .menu > button {
-  border: 0; background: transparent; border-radius: 5px; width: 100%; justify-content: flex-start;
+  border: 0; background: transparent; border-radius: 8px; width: 100%; justify-content: flex-start;
   text-align: left; padding: 7px 10px; gap: 10px;
 }
-.menu > button:focus { background: color-mix(in srgb, var(--ink) 9%, transparent); outline: none; }
+.menu > button:focus { background: var(--chosen-tint); outline: none; }
+.menu > button[disabled] { background: transparent; }
 .menu > button .key { margin-left: auto; padding-left: 16px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
-.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; width: auto; align-self: stretch; }
+.menu hr { border: 0; border-top: 1px solid var(--divider); margin: 4px 2px; width: auto; align-self: stretch; }
 .menu .swatches { padding: 4px 6px 2px; }
 .menu .swatches + .swatches { padding-bottom: 6px; }
 .modal {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; padding: 24px;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; padding: 24px;
 }
 .modal.open { display: flex; }
 .modal .box {
-  background: var(--panel); border-radius: 10px; padding: 18px; width: min(900px, 100%); max-height: 100%;
+  background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 18px; width: min(900px, 100%); max-height: 100%;
   display: flex; flex-direction: column; gap: 12px; overflow: auto;
 }
 .modal .box h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0; }
-#modalImg { max-width: 100%; height: auto; border: 1px solid var(--line); }
+#modalImg { max-width: 100%; height: auto; border: 1px solid var(--divider); border-radius: 8px; }
 #fixList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-#fixList li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-#fixList input { margin-top: 3px; accent-color: var(--accent); }
-#fixList .was { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--accent); }
+#fixList li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; border: 1px solid var(--divider); border-radius: 12px; padding: 10px; }
+#fixList input { margin-top: 3px; accent-color: var(--body); }
+#fixList .was { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); }
 #fixList .now { font-weight: 500; }
 #fixList .why { color: var(--muted); font-size: 12px; }
-#fixList mark { background: color-mix(in srgb, var(--accent) 18%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+#fixList mark { background: var(--chosen-tint); color: inherit; border-radius: 3px; padding: 0 2px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 input[type="file"] { display: none; }
 /* Page strip, shown down the left side when a document with several pages is open */
-#pages { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 12px 10px; min-height: 0; }
+#pages { border-right: 1px solid var(--divider); background: var(--chrome); overflow-y: auto; padding: 12px 10px; min-height: 0; }
 #pages[hidden] { display: none; }
 body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 #pageList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -253,11 +286,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   width: 100%; flex-direction: column; align-items: stretch; gap: 5px; padding: 5px;
   border-color: transparent; background: transparent;
 }
-#pageList button:hover { border-color: var(--line); }
-#pageList button[aria-current="page"] { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
-#pageList .thumb { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--line); border-radius: 2px; }
+#pageList button:hover { border-color: transparent; background: var(--chosen-tint); }
+#pageList button[aria-current="page"] { border-color: var(--chosen); background: var(--chosen); }
+#pageList .thumb { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--divider); border-radius: 4px; }
 #pageList .meta { display: flex; align-items: center; justify-content: space-between; min-height: 16px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
-#pageList button[aria-current="page"] .meta { color: var(--ink); }
+#pageList button[aria-current="page"] .meta { color: var(--on-chosen); }
 #pageList .mark {
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #ffffff;
   font-size: 10px; display: inline-flex; align-items: center; justify-content: center;
@@ -265,10 +298,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 #pageList .mark[hidden] { display: none; }
 @media (max-width: 760px) {
   main { grid-template-columns: 1fr; grid-template-rows: minmax(320px, 60vh) auto; }
-  aside { border-left: 0; border-top: 1px solid var(--line); }
+  aside { border-left: 0; border-top: 1px solid var(--divider); }
   /* on a phone the strip runs across the top: thumbnails share one height so nothing is cut off */
   body.has-pages main { grid-template-columns: 1fr; grid-template-rows: max-content minmax(280px, 52vh) auto; }
-  #pages { border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; padding: 6px 10px; }
+  #pages { border-right: 0; border-bottom: 1px solid var(--divider); overflow-x: auto; overflow-y: hidden; padding: 6px 10px; }
   #pageList { flex-direction: row; gap: 6px; }
   #pageList li { flex: none; }
   #pageList button { padding: 4px; gap: 3px; }
@@ -293,9 +326,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <div id="hud" hidden></div>
     <div id="tools" role="toolbar" aria-label="Tools" aria-orientation="vertical">
       <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
-      <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 20H20"/><path d="M4.4 15.4l9.9-9.9a2 2 0 0 1 2.8 0l2.4 2.4a2 2 0 0 1 0 2.8L11.6 18.6a2 2 0 0 1-1.4.6H8.3a2 2 0 0 1-1.4-.6l-2.5-2.5a2 2 0 0 1 0-2.7z"/><path d="M9 10.8l5.2 5.2"/></svg></button>
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
+      <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 20H20"/><path d="M4.4 15.4l9.9-9.9a2 2 0 0 1 2.8 0l2.4 2.4a2 2 0 0 1 0 2.8L11.6 18.6a2 2 0 0 1-1.4.6H8.3a2 2 0 0 1-1.4-.6l-2.5-2.5a2 2 0 0 1 0-2.7z"/><path d="M9 10.8l5.2 5.2"/></svg></button>
     </div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the file to open it</div>
@@ -320,6 +353,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       </div>
       <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
       <label class="check" title="While you draw a line with Shift its length shows along it, in the scale and units set under Measure. It goes when you let go.">Show line length<input type="checkbox" role="switch" id="showLen"></label>
+      <label for="lenScale" id="lenScaleWrap" hidden title="The scale the drawing is drawn at, such as 1:100: the length shows in real units at that scale. The same scale as under Measure.">Scale
+        <input id="lenScale" class="entry" type="text" autocomplete="off" spellcheck="false" placeholder="1:100">
+      </label>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
@@ -1190,15 +1226,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (document.activeElement !== $("penWidth")) $("penWidth").value = penToSlider(state.pen.width);
     if (document.activeElement !== $("eraserSize")) $("eraserSize").value = state.eraser * 2;
     $("showLen").checked = !!state.showLen;
+    $("lenScaleWrap").hidden = !state.showLen;
     swatchRow($("dimColors"), state.dim.color, function (k) { state.dim.color = k; sync(); });
     if (document.activeElement !== $("dimSize")) $("dimSize").value = state.dim.size;
     $("dimSizeVal").textContent = textLabel(state.dim);
     var paper = paperMmPerPx();
     $("dpiWrap").hidden = !!doc;
-    if (document.activeElement !== $("scaleRatio")) {
-      $("scaleRatio").value = state.scale ? "1:" + ratioText(state.scale / paper) : "";
-      $("scaleRatio").removeAttribute("aria-invalid");
-    }
+    ["scaleRatio", "lenScale"].forEach(function (id) {
+      if (document.activeElement === $(id)) return;
+      $(id).value = state.scale ? "1:" + ratioText(state.scale / paper) : "";
+      $(id).removeAttribute("aria-invalid");
+    });
     if (document.activeElement !== $("scaleDpi")) $("scaleDpi").value = String(state.dpi);
     if (document.activeElement !== $("unit")) $("unit").value = state.unit;
     $("undo").disabled = history.length === 0;
@@ -1283,22 +1321,32 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       $(id).addEventListener(t, function () { if (sliderPreview) { sliderPreview = null; render(); } });
     });
   });
+  var switchByPointer = false;
+  $("showLen").closest("label").addEventListener("pointerdown", function () { switchByPointer = true; });
   $("showLen").addEventListener("change", function (e) {
     state.showLen = e.target.checked; sync();
-    status(state.showLen ? "A line drawn with Shift now shows its length while you draw it." : "Lines drawn with Shift no longer show their length.");
+    if (switchByPointer) e.target.blur();      // clicked, not tabbed to: no focus ring left on it
+    switchByPointer = false;
+    if (state.showLen && !state.scale) {
+      // ask for the scale right there, under the switch
+      $("lenScale").focus();
+      status("Type the scale, such as 1:100, to show lengths in real units; until then they show in pixels.");
+    } else status(state.showLen ? "A line drawn with Shift now shows its length while you draw it." : "Lines drawn with Shift no longer show their length.");
   });
   $("dimSize").addEventListener("input", function (e) { state.dim.size = parseFloat(e.target.value); sync(); });
   $("unit").addEventListener("change", function (e) { if (UNITS[e.target.value]) state.unit = e.target.value; sync(); render(); });
   // The scale is typed as 1:100. On a PDF the paper size is known; on an image its resolution says how big
   // a pixel is on paper. Empty clears it.
-  $("scaleRatio").addEventListener("change", function (e) {
+  function scaleTyped(e) {
     var raw = String(e.target.value).trim(), v = parseRatio(raw), next = raw === "" ? null : v > 0 ? v * paperMmPerPx() : undefined;
     if (next === undefined) { e.target.setAttribute("aria-invalid", "true"); status("Type the scale as 1:100, or just 100."); return; }
     e.target.removeAttribute("aria-invalid");
     if (next === state.scale) { sync(); return; }
     snapshot(); state.scale = next; sync(); render();
     status(next ? "Scale 1:" + ratioText(v) + ". Every dimension shows its real length." : "Scale cleared. Dimensions show pixels.");
-  });
+  }
+  $("scaleRatio").addEventListener("change", scaleTyped);
+  $("lenScale").addEventListener("change", scaleTyped);
   // a new resolution keeps the scale typed (1:100 stays 1:100) and changes the lengths to suit
   $("scaleDpi").addEventListener("change", function (e) {
     var v = parseFloat(String(e.target.value).replace(",", "."));
@@ -1309,7 +1357,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (ratio) state.scale = ratio * paperMmPerPx();
     sync(); render();
   });
-  ["scaleRatio", "scaleDpi"].forEach(function (id) {
+  ["scaleRatio", "scaleDpi", "lenScale"].forEach(function (id) {
     $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
   });
   $("clearDraw").addEventListener("click", function () {
