@@ -941,7 +941,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
                       : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
       : "Left-drag draws · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
     canvas.style.cursor = "crosshair";
-    saveSettings();
     render();
   }
   // show the settings for what is being used, without touching anything else
@@ -2152,15 +2151,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- settings kept for next time ----------
   // The pen and the highlighter (colour, width, tip, and which of the two is in use), the eraser size, the look
-  // of the last note (colour, shape, size, orientation), the typeface and the Draw / Notes switch are kept in
-  // this browser, so the next visit starts where this one left off. Images, PDFs and notes are never stored.
+  // of the next note (colour, shape, size, orientation, arrow) and the typeface are kept in this browser, so the
+  // next visit starts where this one left off. It always opens on Draw. Images, PDFs and notes are never stored.
   // Where the browser keeps nothing (a private window, blocked site data), the page simply starts afresh.
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
     var text = JSON.stringify({ v: 1, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
-                                style: state.style, font: state.font, tool: state.tool });
+                                style: state.style, font: state.font });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -2185,13 +2184,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), arrow: st.arrow !== false };
     }
     if (FONTS[d.font]) { state.font = d.font; $("font").value = d.font; }
-    if (d.tool === "draw" || d.tool === "note") state.tool = d.tool;
   }
 
   // ---------- boot ----------
   new ResizeObserver(render).observe(stage);
   loadSettings();
-  setTool(state.tool);
+  setTool("draw");
   if (COARSE) $("listEmpty").textContent = "No notes yet. Tap the image to add one.";
   Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
   sync();

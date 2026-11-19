@@ -6,7 +6,7 @@ A small browser tool for marking up architectural renders and PDFs: clean pill c
 
 Everything runs in your browser. Images and PDFs never leave your computer. The optional grammar check sends only the note text to [LanguageTool](https://languagetool.org).
 
-Your last settings are kept in your browser for next time: the pen and the highlighter (colour, width, tip, and which one was in use), the eraser size, the settings for a new note (colour, shape, orientation, arrow and text size), the typeface and the Draw / Notes switch. Each person's browser keeps its own. Images, PDFs and notes are never stored. In a private window, or with site data blocked, the page starts with the usual settings every time.
+Your last settings are kept in your browser for next time: the pen and the highlighter (colour, width, tip, and which one was in use), the eraser size, the settings for a new note (colour, shape, orientation, arrow and text size) and the typeface. It always opens on Draw. Each person's browser keeps its own. Images, PDFs and notes are never stored. In a private window, or with site data blocked, the page starts with the usual settings every time.
 
 ## How it works
 
