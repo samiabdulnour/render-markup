@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Barlow+Condensed:wght@500;700&family=Architects+Daughter&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Architects+Daughter&display=swap" rel="stylesheet">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
@@ -355,8 +355,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="inkHi" aria-pressed="false" title="A wide see-through line, for marking an area without hiding it">Highlighter</button>
       </div>
       <div class="seg" role="group" aria-label="Tip shape">
-        <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded; the eraser is round">Round tip</button>
-        <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker; the eraser is square too">Square tip</button>
+        <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded">Round tip</button>
+        <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker">Square tip</button>
       </div>
       <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
       <label class="check" title="While you draw a line with Shift its length shows along it, in the scale and units set under Measure. It goes when you let go.">Show line length<input type="checkbox" role="switch" id="showLen"></label>
@@ -370,7 +370,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     </div>
     <div class="section" id="erasePanel" hidden>
       <h2>Eraser</h2>
-      <label for="eraserSize" title="The wheel button erases with any tool on. The eraser has the same tip as the pen, round or square.">Eraser size <span class="val" id="eraserSizeVal"></span>
+      <div class="seg" role="group" aria-label="Eraser shape">
+        <button id="eraseRound" aria-pressed="true" title="A round eraser">Round</button>
+        <button id="eraseSquare" aria-pressed="false" title="A square eraser, upright: it reaches into its corners">Square</button>
+      </div>
+      <label for="eraserSize" title="The wheel button erases with any tool on.">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
       </label>
     </div>
@@ -418,12 +422,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <p class="note">Sends only the note text to LanguageTool.</p>
       <label for="font">Typeface
         <select id="font">
-          <option value="cond">Condensed sans</option>
-          <option value="condBold">Condensed sans bold</option>
           <option value="arial">Arial</option>
           <option value="arialBold">Arial bold</option>
-          <option value="tech">Technical</option>
-          <option value="techBold">Technical bold</option>
+          <option value="cond">Condensed sans</option>
+          <option value="condBold">Condensed sans bold</option>
           <option value="hand">Architect's hand</option>
           <option value="mono">Mono</option>
         </select>
@@ -465,15 +467,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 <script>
 (function () {
   "use strict";
-  // The typefaces notes and lengths can be set in. Arial is the computer's own; the rest come from Google Fonts
-  // with the page. Architect's hand is hand lettering of the kind on a drawing; Technical is a tall, narrow face.
+  // The typefaces notes and lengths can be set in, Arial first and by default. Arial is the computer's own; the
+  // rest come from Google Fonts with the page. Architect's hand is hand lettering of the kind on a drawing.
   var FONTS = {
-    cond:      { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
-    condBold:  { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 700 },
     arial:     { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif', weight: 400 },
     arialBold: { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif', weight: 700 },
-    tech:      { family: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
-    techBold:  { family: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif', weight: 700 },
+    cond:      { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
+    condBold:  { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 700 },
     hand:      { family: '"Architects Daughter", "Comic Sans MS", cursive', weight: 400 },
     mono:      { family: '"IBM Plex Mono", Menlo, Consolas, monospace', weight: 500 }
   };
@@ -502,12 +502,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "arial", style: null,
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
                 // ratio: the scale the drawings are at (100 for 1:100), or null. One for every page and drawing, kept
                 // for next time; with the paper size of a page, or an image's dpi, it gives the length of a pixel.
+                eraserTip: "round",     // the eraser's shape: round, or an upright square
                 ratio: null, pageRatio: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: true,
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
@@ -710,7 +711,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // The eraser rubs out only the ink it passes over, so a stroke can be trimmed or cut in two.
   function eraserR() { return state.eraser / view.s; }  // state.eraser is the radius in screen px; this is image px
   // The eraser has the tip the pen has: a circle, or an upright square of the same width.
-  function eraserSquare() { return state.pen.tip === "square"; }
+  function eraserSquare() { return state.eraserTip === "square"; }
   // A stroke as the dense run of points it is actually drawn through (the pen smooths between its raw points).
   function flatten(s) {
     var pts = s.points;
@@ -1183,7 +1184,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // Put the keyboard in the note's text box. The text is selected so typing replaces it, unless keep is set,
   // which leaves the caret where it was (for a note that already has its own text).
-  function focusText(keep) { setTimeout(function () { var ta = $("noteText"); ta.focus(); if (!keep) ta.select(); }, 0); }
+  // the note's text box gets the keyboard: all of "New note" selected, to be typed over, or the cursor at the end
+  function focusText(keep) {
+    setTimeout(function () {
+      var ta = $("noteText"); ta.focus();
+      if (!keep) ta.select(); else ta.setSelectionRange(ta.value.length, ta.value.length);
+    }, 0);
+  }
+  // Esc in the text box: done typing; the note is let go and the keyboard goes back to the image
+  $("noteText").addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { e.preventDefault(); canvas.focus({ preventScroll: true }); select(-1); sync(); render(); }
+  });
   // A new note pointing at (x, y), with its pill set off to one side; not yet part of the image.
   // A note's look: everything about it but its text and where it is. state.style is the look the next note gets:
   // that of the note selected last, or what was picked under New note in the panel. Red pills to begin with.
@@ -1320,6 +1331,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("inkHi").setAttribute("aria-pressed", String(!!state.pen.hi));
     $("tipRound").setAttribute("aria-pressed", String(state.pen.tip !== "square"));
     $("tipSquare").setAttribute("aria-pressed", String(state.pen.tip === "square"));
+    $("eraseRound").setAttribute("aria-pressed", String(!eraserSquare()));
+    $("eraseSquare").setAttribute("aria-pressed", String(eraserSquare()));
     $("penWidthVal").textContent = penLabel(state.pen.width);
     $("eraserSizeVal").textContent = Math.round(state.eraser * 2) + " px";
     if (document.activeElement !== $("penWidth")) $("penWidth").value = penToSlider(state.pen.width);
@@ -1414,6 +1427,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("inkHi").addEventListener("click", function () { setInk(true); });
   $("tipRound").addEventListener("click", function () { state.pen.tip = "round"; sync(); });
   $("tipSquare").addEventListener("click", function () { state.pen.tip = "square"; sync(); });
+  $("eraseRound").addEventListener("click", function () { state.eraserTip = "round"; sync(); render(); });
+  $("eraseSquare").addEventListener("click", function () { state.eraserTip = "square"; sync(); render(); });
   $("eraserSize").addEventListener("input", function (e) { state.eraser = parseFloat(e.target.value) / 2; sliderPreview = "eraser"; sync(); render(); });
   ["penWidth", "eraserSize"].forEach(function (id) {
     ["change", "blur", "pointerup", "keyup"].forEach(function (t) {
@@ -1886,6 +1901,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!d.moved) {
       history.pop();
       if (d.part === "pills") { select(d.idx); sync(); render(); }
+      // a click on a note (not a drag): the keyboard goes to its text, so typing writes in it rather than
+      // reaching the shortcuts (D, N, M and E would switch tools)
+      var clicked = cancelled !== true && state.picks.length === 1 ? selected() : null;
+      if (clicked) focusText(clicked.text !== "New note");
     } else {
       // a dot left under its own pill: the note is a plain comment now, and the dot stays in the middle of it
       picked().forEach(tuck);
@@ -2612,9 +2631,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
-    var text = JSON.stringify({ v: 2, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
+    var text = JSON.stringify({ v: 3, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, font: state.font, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
-                                ratio: state.ratio });
+                                ratio: state.ratio, eraserTip: state.eraserTip });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -2638,12 +2657,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (st && typeof st === "object" && COLORS[st.color]) {
       state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1) };
     }
-    if (FONTS[d.font]) { state.font = d.font; $("font").value = d.font; }
+    // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
+    if (FONTS[d.font] && !(d.font === "cond" && !(d.v >= 3))) state.font = d.font;
+    $("font").value = state.font;
     if (d.dim && typeof d.dim === "object") state.dim = { color: COLORS[d.dim.color] ? d.dim.color : "red", size: num(d.dim.size, 0.25, 4, 1) };
     if (UNITS[d.unit]) state.unit = d.unit;
     // Show line length starts on; a choice saved before it did (version 1) is not held to
     if (d.v >= 2 && typeof d.showLen === "boolean") state.showLen = d.showLen;
     if (typeof d.ratio === "number" && isFinite(d.ratio) && d.ratio > 0) state.ratio = d.ratio;
+    // the eraser's own shape; before it had one it went with the pen's tip
+    state.eraserTip = d.eraserTip === "square" || (d.eraserTip == null && state.pen.tip === "square") ? "square" : "round";
   }
 
   // ---------- boot ----------
@@ -2651,6 +2674,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   loadSettings();
   setTool("draw");
   if (COARSE) $("listEmpty").textContent = "No notes yet. Tap the image to add one.";
+  $("font").value = state.font;
   Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
   sync();
 })();
