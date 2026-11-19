@@ -142,8 +142,20 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 #tools button:hover { border-color: var(--line); }
 #tools button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 #tools svg { flex: none; }
-label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; cursor: pointer; }
-label.check input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+/* an on/off switch: a slim track with a knob that slides across, dark when on */
+label.check { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink); font-size: 13px; cursor: pointer; }
+label.check input {
+  -webkit-appearance: none; appearance: none; margin: 0; flex: none; position: relative; cursor: pointer;
+  width: 34px; height: 20px; border-radius: 999px; background: var(--line); transition: background-color 0.18s ease;
+}
+label.check input::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.28); transition: transform 0.18s ease, background-color 0.18s ease;
+}
+label.check input:checked { background: var(--ink); }
+label.check input:checked::before { transform: translateX(14px); background: var(--panel); }
+label.check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { label.check input, label.check input::before { transition: none; } }
 .field { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .field[hidden] { display: none; }
 .ratio { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
@@ -302,7 +314,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker; the eraser is square too">Square tip</button>
       </div>
       <div class="swatches five" id="penColors" role="group" aria-label="Pen colour"></div>
-      <label class="check" title="Lines drawn with Shift get their length written along them, in the scale and units set under Measure."><input type="checkbox" id="showLen"> Show the length of straight lines</label>
+      <label class="check" title="While you draw a line with Shift its length shows along it, in the scale and units set under Measure. It goes when you let go.">Show line length<input type="checkbox" role="switch" id="showLen"></label>
       <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
@@ -723,15 +735,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (changed) state.strokes = out;
     return changed;
   }
-  // A line drawn with Shift while Show length is on has its length written along it (always solid, even on
-  // a highlighter line), at the size of a note's text, in the scale and units set under Measure.
   function drawStroke(c, s) {
     if (s.dim) { drawDim(c, s); return; }
     drawLine(c, s);
-    if (s.len && s.straight && s.points.length === 2) {
-      var fs = state.w / 100;
-      writeLength(c, s.points[0], s.points[1], PEN_COLORS[s.color] || PEN_COLORS.red, fs, penPx(s) / 2 + fs * 0.3);
-    }
   }
   function drawLine(c, s) {
     var col = (PEN_COLORS[s.color] || PEN_COLORS.red).fill, pts = s.points, lw = penPx(s);
@@ -954,6 +960,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       ctx.lineWidth = 1.25 / view.s; ctx.strokeStyle = "#15171b"; ctx.stroke();
       if (sizing === "eraser" || sliderPreview === "eraser") hud = { text: "Eraser size " + Math.round(state.eraser * 2) + " px", at: ring, r: er };
     }
+    // Show length: while a line is drawn with Shift its length shows along it, in the scale and units set under
+    // Measure. It is only a read-out: it goes when the button is let go and is never part of the image.
+    var ls = drag && drag.part === "stroke" && state.showLen && drag.stroke.straight ? drag.stroke : null;
+    if (ls && ls.points.length === 2) writeLength(ctx, ls.points[0], ls.points[1], PEN_COLORS[ls.color] || PEN_COLORS.red, 15 / view.s, penPx(ls) / 2 + 6 / view.s);
     placeHud(hud, r);
   }
 
@@ -1270,7 +1280,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   });
   $("showLen").addEventListener("change", function (e) {
     state.showLen = e.target.checked; sync();
-    status(state.showLen ? "Lines drawn with Shift now show their length." : "Lines drawn with Shift no longer show their length.");
+    status(state.showLen ? "A line drawn with Shift now shows its length while you draw it." : "Lines drawn with Shift no longer show their length.");
   });
   $("dimSize").addEventListener("input", function (e) { state.dim.size = parseFloat(e.target.value); sync(); });
   $("unit").addEventListener("change", function (e) { if (UNITS[e.target.value]) state.unit = e.target.value; sync(); render(); });
@@ -1362,7 +1372,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (!onImage) return false;
       snapshot();
       var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: o.shift };
-      if (o.shift && state.showLen) s.len = true;
       state.strokes.push(s);
       drag = { part: "stroke", stroke: s };
       showPanel("draw");
@@ -1517,7 +1526,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag.part === "stroke") {
       var s = drag.stroke;
       if (e.shiftKey || s.straight) {
-        if (!s.straight && state.showLen) s.len = true;
         s.straight = true;
         s.points = [s.points[0], snapLine(s.points[0], { x: x, y: y })];
       } else {
@@ -1670,7 +1678,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       }
       return;
     }
-    if (d.part === "stroke") { sync(); return; }
+    if (d.part === "stroke") { sync(); render(); return; }   // render: a length shown while drawing goes
     if (d.part === "dim") {
       var ds = d.stroke, di = state.strokes.indexOf(ds);
       if (cancelled === true || dimLen(ds) * view.s < 4) {
