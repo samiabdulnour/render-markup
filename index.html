@@ -146,11 +146,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .field[hidden] { display: none; }
 .ratio { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
 .ratio .pre { flex: none; white-space: nowrap; }
-.ratio input, .scalebox input {
+input.entry, .scalebox input {
   font: inherit; color: var(--ink); width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px;
   background: var(--bg); padding: 6px 8px;
 }
-.scalebox input[aria-invalid="true"] { border-color: var(--accent); }
+.scalebox input[aria-invalid="true"], input.entry[aria-invalid="true"] { border-color: var(--accent); }
 .menu.scalebox { padding: 10px; gap: 8px; min-width: 230px; }
 .scalebox .row { display: flex; gap: 6px; }
 .scalebox select { flex: none; }
@@ -313,10 +313,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="dimSize">Text size <span class="val" id="dimSizeVal"></span>
         <input type="range" id="dimSize" min="0.25" max="4" step="0.05" value="1">
       </label>
-      <label for="scaleRatio" id="ratioWrap" hidden title="The scale the drawing is printed at. Or measure something you know and type in its length.">Scale
-        <span class="ratio"><span class="pre">1 :</span><input id="scaleRatio" type="text" inputmode="decimal" autocomplete="off" placeholder="100"></span>
+      <label for="scaleRatio" title="The scale the drawing is drawn at, such as 1:100. Or right-click a dimension and set its length.">Scale
+        <input id="scaleRatio" class="entry" type="text" autocomplete="off" spellcheck="false" placeholder="1:100">
       </label>
-      <div class="field" id="scaleField" title="Measure something whose length you know and type it in. Right-click a dimension to set its length again.">Scale <span class="val" id="scaleVal"></span></div>
+      <label for="scaleDpi" id="dpiWrap" title="How many pixels of this image make an inch on paper. Read from the file when it says; otherwise 96.">Image resolution
+        <span class="ratio"><input id="scaleDpi" class="entry" type="text" inputmode="decimal" autocomplete="off"><span class="pre">dpi</span></span>
+      </label>
       <label for="unit">Units
         <select id="unit"><option value="mm">Millimetres</option><option value="cm">Centimetres</option><option value="m">Metres</option></select>
       </label>
@@ -337,10 +339,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <div class="seg" role="group" aria-label="Orientation">
         <button id="oriH" aria-pressed="true">Horizontal</button>
         <button id="oriV" aria-pressed="false">Vertical</button>
-      </div>
-      <div class="seg" role="group" aria-label="Arrow">
-        <button id="arrowOn" aria-pressed="true" title="A line from the note to a dot on the spot it describes">Arrow</button>
-        <button id="arrowOff" aria-pressed="false" title="Just the note, with no line and no dot">No arrow</button>
       </div>
       <label for="noteSize">Text size <span class="val" id="noteSizeVal"></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
@@ -424,7 +422,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], sel: -1, picks: [], font: "cond", style: null,
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
-                scale: null, unit: "mm", dim: { color: "red", size: 1 },
+                // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
+                scale: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 },
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
@@ -538,8 +537,42 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var v = px * state.scale / UNITS[state.unit];
     return (state.unit === "mm" ? String(Math.round(v)) : state.unit === "cm" ? String(Math.round(v * 10) / 10) : v.toFixed(2)) + " " + state.unit;
   }
-  // millimetres on paper per image px, for a PDF page (whose paper size is known); 0 for an image
-  function paperMmPerPx() { if (!doc) return 0; var pg = doc.pages[doc.cur]; return 25.4 / 72 * pg.wPt / pg.w; }
+  // millimetres on paper per image px: from the page size for a PDF, from the resolution for an image
+  function paperMmPerPx() { if (!doc) return 25.4 / (state.dpi || 96); var pg = doc.pages[doc.cur]; return 25.4 / 72 * pg.wPt / pg.w; }
+  // "1:100", "1 : 100" or just "100" (NaN for anything else)
+  function parseRatio(t) {
+    var m = String(t).replace(/\s+/g, "").replace(",", ".").match(/^(?:1[:\/])?(\d*\.?\d+)$/);
+    return m ? parseFloat(m[1]) : NaN;
+  }
+  // The resolution an image file says it has (PNG pHYs, JPEG JFIF), in dots per inch; 0 when it does not say.
+  function readDpi(file) {
+    if (!file || !file.slice) return Promise.resolve(0);
+    return file.slice(0, 1 << 16).arrayBuffer().then(function (buf) {
+      var b = new DataView(buf), n = buf.byteLength, o, len;
+      if (n > 24 && b.getUint32(0) === 0x89504E47) {
+        for (o = 8; o + 12 <= n; o += 12 + len) {
+          len = b.getUint32(o);
+          var type = b.getUint32(o + 4);
+          if (type === 0x70485973 && len >= 9 && o + 17 <= n) return b.getUint8(o + 16) === 1 ? b.getUint32(o + 8) * 0.0254 : 0;
+          if (type === 0x49444154) return 0;            // the pixels have started: there is no pHYs
+        }
+        return 0;
+      }
+      if (n > 4 && b.getUint16(0) === 0xFFD8) {
+        for (o = 2; o + 4 <= n; o += 2 + len) {
+          if (b.getUint8(o) !== 0xFF) return 0;
+          var mark = b.getUint8(o + 1);
+          len = b.getUint16(o + 2);
+          if (mark === 0xE0 && o + 16 <= n && b.getUint32(o + 4) === 0x4A464946) {   // APP0 "JFIF"
+            var unit = b.getUint8(o + 11), x = b.getUint16(o + 12);
+            return unit === 1 ? x : unit === 2 ? x * 2.54 : 0;
+          }
+          if (mark === 0xDA) return 0;                  // start of the picture itself
+        }
+      }
+      return 0;
+    }).then(function (d) { return d > 1 && d < 100000 ? Math.round(d * 10) / 10 : 0; }, function () { return 0; });
+  }
   function ratioText(v) { return Math.abs(v - Math.round(v)) < v * 0.005 ? String(Math.round(v)) : String(Math.round(v * 10) / 10); }
   function drawDim(c, s) {
     var a = s.points[0], b = s.points[s.points.length - 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
@@ -914,11 +947,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- state helpers ----------
   var future = [];
-  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel, picks: state.picks, scale: state.scale }); }
+  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, sel: state.sel, picks: state.picks, scale: state.scale, dpi: state.dpi }); }
   function restore(s) {
     var o = JSON.parse(s);
     state.notes = o.notes; state.strokes = o.strokes || []; state.sel = Math.min(o.sel, state.notes.length - 1);
     state.scale = typeof o.scale === "number" ? o.scale : null;
+    if (typeof o.dpi === "number") state.dpi = o.dpi;
     state.picks = (o.picks || []).filter(function (i) { return i < state.notes.length; });
     if (state.sel < 0) state.picks = [];
     else if (state.picks.indexOf(state.sel) < 0) state.picks = [state.sel];
@@ -984,12 +1018,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // A note's look: everything about it but its text and where it is. state.style is the look the next note gets:
   // that of the note selected last, or what was picked under New note in the panel. Red pills to begin with.
   function lookOf(n) {
-    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size, arrow: !bare(n) };
+    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size };
   }
   function nextLook() {
     var l = state.style || {};
     return { vertical: !!l.vertical, color: COLORS[l.color] ? l.color : "red", shape: SHAPES[l.shape] ? l.shape : "pill",
-             size: typeof l.size === "number" ? l.size : 1, arrow: l.arrow !== false };
+             size: typeof l.size === "number" ? l.size : 1 };
   }
   // change the look of the next note (nothing on the image changes)
   function setLook(fn) { var l = nextLook(); fn(l); state.style = l; sync(); }
@@ -1003,8 +1037,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
       vertical: look.vertical, color: look.color, shape: look.shape, size: look.size
     };
-    // without an arrow the note sits on the spot itself, its dot hidden under the middle of it
-    if (!look.arrow) { n.px = x; n.py = y; }
     return n;
   }
   function addNote(x, y, deferFocus, made) {
@@ -1102,8 +1134,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
     $("oriV").setAttribute("aria-pressed", String(look.vertical));
     $("oriH").setAttribute("aria-pressed", String(!look.vertical));
-    $("arrowOn").setAttribute("aria-pressed", String(look.arrow));
-    $("arrowOff").setAttribute("aria-pressed", String(!look.arrow));
     if (document.activeElement !== $("noteSize")) $("noteSize").value = look.size;
     $("noteSizeVal").textContent = textLabel(look);
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
@@ -1119,9 +1149,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (document.activeElement !== $("dimSize")) $("dimSize").value = state.dim.size;
     $("dimSizeVal").textContent = textLabel(state.dim);
     var paper = paperMmPerPx();
-    $("ratioWrap").hidden = !paper; $("scaleField").hidden = !!paper;
-    if (paper && document.activeElement !== $("scaleRatio")) $("scaleRatio").value = state.scale ? ratioText(state.scale / paper) : "";
-    $("scaleVal").textContent = state.scale ? "1 px = " + Number(state.scale.toPrecision(3)) + " mm" : "not set";
+    $("dpiWrap").hidden = !!doc;
+    if (document.activeElement !== $("scaleRatio")) {
+      $("scaleRatio").value = state.scale ? "1:" + ratioText(state.scale / paper) : "";
+      $("scaleRatio").removeAttribute("aria-invalid");
+    }
+    if (document.activeElement !== $("scaleDpi")) $("scaleDpi").value = String(state.dpi);
     if (document.activeElement !== $("unit")) $("unit").value = state.unit;
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
@@ -1154,8 +1187,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   setter("oriV", function (n) { n.vertical = true; }, function (l) { l.vertical = true; });
   setter("oriH", function (n) { n.vertical = false; }, function (l) { l.vertical = false; });
-  setter("arrowOn", giveArrow, function (l) { l.arrow = true; });
-  setter("arrowOff", dropArrow, function (l) { l.arrow = false; });
   var sizeByMouse = false;
   $("noteSize").addEventListener("pointerdown", function (e) { sizeByMouse = e.pointerType === "mouse"; if (state.picks.length) snapshot(); });
   $("noteSize").addEventListener("keydown", function () { sizeByMouse = false; if (state.picks.length) snapshot(); });
@@ -1209,16 +1240,29 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   });
   $("dimSize").addEventListener("input", function (e) { state.dim.size = parseFloat(e.target.value); sync(); });
   $("unit").addEventListener("change", function (e) { if (UNITS[e.target.value]) state.unit = e.target.value; sync(); render(); });
-  // On a PDF the scale can be typed as a ratio: the paper size is known, so 1 : 100 fixes it.
+  // The scale is typed as 1:100. On a PDF the paper size is known; on an image its resolution says how big
+  // a pixel is on paper. Empty clears it.
   $("scaleRatio").addEventListener("change", function (e) {
-    var paper = paperMmPerPx(), v = parseFloat(String(e.target.value).replace(",", "."));
-    if (!paper) return;
-    var next = v > 0 ? v * paper : null;
-    if (next === state.scale) return;
+    var raw = String(e.target.value).trim(), v = parseRatio(raw), next = raw === "" ? null : v > 0 ? v * paperMmPerPx() : undefined;
+    if (next === undefined) { e.target.setAttribute("aria-invalid", "true"); status("Type the scale as 1:100, or just 100."); return; }
+    e.target.removeAttribute("aria-invalid");
+    if (next === state.scale) { sync(); return; }
     snapshot(); state.scale = next; sync(); render();
-    status(next ? "Scale 1:" + ratioText(v) + ". Every dimension on this page shows its real length." : "Scale cleared.");
+    status(next ? "Scale 1:" + ratioText(v) + ". Every dimension shows its real length." : "Scale cleared. Dimensions show pixels.");
   });
-  $("scaleRatio").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+  // a new resolution keeps the scale typed (1:100 stays 1:100) and changes the lengths to suit
+  $("scaleDpi").addEventListener("change", function (e) {
+    var v = parseFloat(String(e.target.value).replace(",", "."));
+    if (!(v > 0) || v === state.dpi) { sync(); return; }
+    snapshot();
+    var ratio = state.scale ? state.scale / paperMmPerPx() : 0;
+    state.dpi = v;
+    if (ratio) state.scale = ratio * paperMmPerPx();
+    sync(); render();
+  });
+  ["scaleRatio", "scaleDpi"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+  });
   $("clearDraw").addEventListener("click", function () {
     if (!state.strokes.length) return;
     snapshot(); state.strokes = []; sync(); render(); status("Drawing cleared. Undo brings it back.");
@@ -1307,9 +1351,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (onImage) {
       // press on the spot being described, drag out, release where the pill should sit
       addNote(p.x, p.y, true);
-      var plain = bare(selected());
-      if (o.shift && !plain) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
-      drag = { part: "create", sx: o.sx, sy: o.sy, moved: false, bare: plain };
+      if (o.shift) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
+      drag = { part: "create", sx: o.sx, sy: o.sy, moved: false };
       return true;
     }
     select(-1); sync(); render();
@@ -1461,9 +1504,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag.part === "create") {
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
       drag.moved = true;
-      var q = e.shiftKey && !drag.bare ? snapNote([n.tx, n.ty], x, y) : [x, y];
+      var q = e.shiftKey ? snapNote([n.tx, n.ty], x, y) : [x, y];
       n.px = q[0]; n.py = q[1];
-      if (drag.bare) dropArrow(n);                  // no arrow: the whole note goes where the pointer is
       render();
       return;
     }
@@ -1594,7 +1636,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         return;
       }
       sync(); render();
-      if (!state.scale) { askLength(ds); status("How long is this line really? Type it in to set the scale."); }
+      if (!state.scale) status("Type the scale, such as 1:100, in the panel to show real lengths.");
       return;
     }
     if (d.part === "create") { var made = selected(); if (made) { tuck(made); render(); } focusText(); return; }
@@ -1731,10 +1773,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
       }));
-      var plain = bare(n);
-      add(menuItem(plain ? "Add arrow" : "Remove arrow", "", function () {
-        snapshot(); picked().forEach(plain ? giveArrow : dropArrow); sync(); render();
-      }));
+      // notes keep their arrows; one whose dot was dragged under it can have it back
+      if (bare(n)) add(menuItem("Add arrow", "", function () { snapshot(); picked().forEach(giveArrow); sync(); render(); }));
       rule();
       add(menuItem(many ? "Delete " + state.picks.length + " notes" : "Delete note", "Del", deleteSel, { danger: true }));
     } else {
@@ -2153,8 +2193,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight;
       view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
-      state.notes = []; state.strokes = []; state.scale = null; select(-1); history = []; future = [];
+      state.notes = []; state.strokes = []; state.scale = null; state.dpi = 96; select(-1); history = []; future = [];
       closeAsk(true);
+      readDpi(file).then(function (d) { if (d && token === loadToken && !doc) { state.dpi = d; sync(); } });
       state.blank = false; stage.classList.add("has-image");
       $("docname").textContent = (file.name || "Pasted image") + " · " + state.w + " × " + state.h + " px";
       sync(); render();
@@ -2344,7 +2385,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- settings kept for next time ----------
   // The pen and the highlighter (colour, width, tip, and which of the two is in use), the eraser size, the look
-  // of the next note (colour, shape, size, orientation, arrow), the dimension colour, size and units, and the typeface are kept in this browser, so the
+  // of the next note (colour, shape, size, orientation), the dimension colour, size and units, and the typeface are kept in this browser, so the
   // next visit starts where this one left off. It always opens on Draw. Images, PDFs and notes are never stored.
   // Where the browser keeps nothing (a private window, blocked site data), the page simply starts afresh.
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
@@ -2374,7 +2415,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     state.eraser = num(d.eraser, 3, 100, state.eraser);
     var st = d.style;
     if (st && typeof st === "object" && COLORS[st.color]) {
-      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), arrow: st.arrow !== false };
+      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1) };
     }
     if (FONTS[d.font]) { state.font = d.font; $("font").value = d.font; }
     if (d.dim && typeof d.dim === "object") state.dim = { color: COLORS[d.dim.color] ? d.dim.color : "red", size: num(d.dim.size, 0.25, 4, 1) };
