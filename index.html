@@ -162,7 +162,7 @@ label[hidden] { display: none; }
 }
 #list .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty, .note { color: var(--muted); font-size: 12.5px; margin: 0; }
-#editor[hidden] { display: none; }
+#editor[hidden], #del[hidden] { display: none; }
 footer {
   border-top: 1px solid var(--line); background: var(--panel); padding: 6px 16px; font-size: 12.5px;
   color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap;
@@ -303,7 +303,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <ul id="list" title="Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
       <p class="empty" id="listEmpty">No notes yet. Drag with the right mouse button to add one.</p>
     </div>
-    <div class="section" id="editor" hidden>
+    <div class="section" id="editor">
       <h2 id="editorTitle">Selected note</h2>
       <label for="noteText" id="noteTextWrap">Text
         <textarea id="noteText" spellcheck="true"></textarea>
@@ -892,17 +892,30 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // which leaves the caret where it was (for a note that already has its own text).
   function focusText(keep) { setTimeout(function () { var ta = $("noteText"); ta.focus(); if (!keep) ta.select(); }, 0); }
   // A new note pointing at (x, y), with its pill set off to one side; not yet part of the image.
+  // A note's look: everything about it but its text and where it is. state.style is the look the next note gets:
+  // that of the note selected last, or what was picked under New note in the panel. Red pills to begin with.
+  function lookOf(n) {
+    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size, arrow: !bare(n) };
+  }
+  function nextLook() {
+    var l = state.style || {};
+    return { vertical: !!l.vertical, color: COLORS[l.color] ? l.color : "red", shape: SHAPES[l.shape] ? l.shape : "pill",
+             size: typeof l.size === "number" ? l.size : 1, arrow: l.arrow !== false };
+  }
+  // change the look of the next note (nothing on the image changes)
+  function setLook(fn) { var l = nextLook(); fn(l); state.style = l; sync(); }
   function newNote(x, y) {
     var dx = state.w * 0.11 * (x > state.w / 2 ? -1 : 1);
     var dy = -state.h * 0.1;
+    // a new note looks like the selected one, or failing that like the next-note look
+    var look = selected() ? lookOf(selected()) : nextLook();
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
-      vertical: false, color: "red", shape: "pill", size: 1      // red unless a note has been selected before
+      vertical: look.vertical, color: look.color, shape: look.shape, size: look.size
     };
-    // a new note looks like the selected one, or failing that like the note that was selected last
-    var last = selected() || state.style;
-    if (last) { n.vertical = !!last.vertical; n.color = last.color || "black"; n.shape = shapeOf(last); n.size = last.size; }
+    // without an arrow the note sits on the spot itself, its dot hidden under the middle of it
+    if (!look.arrow) { n.px = x; n.py = y; }
     return n;
   }
   function addNote(x, y, deferFocus, made) {
@@ -928,6 +941,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
                       : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
       : "Left-drag draws · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
     canvas.style.cursor = "crosshair";
+    saveSettings();
     render();
   }
   // show the settings for what is being used, without touching anything else
@@ -978,28 +992,29 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
     $("listEmpty").hidden = state.notes.length > 0;
     var n = selected(), many = state.picks.length > 1;
-    $("editor").hidden = !n;
-    if (n) {
-      state.style = { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size };
-      $("editorTitle").textContent = many ? state.picks.length + " notes selected" : "Selected note";
-      $("noteTextWrap").hidden = many;   // text is per note; everything else below applies to all selected
-      $("del").textContent = many ? "Delete " + state.picks.length + " notes" : "Delete note";
-      if (!many && document.activeElement !== $("noteText")) $("noteText").value = n.text;
-      swatchRow($("noteColors"), n.color || (n.dark === false ? "white" : "black"), function (k) {
-        var ps = picked(); if (!ps.length) return;
-        snapshot(); ps.forEach(function (m) { m.color = k; delete m.dark; }); sync(); render();
-      });
-      shapeRow($("noteShapes"), shapeOf(n), function (k) {
-        var ps = picked(); if (!ps.length) return;
-        snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
-      });
-      $("oriV").setAttribute("aria-pressed", String(!!n.vertical));
-      $("oriH").setAttribute("aria-pressed", String(!n.vertical));
-      var plain = bare(n);
-      $("arrowOn").setAttribute("aria-pressed", String(!plain));
-      $("arrowOff").setAttribute("aria-pressed", String(plain));
-      $("noteSize").value = n.size; $("noteSizeVal").textContent = textLabel(n);
-    }
+    // With a note selected the settings change it (and the selection it is part of). With none they are the
+    // settings for the next note, so they can be picked before it is placed.
+    if (n) state.style = lookOf(n);
+    var look = n ? lookOf(n) : nextLook();
+    $("editorTitle").textContent = !n ? "New note" : many ? state.picks.length + " notes selected" : "Selected note";
+    $("noteTextWrap").hidden = !n || many;   // text is per note; everything else below applies to all selected
+    $("del").hidden = !n;
+    $("del").textContent = many ? "Delete " + state.picks.length + " notes" : "Delete note";
+    if (n && !many && document.activeElement !== $("noteText")) $("noteText").value = n.text;
+    swatchRow($("noteColors"), look.color, function (k) {
+      var ps = picked(); if (!ps.length) { setLook(function (l) { l.color = k; }); return; }
+      snapshot(); ps.forEach(function (m) { m.color = k; delete m.dark; }); sync(); render();
+    });
+    shapeRow($("noteShapes"), look.shape, function (k) {
+      var ps = picked(); if (!ps.length) { setLook(function (l) { l.shape = k; }); return; }
+      snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
+    });
+    $("oriV").setAttribute("aria-pressed", String(look.vertical));
+    $("oriH").setAttribute("aria-pressed", String(!look.vertical));
+    $("arrowOn").setAttribute("aria-pressed", String(look.arrow));
+    $("arrowOff").setAttribute("aria-pressed", String(!look.arrow));
+    if (document.activeElement !== $("noteSize")) $("noteSize").value = look.size;
+    $("noteSizeVal").textContent = textLabel(look);
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
     $("inkPen").setAttribute("aria-pressed", String(!state.pen.hi));
     $("inkHi").setAttribute("aria-pressed", String(!!state.pen.hi));
@@ -1014,6 +1029,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("grammar").disabled = state.notes.length === 0;
     if (doc) markPage(doc.cur);
     $("export").disabled = !state.img;
+    saveSettings();
   }
 
   var textTimer = null, textAtFocus = null;
@@ -1029,16 +1045,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     clearTimeout(textTimer); textTimer = setTimeout(sync, 150);
     render();
   });
-  function setter(id, fn) {
-    $(id).addEventListener("click", function () { var ps = picked(); if (!ps.length) return; snapshot(); ps.forEach(fn); sync(); render(); });
+  // a button that changes the selected notes, or with none selected the look of the next one
+  function setter(id, fn, onLook) {
+    $(id).addEventListener("click", function () {
+      var ps = picked();
+      if (!ps.length) { setLook(onLook); return; }
+      snapshot(); ps.forEach(fn); sync(); render();
+    });
   }
-  setter("oriV", function (n) { n.vertical = true; });
-  setter("oriH", function (n) { n.vertical = false; });
-  setter("arrowOn", giveArrow);
-  setter("arrowOff", dropArrow);
+  setter("oriV", function (n) { n.vertical = true; }, function (l) { l.vertical = true; });
+  setter("oriH", function (n) { n.vertical = false; }, function (l) { l.vertical = false; });
+  setter("arrowOn", giveArrow, function (l) { l.arrow = true; });
+  setter("arrowOff", dropArrow, function (l) { l.arrow = false; });
   var sizeByMouse = false;
-  $("noteSize").addEventListener("pointerdown", function (e) { sizeByMouse = e.pointerType === "mouse"; snapshot(); });
-  $("noteSize").addEventListener("keydown", function () { sizeByMouse = false; snapshot(); });
+  $("noteSize").addEventListener("pointerdown", function (e) { sizeByMouse = e.pointerType === "mouse"; if (state.picks.length) snapshot(); });
+  $("noteSize").addEventListener("keydown", function () { sizeByMouse = false; if (state.picks.length) snapshot(); });
   // one note resized with the mouse: straight into its text box when the slider is let go
   $("noteSize").addEventListener("change", function () {
     var n = sizeByMouse && state.picks.length === 1 ? selected() : null;
@@ -1047,9 +1068,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   });
   $("noteSize").addEventListener("input", function (e) {
     var v = parseFloat(e.target.value);
+    if (!state.picks.length) { setLook(function (l) { l.size = v; }); return; }
     picked().forEach(function (n) { n.size = v; });
     sync(); render();
   });
+
   $("del").addEventListener("click", deleteSel);
   function deleteSel() {
     if (state.sel < 0) return;
@@ -1061,6 +1084,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   $("font").addEventListener("change", function (e) {
     state.font = e.target.value;
+    saveSettings();
     document.fonts.load(fontStr(40)).then(render, render);
   });
   // while either size slider is moved, the pen tip or the eraser ring shows in the middle of the image with its size
@@ -1171,8 +1195,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (onImage) {
       // press on the spot being described, drag out, release where the pill should sit
       addNote(p.x, p.y, true);
-      if (o.shift) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
-      drag = { part: "create", sx: o.sx, sy: o.sy, moved: false };
+      var plain = bare(selected());
+      if (o.shift && !plain) { selected().py = p.y; render(); }   // Shift: the pill starts level with its dot, so the leader is straight
+      drag = { part: "create", sx: o.sx, sy: o.sy, moved: false, bare: plain };
       return true;
     }
     select(-1); sync(); render();
@@ -1304,8 +1329,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag.part === "create") {
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
       drag.moved = true;
-      var q = e.shiftKey ? snapNote([n.tx, n.ty], x, y) : [x, y];
+      var q = e.shiftKey && !drag.bare ? snapNote([n.tx, n.ty], x, y) : [x, y];
       n.px = q[0]; n.py = q[1];
+      if (drag.bare) dropArrow(n);                  // no arrow: the whole note goes where the pointer is
       render();
       return;
     }
@@ -2124,9 +2150,48 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     im.src = c.toDataURL("image/png");
   }
 
+  // ---------- settings kept for next time ----------
+  // The pen and the highlighter (colour, width, tip, and which of the two is in use), the eraser size, the look
+  // of the last note (colour, shape, size, orientation), the typeface and the Draw / Notes switch are kept in
+  // this browser, so the next visit starts where this one left off. Images, PDFs and notes are never stored.
+  // Where the browser keeps nothing (a private window, blocked site data), the page simply starts afresh.
+  var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
+  function saveSettings() {
+    var inks = { pen: state.inks.pen, hi: state.inks.hi };
+    inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
+    var text = JSON.stringify({ v: 1, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
+                                style: state.style, font: state.font, tool: state.tool });
+    if (text === savedSettings) return;
+    try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
+  }
+  // Read them back, keeping only values that make sense, so an old or damaged copy can never break the page.
+  function loadSettings() {
+    var d;
+    try { d = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null"); } catch (err) { return; }
+    if (!d || typeof d !== "object") return;
+    var num = function (v, lo, hi, dflt) { return typeof v === "number" && isFinite(v) ? clamp(v, lo, hi) : dflt; };
+    var ink = function (o, dflt) {
+      o = o && typeof o === "object" ? o : {};
+      return { color: COLORS[o.color] ? o.color : dflt.color, width: num(o.width, PEN_MIN, PEN_MAX, dflt.width),
+               tip: o.tip === "square" ? "square" : "round" };
+    };
+    var inks = d.inks && typeof d.inks === "object" ? d.inks : {};
+    state.inks = { pen: ink(inks.pen, state.inks.pen), hi: ink(inks.hi, state.inks.hi) };
+    var hi = d.ink === "hi", now = state.inks[hi ? "hi" : "pen"];
+    state.pen = { color: now.color, width: now.width, hi: hi, tip: now.tip };
+    state.eraser = num(d.eraser, 3, 100, state.eraser);
+    var st = d.style;
+    if (st && typeof st === "object" && COLORS[st.color]) {
+      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), arrow: st.arrow !== false };
+    }
+    if (FONTS[d.font]) { state.font = d.font; $("font").value = d.font; }
+    if (d.tool === "draw" || d.tool === "note") state.tool = d.tool;
+  }
+
   // ---------- boot ----------
   new ResizeObserver(render).observe(stage);
-  setTool("draw");
+  loadSettings();
+  setTool(state.tool);
   if (COARSE) $("listEmpty").textContent = "No notes yet. Tap the image to add one.";
   Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
   sync();
