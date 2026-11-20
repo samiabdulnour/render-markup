@@ -20,9 +20,10 @@
 :root {
   --chrome: #efefef;        /* the surround: header, footer, side panel, page strip */
   --card: #ffffff;          /* cards, buttons, fields, menus */
-  --ink: #1f1f1f;
-  --body: #3c3c3c;
-  --muted: #6a6a6a;         /* hints; 5.3:1 on white */
+  /* every word of the interface is black, hints included: no greys for text */
+  --ink: #000000;
+  --body: #000000;
+  --muted: #000000;
   --divider: #e1e1e1;       /* a card's edge and the rules inside it */
   --face-edge: #cdcdcd;     /* a button's edge */
   --field-edge: #888888;    /* a field's edge: something to type in */
@@ -31,7 +32,7 @@
   --chosen-edge: #e6d65a;
   --chosen-hover: #ffea55;
   --chosen-down: #f2dc3a;
-  --on-chosen: #1f1f1f;
+  --on-chosen: #000000;
   --off: #eaeaea;           /* a control that cannot be used */
   --danger: #c0392b;
   --accent: #d9442e;        /* marks on the image (the selected note), the drop outline */
@@ -41,19 +42,19 @@
   --font-body: Arial, "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: Arial, "Helvetica Neue", Helvetica, sans-serif;
   /* the on/off switch, in Loriini's colours: grey off, ink with a pale lemon knob on */
-  --switch-off: #cdcdcd; --switch-off-knob: #ffffff; --switch-on: #3c3c3c; --switch-on-knob: #fff07a;
+  --switch-off: #cdcdcd; --switch-off-knob: #ffffff; --switch-on: #000000; --switch-on-knob: #fff07a;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #d2d4d8; --muted: #9a9ea8; --divider: #34373d;
+    --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #ecedef; --muted: #ecedef; --divider: #34373d;
     --face-edge: #474a52; --field-edge: #80848e; --chosen-tint: #3a3720; --chosen-edge: #b8ab45; --off: #2b2d32;
     --danger: #f0624b; --accent: #f0624b; --stage: #121315; color-scheme: dark;
     --switch-off: #4a4d55; --switch-off-knob: #d6d8dd; --switch-on: #fff07a; --switch-on-knob: #1f2125;
   }
 }
 :root[data-theme="dark"] {
-  --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #d2d4d8; --muted: #9a9ea8; --divider: #34373d;
+  --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #ecedef; --muted: #ecedef; --divider: #34373d;
   --face-edge: #474a52; --field-edge: #80848e; --chosen-tint: #3a3720; --chosen-edge: #b8ab45; --off: #2b2d32;
   --danger: #f0624b; --accent: #f0624b; --stage: #121315; color-scheme: dark;
   --switch-off: #4a4d55; --switch-off-knob: #d6d8dd; --switch-on: #fff07a; --switch-on-knob: #1f2125;
@@ -63,21 +64,22 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--chrome); color: var(--ink); font-family: var(--font-body);
   font-size: 14px; line-height: 1.45; display: flex; flex-direction: column;
+  font-weight: 700;   /* the interface is in Arial Bold */
 }
 header {
   display: flex; align-items: center; gap: 10px; padding: 10px 16px;
   border-bottom: 1px solid var(--divider); background: var(--chrome); flex-wrap: wrap;
 }
 header h1 {
-  font-family: var(--font-display); font-weight: 600; font-size: 18px;
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
   letter-spacing: 0.01em; margin: 0; margin-right: auto; text-wrap: balance;
 }
-header h1 small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 8px; }
+header h1 small { font-weight: 700; color: var(--muted); font-size: 13px; margin-left: 8px; }
 /* the wordmark, drawn in the text colour so it follows the theme */
 header h1 { display: flex; align-items: center; gap: 6px; }
 header h1 .logo { display: block; flex: none; height: 19px; width: auto; aspect-ratio: 5514 / 643; }
 button, .btn {
-  font: inherit; font-weight: 500; border: 1px solid var(--face-edge); background: var(--card);
+  font: inherit; font-weight: 700; border: 1px solid var(--face-edge); background: var(--card);
   color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
 }
@@ -90,9 +92,9 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-vi
 button.primary, #empty .btn { background: var(--chosen); color: var(--on-chosen); border-color: var(--chosen); }
 button.primary:hover, #empty .btn:hover { background: var(--chosen-hover); border-color: var(--chosen-edge); }
 button.primary:active, #empty .btn:active { background: var(--chosen-down); border-color: var(--chosen-edge); }
-button.danger { color: var(--danger); }
+button.danger { color: var(--ink); }
 button[disabled], button[disabled]:hover, button[disabled]:active {
-  background: var(--off); border-color: var(--divider); color: var(--muted); cursor: default;
+  background: var(--off); border-color: var(--divider); color: var(--ink); opacity: 0.45; cursor: default;
 }
 main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
 #stage { position: relative; background: var(--stage); min-height: 320px; overflow: hidden; touch-action: none; }
@@ -111,7 +113,7 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
 #zoom.zoomed { color: var(--ink); }
 /* Size label shown beside the preview while a size is being changed. Fixed colours: it sits over the image. */
 #hud {
-  position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; background: #1f1f1f; color: #ffffff;
+  position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; background: #000000; color: #ffffff;
   font-family: var(--font-mono); font-size: 12px; line-height: 1; padding: 6px 9px; border-radius: 8px;
 }
 #hud[hidden] { display: none; }
@@ -127,14 +129,14 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
 #empty {
   position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; text-align: center; padding: 16px; pointer-events: none; overflow: hidden;
-  border: 2px dashed #c8c8c8; border-radius: 12px; color: #1f1f1f;
+  border: 2px dashed #c8c8c8; border-radius: 12px; color: #000000;
 }
 #empty[hidden], #stage.dragging #empty { display: none; }
-#empty .ico { color: #888888; flex: none; }
-#empty .big { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; text-wrap: balance; }
-#empty .btn { pointer-events: auto; color: #1f1f1f; }
-#empty .note { color: #6a6a6a; }
-#empty kbd { border-color: #cdcdcd; background: #ffffff; color: #1f1f1f; }
+#empty .ico { color: #000000; flex: none; }
+#empty .big { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0; text-wrap: balance; }
+#empty .btn { pointer-events: auto; color: #000000; }
+#empty .note { color: #000000; }
+#empty kbd { border-color: #cdcdcd; background: #ffffff; color: #000000; }
 #empty.compact { gap: 6px; padding: 8px; border-radius: 8px; }
 #empty.compact .ico, #empty.compact .alt { display: none; }
 #empty.compact .big { font-size: 18px; }
@@ -150,7 +152,7 @@ aside {
 }
 .section[hidden] { display: none; }
 aside h2 {
-  font-family: var(--font-display); font-weight: 600; font-size: 12px; text-transform: uppercase;
+  font-family: var(--font-display); font-weight: 700; font-size: 12px; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--muted); margin: -12px -12px 2px; padding: 8px 12px;
   border-bottom: 1px solid var(--divider);
 }
@@ -283,13 +285,13 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--fa
   background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 18px; width: min(900px, 100%); max-height: 100%;
   display: flex; flex-direction: column; gap: 12px; overflow: auto;
 }
-.modal .box h3 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0; }
+.modal .box h3 { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin: 0; }
 #modalImg { max-width: 100%; height: auto; border: 1px solid var(--divider); border-radius: 8px; }
 #fixList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 #fixList li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; border: 1px solid var(--divider); border-radius: 12px; padding: 10px; }
 #fixList input { margin-top: 3px; accent-color: var(--body); }
 #fixList .was { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); }
-#fixList .now { font-weight: 500; }
+#fixList .now { font-weight: 700; }
 #fixList .why { color: var(--muted); font-size: 12px; }
 #fixList mark { background: var(--chosen-tint); color: inherit; border-radius: 3px; padding: 0 2px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
