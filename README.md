@@ -80,7 +80,7 @@ Your last settings are kept in your browser for next time: the pen and the highl
 The logo is in `brand/`: the original (`logo.png`), and traced from it as vectors in black (`logo.svg`) and white (`logo-white.svg`). In the app it is drawn in the text colour, so it follows the theme.
 
 
-The interface follows Loriini's: a light grey surround with the settings on white cards, a one-pixel edge, flat, with 8 px corners on controls and 12 px on cards. What is chosen or switched on is pale lemon with ink words, and Export is the one lemon button. Colours are picked from plain solid circles (their names show as tooltips), the chosen one ringed. It has a dark version for a system set to dark.
+The interface follows Loriini's: a light grey surround with the settings on white cards, a one-pixel edge, flat, with 8 px corners on controls and 12 px on cards. What is chosen or switched on is pale lemon with ink words, and Export is the one lemon button. The whole interface is set in Arial, numbers and key names included; the typefaces for notes are chosen separately under All notes. Colours are picked from plain solid circles (their names show as tooltips), the chosen one ringed. It has a dark version for a system set to dark.
 
 ## Hosting
 
