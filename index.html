@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
 <title>Render Markup</title>
 <meta name="description" content="Mark up architectural renders with clean pill callouts, leader lines and sketches. Runs in your browser; images never leave your computer.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
@@ -43,21 +44,7 @@
   --font-mono: Arial, "Helvetica Neue", Helvetica, sans-serif;
   /* the on/off switch, in Loriini's colours: grey off, ink with a pale lemon knob on */
   --switch-off: #cdcdcd; --switch-off-knob: #ffffff; --switch-on: #000000; --switch-on-knob: #fff07a;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #ecedef; --muted: #ecedef; --divider: #34373d;
-    --face-edge: #474a52; --field-edge: #80848e; --chosen-tint: #3a3720; --chosen-edge: #b8ab45; --off: #2b2d32;
-    --danger: #f0624b; --accent: #f0624b; --stage: #121315; color-scheme: dark;
-    --switch-off: #4a4d55; --switch-off-knob: #d6d8dd; --switch-on: #fff07a; --switch-on-knob: #1f2125;
-  }
-}
-:root[data-theme="dark"] {
-  --chrome: #1b1c1f; --card: #232529; --ink: #ecedef; --body: #ecedef; --muted: #ecedef; --divider: #34373d;
-  --face-edge: #474a52; --field-edge: #80848e; --chosen-tint: #3a3720; --chosen-edge: #b8ab45; --off: #2b2d32;
-  --danger: #f0624b; --accent: #f0624b; --stage: #121315; color-scheme: dark;
-  --switch-off: #4a4d55; --switch-off-knob: #d6d8dd; --switch-on: #fff07a; --switch-on-knob: #1f2125;
+  color-scheme: light only;   /* light only: no dark version, whatever the system is set to */
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
