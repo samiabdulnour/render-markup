@@ -1,4 +1,4 @@
-# Render Markup
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="brand/logo-white.svg"><img src="brand/logo.svg" alt="Render Markup" height="44"></picture></h1>
 
 A small browser tool for marking up architectural renders and PDFs: clean pill callouts with leader lines, freehand and straight-line sketching, dimensions that give real lengths, a full-resolution PNG export for images and a marked-up PDF export for PDFs.
 
@@ -70,6 +70,9 @@ Your last settings are kept in your browser for next time: the pen and the highl
 | Shift (while placing or moving a note) | Straight note line: horizontal, vertical or 45° |
 
 ## Look
+
+The logo is in `brand/`: the original (`logo.png`), and traced from it as vectors in black (`logo.svg`) and white (`logo-white.svg`). In the app it is drawn in the text colour, so it follows the theme.
+
 
 The interface follows Loriini's: a light grey surround with the settings on white cards, a one-pixel edge, flat, with 8 px corners on controls and 12 px on cards. What is chosen or switched on is pale lemon with ink words, and Export is the one lemon button. Colours are picked from plain solid circles (their names show as tooltips), the chosen one ringed. It has a dark version for a system set to dark.
 
