@@ -231,7 +231,11 @@ input.entry, .scalebox input {
 #list li button:hover, #picList li button:hover { background: var(--chosen-tint); border-color: transparent; }
 #list li button[aria-pressed="true"], #picList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
-#picSection[hidden], #picEditor[hidden] { display: none; }
+#picEditor[hidden] { display: none; }
+#picList { touch-action: none; }
+#picList li.lifted { opacity: 0.45; }
+#picList li.drop-before button { box-shadow: inset 0 2px 0 var(--ink); }
+#picList li.drop-after button { box-shadow: inset 0 -2px 0 var(--ink); }
 #list { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
 label[hidden] { display: none; }
 #list .num {
@@ -339,6 +343,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <div id="hint"></div>
     <div id="hud" hidden></div>
     <div id="tools" role="toolbar" aria-label="Tools" aria-orientation="vertical">
+      <button id="toolMove" aria-pressed="false" aria-label="Move" title="Move (V): the left button drags pictures and notes; the side panel lists the pictures"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v17M3.5 12h17"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
       <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
@@ -401,20 +406,31 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <select id="unit"><option value="mm">Millimetres</option><option value="cm">Centimetres</option><option value="m">Metres</option></select>
       </label>
     </div>
+    <div id="movePanel" hidden>
+    <div class="section">
+      <h2>Pictures</h2>
+      <ul id="picList" title="The top one lies in front. Drag a picture up or down the list to change that."></ul>
+      <p class="empty" id="picEmpty">No pictures yet. Paste one with Ctrl/Cmd+V, or use Add image.</p>
+    </div>
+    <div class="section" id="picEditor" hidden>
+      <h2>Selected picture</h2>
+      <div class="seg" role="group" aria-label="Layer order">
+        <button id="picUp" title="Bring it in front of the picture above it in the list (Ctrl/Cmd+])">Bring forward</button>
+        <button id="picDown" title="Send it behind the picture below it in the list (Ctrl/Cmd+[)">Send backward</button>
+      </div>
+      <div class="seg" role="group" aria-label="Turn">
+        <button id="picLeft" title="Turn it a quarter turn anticlockwise">Rotate left</button>
+        <button id="picRight" title="Turn it a quarter turn clockwise">Rotate right</button>
+      </div>
+      <p class="note">Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.</p>
+      <button id="delPic" class="danger">Delete picture</button>
+    </div>
+    </div>
     <div id="notesPanel" hidden>
     <div class="section">
       <h2>Notes</h2>
       <ul id="list" title="Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
       <p class="empty" id="listEmpty">No notes yet. Drag with the right mouse button to add one.</p>
-    </div>
-    <div class="section" id="picSection" hidden>
-      <h2>Pictures</h2>
-      <ul id="picList"></ul>
-    </div>
-    <div class="section" id="picEditor" hidden>
-      <h2>Selected picture</h2>
-      <p class="note">The grip on its left moves it. Edges and corners resize it.</p>
-      <button id="delPic" class="danger">Delete picture</button>
     </div>
     <div class="section" id="editor">
       <h2 id="editorTitle">Selected note</h2>
@@ -944,12 +960,24 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     for (var i = 0; i < state.pics.length; i++) if (state.pics[i].id === picSel) return state.pics[i];
     return null;
   }
-  function onPic(q, p) { return p.x >= q.x && p.x <= q.x + q.w && p.y >= q.y && p.y <= q.y + q.h; }
+  // A picture can be turned (rot, in radians) about its middle; x, y, w, h are its box before turning.
+  function rotOf(q) { return q.rot || 0; }
+  // p in the picture's own frame: the page turned back about the picture's middle
+  function toPicLocal(q, p) {
+    var r = rotOf(q); if (!r) return p;
+    var mx = q.x + q.w / 2, my = q.y + q.h / 2, co = Math.cos(-r), si = Math.sin(-r), dx = p.x - mx, dy = p.y - my;
+    return { x: mx + dx * co - dy * si, y: my + dx * si + dy * co };
+  }
+  function onPic(q, p) { var l = toPicLocal(q, p); return l.x >= q.x && l.x <= q.x + q.w && l.y >= q.y && l.y <= q.y + q.h; }
+  // the round handle above the selected picture that turns it
+  var KNOB = 28;   // screen px above the top edge
+  function onKnob(q, p) { var l = toPicLocal(q, p), t = 1 / view.s; return Math.hypot(l.x - (q.x + q.w / 2), l.y - (q.y - KNOB * t)) <= 9 * t; }
   function picAt(p) { for (var i = state.pics.length - 1; i >= 0; i--) if (onPic(state.pics[i], p)) return state.pics[i]; return null; }
   function picCorners(q) { return [[q.x, q.y], [q.x + q.w, q.y], [q.x + q.w, q.y + q.h], [q.x, q.y + q.h]]; }
   // Which handle of the picture p is on: 0-3 a corner (top left, then clockwise), 4-7 an edge (top, right, bottom,
   // left), or -1. An edge can be taken anywhere along it; a small picture keeps its middle free for drawing.
   function picHandle(q, p) {
+    p = toPicLocal(q, p);
     var r = 8 / view.s, cs = picCorners(q);
     for (var k = 0; k < 4; k++) if (Math.abs(p.x - cs[k][0]) <= r && Math.abs(p.y - cs[k][1]) <= r) return k;
     var inX = Math.min(r, q.w / 4), inY = Math.min(r, q.h / 4);
@@ -960,36 +988,30 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (alongY && p.x >= q.x - r && p.x <= q.x + inX) return 7;
     return -1;
   }
-  var PIC_CURSORS = ["nwse-resize", "nesw-resize", "nwse-resize", "nesw-resize", "ns-resize", "ew-resize", "ns-resize", "ew-resize"];
-  // The grip: a small tab off the left edge of the selected picture, to drag it around by (a drag inside draws).
-  var GRIP = { w: 16, h: 28, gap: 12 };   // screen px
-  function picGrip(q) {
-    var t = 1 / view.s;
-    return { x: q.x - (GRIP.gap + GRIP.w) * t, y: q.y + q.h / 2 - GRIP.h * t / 2, w: GRIP.w * t, h: GRIP.h * t };
-  }
-  function onGrip(q, p) {
-    var g = picGrip(q), m = 3 / view.s;
-    return p.x >= g.x - m && p.x <= g.x + g.w + m && p.y >= g.y - m && p.y <= g.y + g.h + m;
+  // the resize cursor for handle k, pointing the way the handle goes as the picture is turned
+  function picCursor(q, k) {
+    var a = [-135, -45, 45, 135, -90, 0, 90, 180][k] + rotOf(q) * 180 / Math.PI, t = ((a % 180) + 180) % 180;
+    return t < 22.5 || t >= 157.5 ? "ew-resize" : t < 67.5 ? "nwse-resize" : t < 112.5 ? "ns-resize" : "nesw-resize";
   }
   function drawPics(c) {
-    state.pics.forEach(function (q) { var im = picStore[q.id]; if (im && im.complete) c.drawImage(im, q.x, q.y, q.w, q.h); });
+    state.pics.forEach(function (q) {
+      var im = picStore[q.id], r = rotOf(q); if (!im || !im.complete) return;
+      if (!r) { c.drawImage(im, q.x, q.y, q.w, q.h); return; }
+      c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r); c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h); c.restore();
+    });
   }
   function drawPicSelection(c, q) {
-    var t = 1 / view.s, hs = 5 * t;
+    var t = 1 / view.s, hs = 5 * t, mx = q.x + q.w / 2, my = q.y + q.h / 2;
     c.save();
+    c.translate(mx, my); c.rotate(rotOf(q)); c.translate(-mx, -my);
     c.strokeStyle = accent(); c.lineWidth = 2 * t; c.setLineDash([6 * t, 4 * t]);
     c.strokeRect(q.x, q.y, q.w, q.h);
     c.setLineDash([]); c.lineWidth = 1.5 * t; c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f";
     var mids = [[q.x + q.w / 2, q.y], [q.x + q.w, q.y + q.h / 2], [q.x + q.w / 2, q.y + q.h], [q.x, q.y + q.h / 2]];
     picCorners(q).concat(mids).forEach(function (pt) { c.fillRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); c.strokeRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); });
-    // the grip, with its dots
-    var g = picGrip(q);
-    c.beginPath(); if (c.roundRect) c.roundRect(g.x, g.y, g.w, g.h, 4 * t); else c.rect(g.x, g.y, g.w, g.h);
-    c.fill(); c.stroke();
-    c.fillStyle = "#1f1f1f";
-    for (var col = 0; col < 2; col++) for (var row = 0; row < 3; row++) {
-      c.beginPath(); c.arc(g.x + g.w / 2 + (col - 0.5) * 5 * t, g.y + g.h / 2 + (row - 1) * 6 * t, 1.4 * t, 0, Math.PI * 2); c.fill();
-    }
+    // the knob that turns it, on a stalk from the middle of the top edge
+    c.beginPath(); c.moveTo(mx, q.y - hs); c.lineTo(mx, q.y - (KNOB - 6) * t); c.stroke();
+    c.beginPath(); c.arc(mx, q.y - KNOB * t, 6 * t, 0, Math.PI * 2); c.fill(); c.stroke();
     c.restore();
   }
   // Put a picture file on the page: in the middle of what is on screen, at most half the page across or down.
@@ -1005,22 +1027,41 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         var k = Math.min(1, state.w * 0.5 / im.naturalWidth, state.h * 0.5 / im.naturalHeight);
         var w = im.naturalWidth * k, h = im.naturalHeight * k;
         var cx = clamp(view.cx, w / 2, state.w - w / 2), cy = clamp(view.cy, h / 2, state.h - h / 2);
+        // numbered as added, so the name stays put when the layer order changes
+        var num = state.pics.reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1;
         snapshot();
-        state.pics = state.pics.concat([{ id: id, x: cx - w / 2, y: cy - h / 2, w: w, h: h }]);
+        state.pics = state.pics.concat([{ id: id, n: num, x: cx - w / 2, y: cy - h / 2, w: w, h: h }]);
+        setTool("move");
         selectPic(state.pics[state.pics.length - 1]);
         sync(); render();
-        status("Picture added. Drag the grip on its left to move it, or an edge or corner to resize it; Delete takes it away.");
+        status("Picture added, and Move is on: drag it into place, or drag an edge or corner to resize it (Shift keeps its proportions). D goes back to drawing.");
       };
       im.onerror = function () { status("That picture could not be read."); };
       im.src = reader.result;
     };
     reader.readAsDataURL(file);
   }
-  // Select a picture (or none). The Notes panel lists it, so the panel goes there, unless Measure or the Eraser is on.
-  function selectPic(q) {
-    select(-1); picSel = q ? q.id : null;
-    if (q && (state.tool === "draw" || state.tool === "note")) showPanel("note");
+  // Select a picture (or none); the Move panel lists them
+  function selectPic(q) { select(-1); picSel = q ? q.id : null; }
+  // Layer order: state.pics runs from the back to the front. Put picture q at position idx in it.
+  function movePicTo(q, idx) {
+    var i = state.pics.indexOf(q); if (i < 0) return;
+    idx = clamp(idx, 0, state.pics.length - 1); if (idx === i) return;
+    snapshot();
+    var a = state.pics.slice(); a.splice(i, 1); a.splice(idx, 0, q); state.pics = a;
+    sync(); render();
+    status(idx === a.length - 1 ? "Picture brought to the front." : idx === 0 ? "Picture sent to the back."
+      : idx > i ? "Picture brought forward." : "Picture sent backward.");
   }
+  function turnPic(deg) {
+    var q = selectedPic(); if (!q) return;
+    snapshot();
+    var d = Math.round(rotOf(q) * 180 / Math.PI + deg); d = ((d % 360) + 540) % 360 - 180;
+    q.rot = d * Math.PI / 180;
+    sync(); render();
+    status("Picture turned to " + d + "°.");
+  }
+  function stepPic(d) { var q = selectedPic(); if (q) movePicTo(q, state.pics.indexOf(q) + d); }
   // a small square thumbnail of each picture, for the list
   var picThumb = {};
   function thumbOf(id) {
@@ -1031,11 +1072,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     c.getContext("2d").drawImage(im, (n - w) / 2, (n - h) / 2, w, h);
     return (picThumb[id] = c.toDataURL("image/png"));
   }
-  function deletePic() {
-    var q = selectedPic(); if (!q) return;
+  function deletePic(which) {
+    var q = which && which.id ? which : selectedPic(); if (!q) return;
     snapshot();
     state.pics = state.pics.filter(function (x) { return x !== q; });
-    picSel = null; sync(); render();
+    if (q.id === picSel) picSel = null;
+    sync(); render();
     status("Picture deleted. Undo brings it back.");
   }
   // Is there any markup that opening something else would clear? (Every page of a PDF counts.)
@@ -1373,6 +1415,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var COARSE = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   function setTool(t) {
     state.tool = t;
+    if (t !== "move") picSel = null;   // a picture is picked up and resized with Move
+    $("toolMove").setAttribute("aria-pressed", String(t === "move"));
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
     $("toolMeasure").setAttribute("aria-pressed", String(t === "measure"));
@@ -1380,16 +1424,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("penPanel").hidden = t !== "draw";
     $("erasePanel").hidden = t !== "erase";
     $("notesPanel").hidden = t !== "note";
+    $("movePanel").hidden = t !== "move";
     $("measurePanel").hidden = t !== "measure";
-    $("hint").textContent = COARSE
+    $("hint").textContent = t === "move"
+      ? (COARSE ? "Drag a picture or a note to move it · drag a picture's edges or corners to resize it"
+         : "Left-drag moves pictures and notes · edges and corners resize a picture, the round handle turns it · Shift keeps proportions · right-click for a menu")
+      : COARSE
       ? (t === "draw" ? "Drag to draw · switch to Notes to place notes · drag a pill or its dot to move it"
          : t === "measure" ? "Drag to measure · drag a pill or its dot to move it"
          : t === "erase" ? "Drag to erase"
          : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
       : t === "erase" ? "Left-drag erases · right-drag adds a note · right-click for a menu · Shift erases in a straight line"
       : (t === "measure" ? "Left-drag measures" : "Left-drag draws") + " · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
-    canvas.style.cursor = "crosshair";
+    canvas.style.cursor = t === "move" ? "default" : "crosshair";
     if (t !== "erase") hoverAt = null;
+    sync();
     render();
   }
   // show the settings for what is being used, without touching anything else
@@ -1443,21 +1492,27 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       li.appendChild(b); list.appendChild(li);
     });
     $("listEmpty").hidden = state.notes.length > 0;
-    // the pictures on this page, under the notes, as they lie under them
+    // the pictures on this page, the one in front at the top, as in a layers list
     var pl = $("picList"), spic = selectedPic();
     pl.innerHTML = "";
-    state.pics.forEach(function (q, i) {
+    state.pics.slice().reverse().forEach(function (q, d) {
       var li = document.createElement("li"), b = document.createElement("button");
       b.setAttribute("aria-pressed", String(q.id === picSel));
       var th = document.createElement("img"); th.className = "thumb"; th.alt = ""; th.src = thumbOf(q.id);
-      var t = document.createElement("span"); t.className = "txt"; t.textContent = "Picture " + (i + 1);
+      var t = document.createElement("span"); t.className = "txt"; t.textContent = "Picture " + (q.n || state.pics.indexOf(q) + 1);
       b.appendChild(th); b.appendChild(t);
-      b.addEventListener("click", function () { selectPic(q); sync(); render(); });
+      b.addEventListener("click", function () { if (listDrag && listDrag.moved) return; selectPic(q); sync(); render(); });
+      b.addEventListener("pointerdown", function (ev) { if (ev.button === 0) { listDrag = { q: q, from: d, y0: ev.clientY, moved: false, to: d }; b.setPointerCapture(ev.pointerId); } });
+      b.addEventListener("pointermove", function (ev) { if (listDrag && listDrag.q === q) listDragTo(ev.clientY); });
+      b.addEventListener("pointerup", function () { listDrop(); });
+      b.addEventListener("pointercancel", function () { listDrag = null; markDrop(-1); });
       li.appendChild(b); pl.appendChild(li);
     });
-    $("picSection").hidden = state.pics.length === 0;
+    $("picEmpty").hidden = state.pics.length > 0;
     $("picEditor").hidden = !spic;
-    $("editor").hidden = !!spic;
+    var si = spic ? state.pics.indexOf(spic) : -1;
+    $("picUp").disabled = !spic || si === state.pics.length - 1;
+    $("picDown").disabled = !spic || si === 0;
     var n = selected(), many = state.picks.length > 1;
     // With a note selected the settings change it (and the selection it is part of). With none they are the
     // settings for the next note, so they can be picked before it is placed.
@@ -1511,6 +1566,33 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (doc) markPage(doc.cur);
     $("export").disabled = !state.img;
     saveSettings();
+  }
+
+  // Dragging a row of the pictures list up or down changes the layer order; a line shows where it will go.
+  var listDrag = null;
+  function markDrop(slot) {
+    var rows = $("picList").children;
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].classList.toggle("lifted", !!listDrag && listDrag.moved && i === listDrag.from);
+      rows[i].classList.toggle("drop-before", slot >= 0 && i === slot && slot < rows.length);
+      rows[i].classList.toggle("drop-after", slot >= 0 && slot === rows.length && i === rows.length - 1);
+    }
+  }
+  function listDragTo(y) {
+    if (!listDrag.moved && Math.abs(y - listDrag.y0) < 4) return;
+    listDrag.moved = true;
+    var rows = $("picList").children, slot = rows.length;
+    for (var i = 0; i < rows.length; i++) { var r = rows[i].getBoundingClientRect(); if (y < r.top + r.height / 2) { slot = i; break; } }
+    listDrag.to = slot > listDrag.from ? slot - 1 : slot;   // where it ends up, counted from the top of the list
+    markDrop(listDrag.to === listDrag.from ? -1 : slot);
+  }
+  function listDrop() {
+    var ld = listDrag; if (!ld) return;
+    markDrop(-1);
+    setTimeout(function () { listDrag = null; }, 0);   // the click that follows a drag does not also select
+    if (!ld.moved || ld.to === ld.from) return;
+    selectPic(ld.q);
+    movePicTo(ld.q, state.pics.length - 1 - ld.to);
   }
 
   var textTimer = null, textAtFocus = null;
@@ -1632,6 +1714,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     snapshot(); state.strokes = []; sync(); render(); status("Drawing cleared. Undo brings it back.");
   });
   $("undo").addEventListener("click", undo);
+  $("toolMove").addEventListener("click", function () { setTool("move"); });
   $("toolNote").addEventListener("click", function () { setTool("note"); });
   $("toolDraw").addEventListener("click", function () { setTool("draw"); });
   $("toolMeasure").addEventListener("click", function () { setTool("measure"); });
@@ -1709,7 +1792,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         var n = state.notes[h.i];
         drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false, bare: bare(n) };
       }
-      showPanel("note");
+      if (state.tool !== "move") showPanel("note");
       sync(); render();
       return true;
     }
@@ -1742,21 +1825,25 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       return;
     }
     var p = toImg(e);
-    // the selected picture: its grip moves it, an edge or a corner resizes it; a press anywhere else (inside it
-    // too, where it draws) lets it go
-    var sp = selectedPic();
-    if (sp && e.button === 0 && !rightBtn && !isSizeKey(e)) {
-      var grip = onGrip(sp, p), corner = grip ? -1 : picHandle(sp, p);
-      if (grip || corner >= 0) {
-        snapshot();
-        drag = { part: grip ? "picMove" : "picSize", pic: sp, corner: corner, sx: p.x, sy: p.y, moved: false,
-                 from: { x: sp.x, y: sp.y, w: sp.w, h: sp.h } };
-        if (grip) canvas.style.cursor = "grabbing";
+    // With Move on, the left button (or a finger) drags pictures and notes, and the selected picture's edges and
+    // corners resize it. A press on nothing lets go of what is selected.
+    if (state.tool === "move" && e.button === 0 && !rightBtn && !isSizeKey(e)) {
+      var sp = selectedPic(), knob = !!sp && onKnob(sp, p), corner = sp && !knob ? picHandle(sp, p) : -1, mq = knob || corner >= 0 ? sp : null;
+      if (!mq && hit(p)) { if (beginTool(p, true, { shift: e.shiftKey, sx: e.clientX, sy: e.clientY })) canvas.setPointerCapture(e.pointerId); return; }
+      mq = mq || picAt(p);
+      if (mq) {
+        selectPic(mq); snapshot();
+        drag = { part: knob ? "picTurn" : corner >= 0 ? "picSize" : "picMove", pic: mq, corner: corner, sx: p.x, sy: p.y, moved: false,
+                 from: { x: mq.x, y: mq.y, w: mq.w, h: mq.h, rot: rotOf(mq) },
+                 a0: Math.atan2(p.y - (mq.y + mq.h / 2), p.x - (mq.x + mq.w / 2)) };
+        if (knob) canvas.style.cursor = "grabbing";
         canvas.setPointerCapture(e.pointerId);
+        sync(); render();
         return;
       }
+      selectPic(null); sync(); render();
+      return;
     }
-    if (sp && !rightBtn) { picSel = null; sync(); render(); }
     if (wheelBtn || penEraser || (state.tool === "erase" && e.button === 0)) {
       // the wheel button is the eraser, and so is the eraser end of a stylus, and the left button (or a finger)
       // with the Eraser on: it rubs out from the moment it goes down. With Ctrl (or Alt) held, a drag changes
@@ -1807,9 +1894,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         return;
       }
       var h = hit(p);
-      var sq = selectedPic(), sg = sq && onGrip(sq, p), hk = sq && !sg ? picHandle(sq, p) : -1;
-      canvas.style.cursor = spaceDown || sg ? "grab" : hk >= 0 ? PIC_CURSORS[hk]
-        : h ? (h.part === "target" ? "move" : "grab") : "crosshair";
+      if (state.tool === "move") {
+        var sq = selectedPic(), sk = !!sq && onKnob(sq, p), hk = sq && !sk ? picHandle(sq, p) : -1;
+        canvas.style.cursor = spaceDown || sk ? "grab" : hk >= 0 ? picCursor(sq, hk) : h ? (h.part === "target" ? "move" : "grab")
+          : picAt(p) ? "move" : "default";
+        return;
+      }
+      canvas.style.cursor = spaceDown ? "grab" : h ? (h.part === "target" ? "move" : "grab") : "crosshair";
       return;
     }
     if (drag.part === "pan") {
@@ -1855,28 +1946,52 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       render();
       return;
     }
-    if (drag.part === "picMove" || drag.part === "picSize") {
+    if (drag.part === "picMove" || drag.part === "picSize" || drag.part === "picTurn") {
       var f0 = drag.from, q = drag.pic;
       if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) * view.s < 3) return;
       drag.moved = true;
+      if (drag.part === "picTurn") {
+        // turn about its middle; it settles square within 3 degrees, and with Shift goes in steps of 15
+        var deg = (f0.rot + Math.atan2(p.y - (f0.y + f0.h / 2), p.x - (f0.x + f0.w / 2)) - drag.a0) * 180 / Math.PI;
+        if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+        else if (Math.abs(deg - Math.round(deg / 90) * 90) < 3) deg = Math.round(deg / 90) * 90;
+        deg = ((deg % 360) + 540) % 360 - 180;
+        q.rot = deg * Math.PI / 180;
+        status("Turned to " + Math.round(deg) + "°" + (e.shiftKey ? "" : " · Shift turns in steps of 15°"));
+        render();
+        return;
+      }
+      if (drag.part === "picSize") p = toPicLocal(f0, p);   // sizes are worked out in the picture's own frame
       if (drag.part === "picMove") {
         // keep a little of it on the page
         q.x = clamp(f0.x + p.x - drag.sx, 16 - f0.w, state.w - 16);
         q.y = clamp(f0.y + p.y - drag.sy, 16 - f0.h, state.h - 16);
       } else if (drag.corner >= 4) {
-        // an edge: only that side moves, the opposite one stays put
-        var right = f0.x + f0.w, bottom = f0.y + f0.h;
-        if (drag.corner === 4) { q.h = Math.max(16, bottom - p.y); q.y = bottom - q.h; }
-        if (drag.corner === 6) { q.h = Math.max(16, p.y - f0.y); }
-        if (drag.corner === 7) { q.w = Math.max(16, right - p.x); q.x = right - q.w; }
-        if (drag.corner === 5) { q.w = Math.max(16, p.x - f0.x); }
+        // an edge: that side moves and the opposite one stays put. With Shift the picture keeps its proportions,
+        // growing or shrinking evenly about its middle the other way.
+        var right = f0.x + f0.w, bottom = f0.y + f0.h, ar = f0.w / f0.h, ek = drag.corner;
+        if (ek === 4 || ek === 6) {
+          q.h = Math.max(16, ek === 4 ? bottom - p.y : p.y - f0.y); q.y = ek === 4 ? bottom - q.h : f0.y;
+          if (e.shiftKey) { q.w = q.h * ar; q.x = f0.x + f0.w / 2 - q.w / 2; } else { q.w = f0.w; q.x = f0.x; }
+        } else {
+          q.w = Math.max(16, ek === 7 ? right - p.x : p.x - f0.x); q.x = ek === 7 ? right - q.w : f0.x;
+          if (e.shiftKey) { q.h = q.w / ar; q.y = f0.y + f0.h / 2 - q.h / 2; } else { q.h = f0.h; q.y = f0.y; }
+        }
       } else {
-        // a corner: the opposite corner stays put, and the picture keeps its proportions
+        // a corner: the opposite corner stays put. It resizes freely; with Shift it keeps its proportions.
         var cs = picCorners(f0), a = cs[(drag.corner + 2) % 4], aspect = f0.w / f0.h;
-        var w = Math.max(16, Math.abs(p.x - a[0]), Math.abs(p.y - a[1]) * aspect), h = w / aspect;
+        var gx = drag.corner === 1 || drag.corner === 2 ? 1 : -1, gy = drag.corner === 2 || drag.corner === 3 ? 1 : -1;
+        var w = Math.max(16, (p.x - a[0]) * gx), h = Math.max(16, (p.y - a[1]) * gy);
+        if (e.shiftKey) { w = Math.max(w, h * aspect); h = w / aspect; }
         q.w = w; q.h = h;
-        q.x = drag.corner === 1 || drag.corner === 2 ? a[0] : a[0] - w;
-        q.y = drag.corner === 2 || drag.corner === 3 ? a[1] : a[1] - h;
+        q.x = gx > 0 ? a[0] : a[0] - w;
+        q.y = gy > 0 ? a[1] : a[1] - h;
+      }
+      if (drag.part === "picSize" && f0.rot) {
+        // turned: the new box's middle, worked out unturned, is turned back onto the page
+        var c0x = f0.x + f0.w / 2, c0y = f0.y + f0.h / 2, lx = q.x + q.w / 2 - c0x, ly = q.y + q.h / 2 - c0y;
+        var co = Math.cos(f0.rot), sn = Math.sin(f0.rot);
+        q.x = c0x + lx * co - ly * sn - q.w / 2; q.y = c0y + lx * sn + ly * co - q.h / 2;
       }
       render();
       return;
@@ -2047,31 +2162,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       }
       return;
     }
-    if (d.part === "picMove" || d.part === "picSize") {
+    if (d.part === "picMove" || d.part === "picSize" || d.part === "picTurn") {
       if (!d.moved) history.pop();
       sync(); render();
       return;
     }
-    if (d.part === "stroke") {
-      // a click (no drag) on a picture selects it, rather than leaving a dot on it
-      var dot = d.stroke, at = dot.points.length === 1 ? { x: dot.points[0][0], y: dot.points[0][1] } : null;
-      var onto = at && cancelled !== true ? picAt(at) : null;
-      if (onto) {
-        state.strokes = state.strokes.filter(function (s) { return s !== dot; });
-        history.pop(); selectPic(onto);
-        status("Picture selected: drag the grip on its left to move it, or an edge or corner to resize it; Delete takes it away.");
-      }
-      sync(); render(); return;   // render: a length shown while drawing goes
-    }
+    if (d.part === "stroke") { sync(); render(); return; }   // render: a length shown while drawing goes
     if (d.part === "dim") {
       var ds = d.stroke, di = state.strokes.indexOf(ds);
       if (cancelled === true || dimLen(ds) * view.s < 4) {
-        // a click, or hardly any movement: no dimension (and a click on a picture selects it)
+        // a click, or hardly any movement: no dimension
         if (di >= 0) state.strokes.splice(di, 1);
-        history.pop();
-        var onPicture = cancelled !== true ? picAt({ x: ds.points[0][0], y: ds.points[0][1] }) : null;
-        if (onPicture) selectPic(onPicture);
-        sync(); render();
+        history.pop(); sync(); render();
         return;
       }
       // the page's first dimension fixes its scale: a scale set later on another page leaves it as it is
@@ -2234,8 +2336,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     } else {
       var onImage = p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h, si = strokeAt(p), pq = picAt(p);
       if (pq) {
-        selectPic(pq); sync(); render();
-        add(menuItem("Delete picture", "Del", deletePic, { danger: true }));
+        add(menuItem("Bring forward", "Ctrl+]", function () { movePicTo(pq, state.pics.indexOf(pq) + 1); }, { disabled: state.pics.indexOf(pq) === state.pics.length - 1 }));
+        add(menuItem("Send backward", "Ctrl+[", function () { movePicTo(pq, state.pics.indexOf(pq) - 1); }, { disabled: state.pics.indexOf(pq) === 0 }));
+        add(menuItem("Delete picture", pq.id === picSel ? "Del" : "", function () { deletePic(pq); }, { danger: true }));
         rule();
       }
       add(menuItem("Add note here", "", function () { addNote(p.x, p.y); }, { disabled: !onImage }));
@@ -2313,6 +2416,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     // (A selection left behind inside the note text box is not page text: it reports as collapsed.)
     if (mod && k === "c" && !typing && !e.altKey && !e.shiftKey && !pageTextSelected()) { e.preventDefault(); copyImage(); return; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
+    // Ctrl/Cmd+] and [ bring the selected picture forward or send it backward, as in Photoshop
+    if (mod && (e.key === "]" || e.key === "[") && !typing && selectedPic()) { e.preventDefault(); stepPic(e.key === "]" ? 1 : -1); return; }
     // 0 fits the image again; Ctrl/Cmd+0 does too (the browser resets its own zoom on that as well)
     if (e.key === "0" && !typing && !e.altKey) { fitView(); if (!mod) e.preventDefault(); return; }
     // - and + (or =) zoom out and in about the middle of the stage; with Ctrl they are left to the browser
@@ -2336,6 +2441,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (selectedPic()) deletePic(); else deleteSel(); }
     if (e.key === "Escape") { picSel = null; select(-1); sync(); render(); }
     if (doc && (e.key === "PageDown" || e.key === "PageUp")) { e.preventDefault(); showPage(doc.cur + (e.key === "PageDown" ? 1 : -1)); return; }
+    if (e.key === "v" || e.key === "V") setTool("move");
     if (e.key === "d" || e.key === "D") setTool("draw");
     if (e.key === "n" || e.key === "N") setTool("note");
     if (e.key === "m" || e.key === "M") setTool("measure");
@@ -2685,7 +2791,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   $("file").addEventListener("change", function (e) { loadFile(e.target.files[0]); e.target.value = ""; });
   $("addFile").addEventListener("change", function (e) { addPicture(e.target.files[0]); e.target.value = ""; });
-  $("delPic").addEventListener("click", deletePic);
+  $("delPic").addEventListener("click", function () { deletePic(); });
+  $("picUp").addEventListener("click", function () { stepPic(1); });
+  $("picLeft").addEventListener("click", function () { turnPic(-90); });
+  $("picRight").addEventListener("click", function () { turnPic(90); });
+  $("picDown").addEventListener("click", function () { stepPic(-1); });
   ["dragenter", "dragover"].forEach(function (t) {
     stage.addEventListener(t, function (e) { e.preventDefault(); stage.classList.add("dragging"); });
   });
