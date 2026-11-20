@@ -337,7 +337,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
       <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-45 12 11)"><rect x="4" y="7" width="16" height="8" rx="2"/><rect x="4" y="7" width="6.5" height="8" rx="2" fill="currentColor"/></g><path d="M10 21h10"/></svg></button>
     </div>
-    <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
+    <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad, or press + and -. It goes in to 800% and out to a tenth of the fitted size. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the file to open it</div>
     <div id="empty" hidden>
       <svg class="ico" viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6v22"/><path d="M15 19l9 9 9-9"/><path d="M8 32v6a3 3 0 0 0 3 3h26a3 3 0 0 0 3-3v-6"/></svg>
@@ -948,10 +948,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function padL() { var t = $("tools"); return t && t.offsetWidth ? t.offsetLeft + t.offsetWidth + 12 : PAD; }
   function midX(r) { return (r.width + padL() - PAD) / 2; }
   function fitScale(r) { return Math.min((r.width - padL() - PAD) / state.w, (r.height - PAD * 2) / state.h); }
+  // how far out the view can go: a tenth of the fitted size, so the whole image can be made small on the stage
+  var MIN_ZOOM = 0.1;
   function maxZoom(r) { return Math.max(4, 8 / fitScale(r)); }   // up to 800% of real size, and at least 4x the fitted view
   // Work out scale and offsets from zoom + centre, keeping the image from sliding off the stage.
   function placeView(r) {
-    view.zoom = clamp(view.zoom, 1, maxZoom(r));
+    view.zoom = clamp(view.zoom, MIN_ZOOM, maxZoom(r));
     var s = fitScale(r) * view.zoom, iw = state.w * s, ih = state.h * s;
     var L0 = padL(), ox = midX(r) - view.cx * s, oy = r.height / 2 - view.cy * s;
     ox = iw <= r.width - L0 - PAD ? L0 + (r.width - L0 - PAD - iw) / 2 : clamp(ox, r.width - PAD - iw, L0);
@@ -963,7 +965,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Zoom by a factor, keeping the image point under (mx, my) on the stage where it is.
   function zoomAt(mx, my, factor) {
     var r = stage.getBoundingClientRect();
-    var z = clamp(view.zoom * factor, 1, maxZoom(r));
+    var z = clamp(view.zoom * factor, MIN_ZOOM, maxZoom(r));
     if (z === view.zoom) return;
     var px = (mx - view.ox) / view.s, py = (my - view.oy) / view.s, s = fitScale(r) * z;
     view.zoom = z; view.cx = px + (midX(r) - mx) / s; view.cy = py + (r.height / 2 - my) / s;
@@ -996,9 +998,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var was = doc.pages[doc.cur], zoom = view.zoom, across = state.w ? view.cx / state.w : 0.5;
     var paper = view.s * was.w / was.wPt;                  // screen px per point of paper
     showPage(doc.cur + step);
-    if (zoom > 1) {
+    if (zoom !== 1) {
       var pg = doc.pages[doc.cur];
-      view.zoom = Math.max(1, paper / (pg.w / pg.wPt) / fitScale(stage.getBoundingClientRect()));
+      view.zoom = Math.max(MIN_ZOOM, paper / (pg.w / pg.wPt) / fitScale(stage.getBoundingClientRect()));
       view.cx = across * state.w; view.cy = step > 0 ? 0 : state.h;
       render();
     }
@@ -1045,7 +1047,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     placeView(r);
     placeEmpty();
     var zb = $("zoom");
-    zb.hidden = false; zb.textContent = Math.round(view.s * 100) + "%"; zb.classList.toggle("zoomed", view.zoom > 1);
+    zb.hidden = false; zb.textContent = Math.round(view.s * 100) + "%"; zb.classList.toggle("zoomed", view.zoom !== 1);
     ctx.setTransform(view.dpr * view.s, 0, 0, view.dpr * view.s, view.dpr * view.ox, view.dpr * view.oy);
     ctx.imageSmoothingQuality = "high";
     paint(ctx);
@@ -1191,6 +1193,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (!keep) ta.select(); else ta.setSelectionRange(ta.value.length, ta.value.length);
     }, 0);
   }
+  // After a note's look is changed (typeface, colour, shape, orientation) the keyboard goes back to its text,
+  // so typing carries on in the note instead of reaching the shortcuts or the typeface list.
+  function backToText() {
+    var n = state.picks.length === 1 ? selected() : null;
+    if (n) focusText(n.text !== "New note");
+  }
+  $("editor").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button");
+    if (b && b.id !== "del" && e.detail > 0) backToText();     // a click with the mouse; the keyboard keeps its place
+  });
   // Esc in the text box: done typing; the note is let go and the keyboard goes back to the image
   $("noteText").addEventListener("keydown", function (e) {
     if (e.key === "Escape") { e.preventDefault(); canvas.focus({ preventScroll: true }); select(-1); sync(); render(); }
@@ -1409,6 +1421,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   $("font").addEventListener("change", function (e) {
     state.font = e.target.value;
+    backToText();
     saveSettings();
     document.fonts.load(fontStr(40)).then(render, render);
   });
@@ -2094,12 +2107,23 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
     // 0 fits the image again; Ctrl/Cmd+0 does too (the browser resets its own zoom on that as well)
     if (e.key === "0" && !typing && !e.altKey) { fitView(); if (!mod) e.preventDefault(); return; }
+    // - and + (or =) zoom out and in about the middle of the stage; with Ctrl they are left to the browser
+    if ((e.key === "-" || e.key === "+" || e.key === "=") && !typing && !mod && !e.altKey) {
+      e.preventDefault();
+      var zr = stage.getBoundingClientRect();
+      zoomAt(midX(zr), zr.height / 2, e.key === "-" ? 1 / 1.25 : 1.25);
+      return;
+    }
     if (typing || mod || e.altKey) return;
     // holding Space turns the left button into a hand for dragging the image, when the image has the keyboard
     if (e.key === " " && (el === canvas || el === document.body)) {
       e.preventDefault();
       if (!spaceDown) { spaceDown = true; if (!drag) canvas.style.cursor = "grab"; }
       return;
+    }
+    // Enter (or F2) on the image, with one note selected: into its text, to type
+    if ((e.key === "Enter" || e.key === "F2") && (el === canvas || el === document.body) && state.picks.length === 1 && selected()) {
+      e.preventDefault(); focusText(selected().text !== "New note"); return;
     }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSel(); }
     if (e.key === "Escape") { select(-1); sync(); render(); }
