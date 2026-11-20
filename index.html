@@ -334,7 +334,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <div id="hud" hidden></div>
     <div id="tools" role="toolbar" aria-label="Tools" aria-orientation="vertical">
       <button id="toolMove" aria-pressed="false" aria-label="Move" title="Move (V): the left button drags pictures and notes; the side panel lists the pictures"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v17M3.5 12h17"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
-      <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
+      <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws a pen line"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
+      <button id="toolHi" aria-pressed="false" aria-label="Highlighter" title="Highlighter (H): the left button draws a wide see-through line"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(45 12 11)"><rect x="8.75" y="0.5" width="6.5" height="11" rx="1.6"/><path d="M9.75 11.5v2.5h4.5v-2.5"/><path d="M10.6 14h2.8l-0.4 3.6h-2z" fill="currentColor"/></g><path d="M3 21.5h12" stroke-width="3" opacity="0.4"/></svg></button>
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
       <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-45 12 11)"><rect x="4" y="7" width="16" height="8" rx="2"/><rect x="4" y="7" width="6.5" height="8" rx="2" fill="currentColor"/></g><path d="M10 21h10"/></svg></button>
@@ -351,11 +352,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   </section>
   <aside>
     <div class="section" id="penPanel" hidden>
-      <h2>Pen</h2>
-      <div class="seg" role="group" aria-label="Kind of line">
-        <button id="inkPen" aria-pressed="true" title="A solid line">Pen</button>
-        <button id="inkHi" aria-pressed="false" title="A wide see-through line, for marking an area without hiding it">Highlighter</button>
-      </div>
+      <h2 id="penTitle">Pen</h2>
       <div class="seg" role="group" aria-label="Tip shape">
         <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded">Round tip</button>
         <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker">Square tip</button>
@@ -1408,7 +1405,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (t !== "move") picSel = null;   // a picture is picked up and resized with Move
     $("toolMove").setAttribute("aria-pressed", String(t === "move"));
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
-    $("toolDraw").setAttribute("aria-pressed", String(t === "draw"));
+    $("toolDraw").setAttribute("aria-pressed", String(t === "draw" && !state.pen.hi));
+    $("toolHi").setAttribute("aria-pressed", String(t === "draw" && !!state.pen.hi));
     $("toolMeasure").setAttribute("aria-pressed", String(t === "measure"));
     $("toolErase").setAttribute("aria-pressed", String(t === "erase"));
     $("penPanel").hidden = t !== "draw";
@@ -1526,8 +1524,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (document.activeElement !== $("noteSize")) $("noteSize").value = look.size;
     $("noteSizeVal").textContent = textLabel(look);
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
-    $("inkPen").setAttribute("aria-pressed", String(!state.pen.hi));
-    $("inkHi").setAttribute("aria-pressed", String(!!state.pen.hi));
+    $("penTitle").textContent = state.pen.hi ? "Highlighter" : "Pen";
+    $("toolDraw").setAttribute("aria-pressed", String(state.tool === "draw" && !state.pen.hi));
+    $("toolHi").setAttribute("aria-pressed", String(state.tool === "draw" && !!state.pen.hi));
     $("tipRound").setAttribute("aria-pressed", String(state.pen.tip !== "square"));
     $("tipSquare").setAttribute("aria-pressed", String(state.pen.tip === "square"));
     $("eraseRound").setAttribute("aria-pressed", String(!eraserSquare()));
@@ -1648,10 +1647,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var next = state.inks[hi ? "hi" : "pen"];
     state.pen = { color: next.color, width: next.width, hi: hi, tip: next.tip || "round" };
     sync();
-    status(hi ? "Highlighter: a wide see-through line. Pen switches back." : "Pen.");
+    status(hi ? "Highlighter: a wide see-through line. Draw (D) goes back to the pen." : "Pen.");
   }
-  $("inkPen").addEventListener("click", function () { setInk(false); });
-  $("inkHi").addEventListener("click", function () { setInk(true); });
   $("tipRound").addEventListener("click", function () { state.pen.tip = "round"; sync(); });
   $("tipSquare").addEventListener("click", function () { state.pen.tip = "square"; sync(); });
   $("eraseRound").addEventListener("click", function () { state.eraserTip = "round"; sync(); render(); });
@@ -1706,7 +1703,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("undo").addEventListener("click", undo);
   $("toolMove").addEventListener("click", function () { setTool("move"); });
   $("toolNote").addEventListener("click", function () { setTool("note"); });
-  $("toolDraw").addEventListener("click", function () { setTool("draw"); });
+  // Draw and Highlighter are the same tool with a different line: each button picks its line
+  $("toolDraw").addEventListener("click", function () { setTool("draw"); setInk(false); });
+  $("toolHi").addEventListener("click", function () { setTool("draw"); setInk(true); });
   $("toolMeasure").addEventListener("click", function () { setTool("measure"); });
   $("toolErase").addEventListener("click", function () { setTool("erase"); });
 
@@ -2432,7 +2431,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.key === "Escape") { picSel = null; select(-1); sync(); render(); }
     if (doc && (e.key === "PageDown" || e.key === "PageUp")) { e.preventDefault(); showPage(doc.cur + (e.key === "PageDown" ? 1 : -1)); return; }
     if (e.key === "v" || e.key === "V") setTool("move");
-    if (e.key === "d" || e.key === "D") setTool("draw");
+    if (e.key === "d" || e.key === "D") { setTool("draw"); setInk(false); }
+    if (e.key === "h" || e.key === "H") { setTool("draw"); setInk(true); }
     if (e.key === "n" || e.key === "N") setTool("note");
     if (e.key === "m" || e.key === "M") setTool("measure");
     if (e.key === "e" || e.key === "E") setTool("erase");
