@@ -387,7 +387,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="eraseRound" aria-pressed="true" title="A round eraser">Round</button>
         <button id="eraseSquare" aria-pressed="false" title="A square eraser, upright: it reaches into its corners">Square</button>
       </div>
-      <label class="check" title="On: dragging with the wheel button erases, whatever tool is on. Off: a click with the wheel button opens the tool wheel round the pointer.">Wheel button erases<input type="checkbox" role="switch" id="wheelErase"></label>
+      <label class="check" title="On: dragging with the wheel button erases and the right button adds notes, whatever tool is on. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (Notes places notes) and the right button opens the menu.">Wheel button erases<input type="checkbox" role="switch" id="wheelErase"></label>
       <label for="eraserSize" title="The size of the eraser: the Eraser tool, and the wheel button when it erases.">Eraser size <span class="val" id="eraserSizeVal"></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
       </label>
@@ -542,7 +542,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
                 // ratio: the scale the drawings are at (100 for 1:100), or null. One for every page and drawing, kept
                 // for next time; with the paper size of a page, or an image's dpi, it gives the length of a pixel.
                 eraserTip: "round",     // the eraser's shape: round, or an upright square
-                ratio: null, pageRatio: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: true, wheelErase: false,
+                ratio: null, pageRatio: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: true, wheelErase: true,
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
@@ -1436,8 +1436,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
          : t === "measure" ? "Drag to measure · drag a pill or its dot to move it"
          : t === "erase" ? "Drag to erase"
          : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
+      : !state.wheelErase
+      ? (t === "erase" ? "Left-drag erases" : t === "measure" ? "Left-drag measures" : t === "note" ? "Left-drag from a spot places a note, a click puts one there" : "Left-drag draws")
+        + " · wheel button: tool wheel · right-click for a menu · Shift " + (t === "erase" ? "erases in a straight line" : "keeps lines straight")
       : t === "erase" ? "Left-drag erases · right-drag adds a note · right-click for a menu · Shift erases in a straight line"
-      : (t === "measure" ? "Left-drag measures" : "Left-drag draws") + (state.wheelErase ? " · wheel-drag erases" : " · wheel button: tool wheel") + " · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
+      : (t === "measure" ? "Left-drag measures" : "Left-drag draws") + " · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
     canvas.style.cursor = t === "move" ? "default" : "crosshair";
     if (t !== "erase") hoverAt = null;
     sync();
@@ -1494,6 +1497,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       li.appendChild(b); list.appendChild(li);
     });
     $("listEmpty").hidden = state.notes.length > 0;
+    $("listEmpty").textContent = COARSE ? "No notes yet. Tap the image to add one." : state.wheelErase ? "No notes yet. Drag with the right mouse button to add one." : "No notes yet. Drag from a spot with the left button to add one.";
     // the pictures on this page, the one in front at the top, as in a layers list
     var pl = $("picList"), spic = selectedPic();
     pl.innerHTML = "";
@@ -1682,7 +1686,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (switchByPointer) e.target.blur();
     switchByPointer = false;
     setTool(state.tool);   // the hint under the image says what the wheel button does
-    status(state.wheelErase ? "The wheel button erases again: drag with it to rub out." : "A click with the wheel button opens the tool wheel round the pointer.");
+    status(state.wheelErase ? "The wheel button erases, and a right-drag adds a note." : "A click with the wheel button opens the tool wheel; each tool works with the left button, the right button opens the menu.");
   });
   $("showLen").addEventListener("change", function (e) {
     state.showLen = e.target.checked; sync();
@@ -1887,7 +1891,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!rightBtn && !wheelBtn && !penEraser && e.button !== 0) return;
     // a mouse's left button always draws; a finger or a stylus does what the Draw / Notes switch says
     var byTouch = e.pointerType === "touch" || e.pointerType === "pen";
-    var drawNow = !byTouch || state.tool === "draw";
+    // With the tool wheel (Wheel button erases off) a mouse works by tool too: with Notes it places notes.
+    var drawNow = state.wheelErase ? (!byTouch || state.tool === "draw") : state.tool !== "note";
     if (drag) endDrag(true);
     var wasTyping = document.activeElement === $("noteText");
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
@@ -1940,6 +1945,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       drag = { part: "sizewait", sx: e.clientX, sy: e.clientY, last: [p.x, p.y], sizing: !penEraser && isSizeKey(e), tool: "eraser" };
       canvas.setPointerCapture(e.pointerId);
       if (drag.sizing) holdPointer(e); else startErase();
+      return;
+    }
+    if (rightBtn && !state.wheelErase) {
+      // with the tool wheel the right button only opens the menu: a right-drag does nothing
+      drag = { part: "rclick", right: true, menuOnly: true, sx: e.clientX, sy: e.clientY, last: [p.x, p.y], typing: wasTyping };
+      canvas.setPointerCapture(e.pointerId);
       return;
     }
     if (rightBtn) {
@@ -1998,6 +2009,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       render();
       return;
     }
+    if (drag.menuOnly) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) >= 5) drag.dragged = true; return; }
     if (drag.part === "rclick" || drag.part === "sizewait") {
       if (drag.sizing) {
         trackPointer(e);
@@ -2311,7 +2323,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     if (d.part === "rclick") {
       // a plain right-click (no drag) opens the pop-up menu for whatever is under the pointer
-      if (cancelled !== true) openMenu(d.sx, d.sy, { x: d.last[0], y: d.last[1] });
+      if (cancelled !== true && !d.dragged) openMenu(d.sx, d.sy, { x: d.last[0], y: d.last[1] });
       return;
     }
     if (!d.moved) {
@@ -3090,7 +3102,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
-    var text = JSON.stringify({ v: 3, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
+    var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, font: state.font, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase });
     if (text === savedSettings) return;
@@ -3123,7 +3135,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (UNITS[d.unit]) state.unit = d.unit;
     // Show line length starts on; a choice saved before it did (version 1) is not held to
     if (d.v >= 2 && typeof d.showLen === "boolean") state.showLen = d.showLen;
-    if (typeof d.wheelErase === "boolean") state.wheelErase = d.wheelErase;
+    // kept from version 4 on: before that it was always written as off, which was only the old default
+    if (d.v >= 4 && typeof d.wheelErase === "boolean") state.wheelErase = d.wheelErase;
     if (typeof d.ratio === "number" && isFinite(d.ratio) && d.ratio > 0) state.ratio = d.ratio;
     // the eraser's own shape; before it had one it went with the pen's tip
     state.eraserTip = d.eraserTip === "square" || (d.eraserTip == null && state.pen.tip === "square") ? "square" : "round";
