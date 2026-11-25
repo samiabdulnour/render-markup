@@ -231,8 +231,9 @@ input.entry, .scalebox input {
 .scalebox .row button { flex: 1; justify-content: center; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 #penDash { grid-template-columns: repeat(5, 1fr); }
-#penShape { grid-template-columns: repeat(6, 1fr); }
-#penShape button { padding-left: 0; padding-right: 0; }
+#penShape { grid-template-columns: repeat(5, 1fr); }
+#penShape[hidden], #picLineColors[hidden] { display: none; }
+#penShape button { padding: 8px 0; }
 .swatches.five { grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .swatches.five button { padding: 6px 2px; font-size: var(--fs); }
 .swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: var(--fs); gap: 4px; }
@@ -267,8 +268,21 @@ input.entry, .scalebox input {
 }
 #status.on { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { #status { transition: none; } }
+/* Settings, and the choice of PDF export */
+.modal .box.setbox { width: min(520px, 100%); }
+.modal .box.pdfbox { width: min(640px, 100%); }
+.pdfchoices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 760px) { .pdfchoices { grid-template-columns: 1fr; } }
+.pdfchoices .choice { flex-direction: column; align-items: flex-start; text-align: left; gap: 4px; padding: 12px 14px; }
+.pdfchoices .choice .note { text-transform: none; letter-spacing: normal; }
+/* the page strip: a page being dragged to a new place, and where it will go */
+#pageList li.lifted { opacity: 0.45; }
+#pageList li.drop-before button { box-shadow: inset 0 3px 0 var(--ink); }
+#pageList li.drop-after button { box-shadow: inset 0 -3px 0 var(--ink); }
+#pageList.across li.drop-before button { box-shadow: inset 3px 0 0 var(--ink); }
+#pageList.across li.drop-after button { box-shadow: inset -3px 0 0 var(--ink); }
 /* The Shortcuts list: a table for each kind, two abreast */
-.keysbox { width: min(860px, 100%); }
+.modal .box.keysbox { width: min(860px, 100%); }
 .keysgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
 @media (max-width: 760px) { .keysgrid { grid-template-columns: 1fr; } }
 table.keys { border-collapse: collapse; width: 100%; }
@@ -398,9 +412,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <input type="file" id="file" accept="image/*,application/pdf,.pdf">
   <label class="btn" for="addFile" title="Add a picture, such as a screenshot, onto this page; the markup stays. Ctrl/Cmd+V pastes one the same way.">Add image</label>
   <input type="file" id="addFile" accept="image/*">
+  <button id="grammarTop" title="Proofread every note with LanguageTool (only the note text is sent); you review each fix before it applies">Check grammar</button>
   <button id="keysBtn" title="The shortcuts, and what each mouse button does (?)">Shortcuts</button>
+  <button id="setBtn" title="Settings: how the mouse works">Settings</button>
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
-  <button id="export" class="primary" title="Save the marked-up image at full resolution (Ctrl/Cmd+S)">Export PNG</button>
+  <button id="export" class="primary" title="Save as PNG, JPG or PDF (Ctrl/Cmd+S)">Export</button>
 </header>
 <main>
   <nav id="pages" aria-label="Pages" hidden><ol id="pageList"></ol></nav>
@@ -413,6 +429,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="toolMove" aria-pressed="false" aria-label="Move" title="Move (V): the left button drags pictures and notes; the side panel lists the pictures"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v17M3.5 12h17"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
       <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws a pen line"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
       <button id="toolHi" aria-pressed="false" aria-label="Highlighter" title="Highlighter (H): the left button draws a wide see-through line"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(45 12 11)"><rect x="8.75" y="0.5" width="6.5" height="11" rx="1.6"/><path d="M9.75 11.5v2.5h4.5v-2.5"/><path d="M10.6 14h2.8l-0.4 3.6h-2z" fill="currentColor"/></g><path d="M3 21.5h12" stroke-width="3" opacity="0.4"/></svg></button>
+      <button id="toolShape" aria-pressed="false" aria-label="Shapes" title="Shapes (S): arrows, rectangles, rounded rectangles, pills and circles, dragged from corner to corner"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="9.5" width="11" height="11" rx="1.5"/><circle cx="15.5" cy="8.5" r="5.8"/></svg></button>
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
       <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-45 12 11)"><rect x="4" y="7" width="16" height="8" rx="2"/><rect x="4" y="7" width="6.5" height="8" rx="2" fill="currentColor"/></g><path d="M10 21h10"/></svg></button>
@@ -431,8 +448,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <aside>
     <div class="section" id="penPanel" hidden>
       <h2 id="penTitle">Pen</h2>
-      <div class="swatches" id="penShape" role="group" aria-label="What to draw">
-        <button type="button" data-shape="" title="Line: draw freehand (Shift for a straight line)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M3 10c4-8 8 4 12-2s7-5 12 1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="unseen">Line</span></button>
+      <div class="swatches" id="penShape" role="group" aria-label="Shape" hidden>
         <button type="button" data-shape="arrow" title="Arrow: drag from its tail to its point (Shift keeps it at 0, 45 or 90 degrees)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M3 11L22 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M27 2.2L19.4 1.2L21.9 8.2Z" fill="currentColor"/></svg><span class="unseen">Arrow</span></button>
         <button type="button" data-shape="rect" title="Rectangle: drag from corner to corner (Shift for a square)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="6" y="2" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Rectangle</span></button>
         <button type="button" data-shape="round" title="Rounded rectangle: drag from corner to corner (Shift for a square)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="6" y="2" width="18" height="10" rx="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Rounded rectangle</span></button>
@@ -466,7 +482,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="eraseRound" aria-pressed="true" title="A round eraser">Round</button>
         <button id="eraseSquare" aria-pressed="false" title="A square eraser, upright: it reaches into its corners">Square</button>
       </div>
-      <label class="check" title="On: dragging with the wheel button erases and the right button adds notes, whatever tool is on. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (Notes places notes) and the right button opens the menu.">Wheel button erases<input type="checkbox" role="switch" id="wheelErase"></label>
       <label for="eraserSize" class="slider" title="The size of the eraser: the Eraser tool, and the wheel button when it erases."><span class="head">Eraser size <span class="val" id="eraserSizeVal"></span></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
       </label>
@@ -502,6 +517,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <div class="seg" role="group" aria-label="Turn">
         <button id="picLeft" title="Turn it a quarter turn anticlockwise">Rotate left</button>
         <button id="picRight" title="Turn it a quarter turn clockwise">Rotate right</button>
+      </div>
+      <div class="field">Outline
+        <div class="seg" role="group" aria-label="Outline">
+          <button id="picLineNone" aria-pressed="true" title="No outline round the picture">None</button>
+          <button id="picLineThin" aria-pressed="false" title="A thin outline round the picture">Thin</button>
+          <button id="picLineThick" aria-pressed="false" title="A thick outline round the picture">Thick</button>
+        </div>
+        <div class="swatches five" id="picLineColors" role="group" aria-label="Outline colour" hidden></div>
       </div>
       <p class="note">Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.</p>
       <button id="delPic" class="danger">Delete picture</button>
@@ -577,6 +600,26 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <select id="scaleUnit" aria-label="Unit"><option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option></select></div>
   <div class="row"><button type="submit" class="primary">Set scale</button><button type="button" id="scaleCancel">Cancel</button></div>
 </form>
+<div class="modal" id="setModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="box setbox">
+    <h3 id="setTitle">Settings</h3>
+    <label class="check" for="wheelErase">Legacy controls<input type="checkbox" role="switch" id="wheelErase"></label>
+    <p class="note">On: the wheel button erases and a drag with the right button adds a note, whatever tool is on; the left button draws. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (with Notes, it places notes), and the right button opens the menu.</p>
+    <div class="actions"><button id="setClose">Close</button></div>
+  </div>
+</div>
+<div class="modal" id="pdfModal" role="dialog" aria-modal="true" aria-labelledby="pdfTitle">
+  <div class="box pdfbox">
+    <h3 id="pdfTitle">Export</h3>
+    <div class="pdfchoices">
+      <button id="expPng" class="choice"><span class="ttl">PNG</span><span class="note" id="expPngNote"></span></button>
+      <button id="expJpg" class="choice"><span class="ttl">JPG</span><span class="note" id="expJpgNote"></span></button>
+      <button id="pdfFull" class="choice"><span class="ttl">PDF, full quality</span><span class="note" id="pdfFullNote"></span></button>
+      <button id="pdfSmall" class="choice"><span class="ttl">PDF, smaller file</span><span class="note" id="pdfSmallNote"></span></button>
+    </div>
+    <div class="actions"><button id="pdfCancel">Cancel</button></div>
+  </div>
+</div>
 <div class="modal" id="keysModal" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
   <div class="box keysbox">
     <h3 id="keysTitle">Shortcuts</h3>
@@ -646,7 +689,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
                 // ratio: the scale the drawings are at (100 for 1:100), or null. One for every page and drawing, kept
                 // for next time; with the paper size of a page, or an image's dpi, it gives the length of a pixel.
                 eraserTip: "round",     // the eraser's shape: round, or an upright square
-                ratio: null, pageRatio: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: true, wheelErase: true,
+                ratio: null, pageRatio: null, dpi: 96, unit: "mm", dim: { color: "red", size: 1 }, showLen: true, wheelErase: true, shapeKind: "rect",
                 // the pen and the highlighter each remember their own colour, width and tip
                 inks: { pen: { color: "red", width: 1, tip: "round" }, hi: { color: "yellow", width: 6, tip: "round" } } };
   var WRAP_EM = 14;  // notes wrap at this line length (in ems); Enter in the text box forces a break
@@ -965,8 +1008,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Erase everything within reach of the eraser as it moves from a to b. Returns true if any ink went.
   // The eraser rubs out exactly the area it passes over, as an eraser on paper does: each pass is kept as an
   // erase stroke and painted out of the ink drawn before it (paintMarkup), so it can take a sliver off the edge of
-  // a thick line, or a channel down its middle. Where it covers a line's whole width, those parts of the line
-  // also go from the drawing itself, so a line rubbed out completely is gone (and Clear drawing knows it).
+  // a thick line, or a channel down its middle. What is left of a line looks just as it did: the line itself is not
+  // redrawn, so a dash, a cloud's scallops or a shape's corners stay where they were. Where the eraser covers a
+  // line's whole width, the line only notes which parts of it are left (s.left, runs of points along it), for
+  // pointing at it and for knowing when it is gone: a line rubbed out completely goes (and Clear drawing knows it).
   // A dimension goes whole. Returns true if the eraser touched any ink at all.
   function eraseAlong(a, b) {
     var r = eraserR(), touched = false, changed = false, out = [], dist = eraserSquare() ? boxDistToSeg : distToSeg;
@@ -986,18 +1031,26 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         for (i = 0; i < whole.length; i++) if (dist(whole[i], a, b) <= reach) { changed = touched = true; return; }
         out.push(s); return;
       }
-      var flat = flatten(s), run = [], pieces = [], covered = false;
-      for (i = 0; i < flat.length; i++) {
-        var d = dist(flat[i], a, b);
-        if (d <= reach) touched = true;
-        // this point's whole width is under the eraser: the line can go from here
-        if (d <= inner) { covered = true; if (run.length > 1) pieces.push(run); run = []; }
-        else run.push(flat[i]);
-      }
+      var pieces = [], covered = false;
+      (s.left || [flatten(s)]).forEach(function (flat) {
+        var run = [];
+        for (var j = 0; j < flat.length; j++) {
+          var d = dist(flat[j], a, b);
+          if (d <= reach) touched = true;
+          // this point's whole width is under the eraser: the line is gone from here
+          if (d <= inner) { covered = true; if (run.length > 1) pieces.push(run); run = []; }
+          else run.push(flat[j]);
+        }
+        if (run.length > 1 || (run.length === 1 && flat.length === 1)) pieces.push(run);
+      });
       if (!covered) { out.push(s); return; }
-      if (run.length > 1) pieces.push(run);
       changed = true;
-      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, tip: s.tip, dash: s.dash, points: pp, flat: true }); });   // a shape's pieces are lines
+      if (!pieces.length) return;
+      // the same line, drawn as before; only what is left of it is noted
+      var kept = {};
+      for (var key in s) kept[key] = s[key];
+      kept.left = pieces;
+      out.push(kept);
     });
     if (changed) state.strokes = out;
     return touched || changed;
@@ -1025,11 +1078,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var u = Math.max(lw, 2);
     return d[s.tip === "square" ? "square" : "round"].map(function (v) { return v * u; });
   }
-  // A revision cloud, as CAD marks a change: the line drawn as a row of scallops bulging outwards, each about
-  // twelve widths of the line across (and never smaller than a thirtieth of the image's short side, so a
-  // thin line still makes a cloud that reads). A line that comes back near where it began closes into a loop.
+  // A revision cloud, as CAD marks a change: the line drawn as a row of round scallops bulging outwards, of uneven
+  // size and shape as if drawn by hand, each about seven widths of the line across (and never smaller than a
+  // fiftieth of the image's short side, so a thin line still makes a cloud that reads). The unevenness comes from
+  // where the line starts, so the same line always gets the same cloud. A line that comes back near where it
+  // began closes into a loop.
   function cloudPath(c, s, lw) {
-    var pts = s.points.length > 2 || s.shape ? flatten(s) : s.points, chord = Math.max(lw * 12, Math.min(state.w, state.h) / 30), len = 0, i;
+    var pts = s.points.length > 2 || s.shape ? flatten(s) : s.points, chord = Math.max(lw * 7, Math.min(state.w, state.h) / 50), len = 0, i;
     for (i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     if (len < chord * 0.5) return false;
     var first = pts[0], last = pts[pts.length - 1];
@@ -1037,12 +1092,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       len += Math.hypot(last[0] - first[0], last[1] - first[1]);
       pts = pts.concat([first]);
     }
-    // points at even steps along it, one scallop between each two
-    var n = Math.max(1, Math.round(len / chord)), step = len / n, R = [pts[0]], walked = 0, k = 1, want = step;
+    // a steady run of numbers between 0 and 1 for this line
+    var seed = (Math.round(pts[0][0] * 7.3 + pts[0][1] * 13.7) % 997 + 997) % 997;
+    function wob(j) { var x = Math.sin((j + 1) * 12.9898 + seed * 78.233) * 43758.5453; return x - Math.floor(x); }
+    // points along it, one scallop between each two, each scallop between 0.65 and 1.35 of the usual size
+    var n = Math.max(1, Math.round(len / chord)), sizes = [], total = 0;
+    for (i = 0; i < n; i++) { sizes.push(0.65 + 0.7 * wob(i)); total += sizes[i]; }
+    var R = [pts[0]], walked = 0, k = 0, want = sizes[0] / total * len;
     for (i = 1; i < pts.length && R.length < n; i++) {
       var a = pts[i - 1], b = pts[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]);
       while (d > 0 && walked + d >= want && R.length < n) {
-        var t = (want - walked) / d; R.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); want += step;
+        var t = (want - walked) / d; R.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); want += sizes[++k] / total * len;
       }
       walked += d;
     }
@@ -1051,10 +1111,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var area = 0;
     for (i = 0; i < R.length; i++) { var p0 = R[i], p1 = R[(i + 1) % R.length]; area += p0[0] * p1[1] - p1[0] * p0[1]; }
     var side = area >= 0 ? 1 : -1;
+    // each scallop a round bump, near a half circle, a little higher at one end or the other
     c.beginPath(); c.moveTo(R[0][0], R[0][1]);
     for (i = 0; i < R.length - 1; i++) {
-      var A = R[i], B = R[i + 1], dx = B[0] - A[0], dy = B[1] - A[1];
-      c.quadraticCurveTo((A[0] + B[0]) / 2 + dy * side * 0.7, (A[1] + B[1]) / 2 - dx * side * 0.7, B[0], B[1]);
+      var A = R[i], B = R[i + 1], dx = B[0] - A[0], dy = B[1] - A[1], nx = dy * side, ny = -dx * side;
+      var h1 = 0.58 + 0.2 * wob(i + 101), h2 = 0.58 + 0.2 * wob(i + 211);
+      c.bezierCurveTo(A[0] + nx * h1 + dx * 0.04, A[1] + ny * h1 + dy * 0.04, B[0] + nx * h2 - dx * 0.04, B[1] + ny * h2 - dy * 0.04, B[0], B[1]);
     }
     return true;
   }
@@ -1249,11 +1311,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var a = [-135, -45, 45, 135, -90, 0, 90, 180][k] + rotOf(q) * 180 / Math.PI, t = ((a % 180) + 180) % 180;
     return t < 22.5 || t >= 157.5 ? "ew-resize" : t < 67.5 ? "nwse-resize" : t < 112.5 ? "ns-resize" : "nesw-resize";
   }
+  // A picture's outline: thin, or three times that, in one of the colours; centred on its edge.
+  function picLineWidth(q) { var t = Math.max(2, Math.min(state.w, state.h) * 0.0025); return q.line && q.line.w === "thick" ? t * 3 : t; }
   function drawPics(c) {
     state.pics.forEach(function (q) {
       var im = picStore[q.id], r = rotOf(q); if (!im || !im.complete) return;
-      if (!r) { c.drawImage(im, q.x, q.y, q.w, q.h); return; }
-      c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r); c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h); c.restore();
+      c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r);
+      c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
+      if (q.line) { c.strokeStyle = (COLORS[q.line.c] || COLORS.black).fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      c.restore();
     });
   }
   function drawPicSelection(c, q) {
@@ -1676,9 +1742,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw" && !state.pen.hi));
     $("toolHi").setAttribute("aria-pressed", String(t === "draw" && !!state.pen.hi));
+    $("toolShape").setAttribute("aria-pressed", String(t === "shape"));
     $("toolMeasure").setAttribute("aria-pressed", String(t === "measure"));
     $("toolErase").setAttribute("aria-pressed", String(t === "erase"));
-    $("penPanel").hidden = t !== "draw";
+    $("penPanel").hidden = t !== "draw" && t !== "shape";
     $("erasePanel").hidden = t !== "erase";
     $("notesPanel").hidden = t !== "note";
     $("movePanel").hidden = t !== "move";
@@ -1692,10 +1759,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
          : t === "erase" ? "Drag to erase"
          : "Tap, or drag out, to place a note · drag a pill or its dot to move it")
       : !state.wheelErase
-      ? (t === "erase" ? "Left-drag erases" : t === "measure" ? "Left-drag measures" : t === "note" ? "Left-drag from a spot places a note, a click puts one there" : "Left-drag draws")
+      ? (t === "erase" ? "Left-drag erases" : t === "measure" ? "Left-drag measures" : t === "note" ? "Left-drag from a spot places a note, a click puts one there" : t === "shape" ? "Left-drag draws the shape" : "Left-drag draws")
         + " · wheel button: tool wheel · right-click for a menu · Shift " + (t === "erase" ? "erases in a straight line" : "keeps lines straight")
       : t === "erase" ? "Left-drag erases · right-drag adds a note · right-click for a menu · Shift erases in a straight line"
-      : (t === "measure" ? "Left-drag measures" : "Left-drag draws") + " · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
+      : (t === "measure" ? "Left-drag measures" : t === "shape" ? "Left-drag draws the shape" : "Left-drag draws") + " · wheel-drag erases · right-drag adds a note · right-click for a menu · Shift keeps lines straight";
     canvas.style.cursor = t === "move" ? "default" : "crosshair";
     if (t !== "erase") hoverAt = null;
     sync();
@@ -1776,6 +1843,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var si = spic ? state.pics.indexOf(spic) : -1;
     $("picUp").disabled = !spic || si === state.pics.length - 1;
     $("picDown").disabled = !spic || si === 0;
+    var pl = spic && spic.line;
+    $("picLineNone").setAttribute("aria-pressed", String(!pl));
+    $("picLineThin").setAttribute("aria-pressed", String(!!pl && pl.w !== "thick"));
+    $("picLineThick").setAttribute("aria-pressed", String(!!pl && pl.w === "thick"));
+    $("picLineColors").hidden = !pl;
+    if (pl) swatchRow($("picLineColors"), pl.c, function (k) { var q = selectedPic(); if (!q || !q.line) return; snapshot(); q.line = { w: q.line.w, c: k }; sync(); render(); });
     var n = selected(), many = state.picks.length > 1;
     // With a note selected the settings change it (and the selection it is part of). With none they are the
     // settings for the next note, so they can be picked before it is placed.
@@ -1808,13 +1881,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("caseUp").setAttribute("aria-pressed", String(state.caps === "upper"));
     $("caseLow").setAttribute("aria-pressed", String(state.caps === "lower"));
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
-    $("penTitle").textContent = state.pen.hi ? "Highlighter" : "Pen";
+    $("penTitle").textContent = state.tool === "shape" ? "Shapes" : state.pen.hi ? "Highlighter" : "Pen";
+    $("penShape").hidden = state.tool !== "shape";
     $("toolDraw").setAttribute("aria-pressed", String(state.tool === "draw" && !state.pen.hi));
     $("toolHi").setAttribute("aria-pressed", String(state.tool === "draw" && !!state.pen.hi));
     $("tipRound").setAttribute("aria-pressed", String(state.pen.tip !== "square"));
     $("tipSquare").setAttribute("aria-pressed", String(state.pen.tip === "square"));
     Array.prototype.forEach.call($("penDash").children, function (b) { b.setAttribute("aria-pressed", String((state.pen.dash || "") === b.getAttribute("data-dash"))); });
-    Array.prototype.forEach.call($("penShape").children, function (b) { b.setAttribute("aria-pressed", String((state.pen.shape || "") === b.getAttribute("data-shape"))); });
+    Array.prototype.forEach.call($("penShape").children, function (b) { b.setAttribute("aria-pressed", String(state.shapeKind === b.getAttribute("data-shape"))); });
     $("eraseRound").setAttribute("aria-pressed", String(!eraserSquare()));
     $("eraseSquare").setAttribute("aria-pressed", String(eraserSquare()));
     $("penWidthVal").textContent = penLabel(state.pen.width);
@@ -1839,7 +1913,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     Array.prototype.forEach.call(document.querySelectorAll('input[type="range"]'), fillRange);
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
-    $("grammar").disabled = state.notes.length === 0;
+    $("grammar").disabled = $("grammarTop").disabled = state.notes.length === 0;
     if (doc) markPage(doc.cur);
     $("export").disabled = !state.img;
     saveSettings();
@@ -1956,9 +2030,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Pen or Highlighter: each keeps the colour and width it was last used with
   function setInk(hi) {
     if (!!state.pen.hi === hi) return;
-    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", shape: state.pen.shape || "" };
+    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "" };
     var next = state.inks[hi ? "hi" : "pen"];
-    state.pen = { color: next.color, width: next.width, hi: hi, tip: next.tip || "round", dash: next.dash || "", shape: next.shape || "" };
+    state.pen = { color: next.color, width: next.width, hi: hi, tip: next.tip || "round", dash: next.dash || "" };
     sync();
     status(hi ? "Highlighter: a wide see-through line. Draw (D) goes back to the pen." : "Pen.");
   }
@@ -1968,7 +2042,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     b.addEventListener("click", function () { state.pen.dash = b.getAttribute("data-dash"); sync(); });
   });
   Array.prototype.forEach.call($("penShape").children, function (b) {
-    b.addEventListener("click", function () { state.pen.shape = b.getAttribute("data-shape"); sync(); });
+    b.addEventListener("click", function () { state.shapeKind = b.getAttribute("data-shape"); sync(); });
   });
   $("eraseRound").addEventListener("click", function () { state.eraserTip = "round"; sync(); render(); });
   $("eraseSquare").addEventListener("click", function () { state.eraserTip = "square"; sync(); render(); });
@@ -1986,7 +2060,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (switchByPointer) e.target.blur();
     switchByPointer = false;
     setTool(state.tool);   // the hint under the image says what the wheel button does
-    status(state.wheelErase ? "The wheel button erases, and a right-drag adds a note." : "A click with the wheel button opens the tool wheel; each tool works with the left button, the right button opens the menu.");
+    status(state.wheelErase ? "Legacy controls: the wheel button erases, and a right-drag adds a note." : "A click with the wheel button opens the tool wheel; each tool works with the left button, the right button opens the menu.");
   });
   $("showLen").addEventListener("change", function (e) {
     state.showLen = e.target.checked; sync();
@@ -2033,6 +2107,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Draw and Highlighter are the same tool with a different line: each button picks its line
   $("toolDraw").addEventListener("click", function () { setTool("draw"); setInk(false); });
   $("toolHi").addEventListener("click", function () { setTool("draw"); setInk(true); });
+  $("toolShape").addEventListener("click", function () { setInk(false); setTool("shape"); });
   $("toolMeasure").addEventListener("click", function () { setTool("measure"); });
   $("toolErase").addEventListener("click", function () { setTool("erase"); });
 
@@ -2092,10 +2167,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       snapshot();
       var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: o.shift };
       if (state.pen.dash) s.dash = state.pen.dash;
-      if (state.pen.shape) s.shape = state.pen.shape;
+      if (state.tool === "shape") s.shape = state.shapeKind || "rect";
       state.strokes.push(s);
       drag = { part: "stroke", stroke: s };
-      showPanel("draw");
+      if (state.tool !== "shape") showPanel("draw");
       render();
       return true;
     }
@@ -2127,12 +2202,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // ---------- the tool wheel ----------
   // A click with the wheel button opens the tools in a ring round the pointer. Click one, or hold the button,
   // move towards one and let go. A click in the middle, far outside, with another button, or Esc closes it.
-  var WHEEL_TOOLS = ["toolMove", "toolDraw", "toolHi", "toolNote", "toolMeasure", "toolErase"];
-  var WHEEL_KEYS = ["V", "D", "H", "N", "M", "E"];
+  var WHEEL_TOOLS = ["toolMove", "toolDraw", "toolHi", "toolShape", "toolNote", "toolMeasure", "toolErase"];
+  var WHEEL_KEYS = ["V", "D", "H", "S", "N", "M", "E"];
+  var WHEEL_STEP = 360 / WHEEL_TOOLS.length;
   var WHEEL_R = 64, WHEEL_REACH = 140, WHEEL_DEAD = 22;
   var wheelEl = $("wheel"), wheelItems = [], wheelOpen = null;
   WHEEL_TOOLS.forEach(function (id, k) {
-    var src = $(id), b = document.createElement("button"), a = (k * 60 - 90) * Math.PI / 180;
+    var src = $(id), b = document.createElement("button"), a = (k * WHEEL_STEP - 90) * Math.PI / 180;
     b.type = "button"; b.className = "item"; b.setAttribute("role", "menuitem");
     b.setAttribute("aria-label", src.getAttribute("aria-label"));
     b.innerHTML = src.innerHTML;
@@ -2143,7 +2219,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   });
   function wheelName(k) { return $(WHEEL_TOOLS[k]).getAttribute("aria-label") + " (" + WHEEL_KEYS[k] + ")"; }
   function currentToolIndex() {
-    return state.tool === "move" ? 0 : state.tool === "draw" ? (state.pen.hi ? 2 : 1) : state.tool === "note" ? 3 : state.tool === "measure" ? 4 : 5;
+    return state.tool === "move" ? 0 : state.tool === "draw" ? (state.pen.hi ? 2 : 1) : state.tool === "shape" ? 3 : state.tool === "note" ? 4 : state.tool === "measure" ? 5 : 6;
   }
   function setWheelHot(k) {
     if (!wheelOpen) return;
@@ -2154,7 +2230,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // the tool in the direction of the pointer from the middle: 0 at the top, then clockwise
   function wheelSector(x, y) {
     var a = Math.atan2(y - wheelOpen.y, x - wheelOpen.x) * 180 / Math.PI + 90;
-    return ((Math.round(a / 60) % 6) + 6) % 6;
+    var n = WHEEL_TOOLS.length;
+    return ((Math.round(a / WHEEL_STEP) % n) + n) % n;
   }
   function openWheel(cx, cy) {
     var r = stage.getBoundingClientRect();
@@ -2194,7 +2271,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     // a mouse's left button always draws; a finger or a stylus does what the Draw / Notes switch says
     var byTouch = e.pointerType === "touch" || e.pointerType === "pen";
     // With the tool wheel (Wheel button erases off) a mouse works by tool too: with Notes it places notes.
-    var drawNow = state.wheelErase ? (!byTouch || state.tool === "draw") : state.tool !== "note";
+    var drawNow = state.wheelErase ? (!byTouch || state.tool === "draw" || state.tool === "shape") : state.tool !== "note";
     if (drag) endDrag(true);
     var wasTyping = document.activeElement === $("noteText");
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
@@ -2677,9 +2754,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     for (var i = state.strokes.length - 1; i >= 0; i--) {
       var st = state.strokes[i];
       if (st.erase) continue;
-      var flat = flatten(st), reach = penPx(st) / 2 + 6 / view.s;
-      if (flat.length === 1) { if (Math.hypot(q[0] - flat[0][0], q[1] - flat[0][1]) <= reach) return i; continue; }
-      for (var k = 0; k < flat.length - 1; k++) if (distToSeg(q, flat[k], flat[k + 1]) <= reach) return i;
+      var runs = st.left || [flatten(st)], reach = penPx(st) / 2 + 6 / view.s;
+      for (var r = 0; r < runs.length; r++) {
+        var flat = runs[r];
+        if (flat.length === 1) { if (Math.hypot(q[0] - flat[0][0], q[1] - flat[0][1]) <= reach) return i; continue; }
+        for (var k = 0; k < flat.length - 1; k++) if (distToSeg(q, flat[k], flat[k + 1]) <= reach) return i;
+      }
     }
     return -1;
   }
@@ -2788,10 +2868,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(menuItem("Redo", "Ctrl+Y", redo, { disabled: future.length === 0 }));
       add(menuItem("Clear drawing", "", function () { $("clearDraw").click(); }, { disabled: state.strokes.length === 0 }));
       rule();
-      if (doc) add(menuItem("Save PDF", "Ctrl+S", exportPdf));
-      add(menuItem(doc ? "Save this page as an image" : "Save image", doc ? "" : "Ctrl+S", savePng, { disabled: !state.img }));
+      add(menuItem("Export…", "Ctrl+S", function () { $("export").click(); }, { disabled: !state.img }));
+      add(menuItem(doc ? "Save this page as an image" : "Save image", "", savePng, { disabled: !state.img }));
       add(menuItem("Copy to clipboard", "Ctrl+C", copyImage, { disabled: !state.img }));
     }
+    showMenuAt(cx, cy);
+  }
+  function showMenuAt(cx, cy) {
+    var m = $("menu");
     m.hidden = false;
     // keep it on screen
     var r = m.getBoundingClientRect();
@@ -2821,6 +2905,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   document.addEventListener("keydown", function (e) {
     // Esc closes the tool wheel; any other key closes it and goes on to do its own job (D, N and so on)
     if (wheelOpen) { closeWheel(); if (e.key === "Escape") { e.preventDefault(); return; } }
+    var openBox = document.querySelector(".modal.open");
+    if (openBox && e.key === "Escape") { e.preventDefault(); openBox.classList.remove("open"); canvas.focus({ preventScroll: true }); return; }
     var menu = $("menu");
     if (!menu.hidden) {
       // the menu takes the keyboard while it is open: arrows move, Esc closes, Enter/Space press the item
@@ -2878,6 +2964,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.key === "v" || e.key === "V") setTool("move");
     if (e.key === "d" || e.key === "D") { setTool("draw"); setInk(false); }
     if (e.key === "h" || e.key === "H") { setTool("draw"); setInk(true); }
+    if (e.key === "s" || e.key === "S") { setInk(false); setTool("shape"); }
     if (e.key === "n" || e.key === "N") setTool("note");
     if (e.key === "m" || e.key === "M") setTool("measure");
     if (e.key === "e" || e.key === "E") setTool("erase");
@@ -2949,7 +3036,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (token !== loadToken) { o.pdf.destroy(); return; }
       closeDoc();
       picStore = {}; picThumb = {}; picSel = null;   // pictures added to what was open before go with it
-      doc = {
+      doc = { total: o.proxies.length,
         name: label.replace(/\.pdf$/i, ""), label: label, bytes: o.bytes, pdf: o.pdf, cur: 0,
         pages: o.proxies.map(function (proxy, i) {
           var vp = proxy.getViewport({ scale: 1 });
@@ -2962,8 +3049,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         })
       };
       state.name = doc.name; state.blank = false; stage.classList.add("has-image");
-      $("export").textContent = "Export PDF";
-      $("export").title = "Save the PDF with your markup on every page (Ctrl/Cmd+S)";
       buildPageList();
       showPage(0, true);
     }).catch(function (err) {
@@ -2978,8 +3063,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var old = doc; doc = null;
     try { old.pdf.destroy(); } catch (e) { /* already gone */ }
     thumbQueue = [];
-    $("export").textContent = "Export PNG";
-    $("export").title = "Save the marked-up image at full resolution (Ctrl/Cmd+S)";
     buildPageList();
   }
 
@@ -3026,20 +3109,74 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     history = pg.history; future = pg.future;
     state.w = pg.w; state.h = pg.h; state.img = pg.img || whitePage();
     view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
-    $("docname").textContent = doc.label + " · page " + pg.n + " of " + total + " · " + pg.w + " × " + pg.h + " px";
+    pageLabel();
     sync(); render();
     doc.pages.forEach(function (q, k) { markPage(k); });
     if (pg.el) pg.el.scrollIntoView({ block: "nearest", inline: "nearest" });
-    var ready = "Page " + pg.n + " of " + total + ". Left-drag draws, the wheel button erases, right-drag adds a note.";
+    var ready = "Page " + (i + 1) + " of " + total + ".";
     if (pg.img) { pg.used = ++useClock; status(ready); return; }
-    status("Drawing page " + pg.n + "…");
+    status("Drawing page " + (i + 1) + "…");
     renderPage(pg).then(function (c) {
       if (doc && doc.pages[doc.cur] === pg) { state.img = c; render(); status(ready); }
     }, function () {
-      if (doc && doc.pages[doc.cur] === pg) status("Page " + pg.n + " could not be drawn.");
+      if (doc && doc.pages[doc.cur] === pg) status("Page " + (doc.pages.indexOf(pg) + 1) + " could not be drawn.");
     });
   }
 
+  function pageLabel() {
+    var pg = doc.pages[doc.cur];
+    $("docname").textContent = doc.label + " · page " + (doc.cur + 1) + " of " + doc.pages.length + " · " + pg.w + " × " + pg.h + " px";
+  }
+  // ----- the order of the pages, and deleting one: the export follows the strip -----
+  function movePage(from, to) {
+    if (!doc || from === to || to < 0 || to >= doc.pages.length) return;
+    stashPage();
+    var cur = doc.pages[doc.cur], pg = doc.pages.splice(from, 1)[0];
+    doc.pages.splice(to, 0, pg);
+    doc.cur = doc.pages.indexOf(cur);
+    buildPageList(); pageLabel();
+    doc.pages.forEach(function (q, k) { markPage(k); });
+    status("Page " + (from + 1) + " is page " + (to + 1) + " now. The export keeps this order.");
+  }
+  function deletePage(i) {
+    if (!doc) return;
+    if (doc.pages.length < 2) { status("A PDF keeps at least one page."); return; }
+    stashPage();
+    var pg = doc.pages[i];
+    if (hasMarkup(pg) && !window.confirm("Delete page " + (i + 1) + " and the markup on it?\n\nThis cannot be undone.")) return;
+    var cur = doc.pages[doc.cur];
+    doc.pages.splice(i, 1);
+    buildPageList();
+    showPage(cur === pg ? Math.min(i, doc.pages.length - 1) : doc.pages.indexOf(cur), true);
+    status("Page " + (i + 1) + " deleted: the export leaves it out.");
+  }
+  function openPageMenu(i, cx, cy) {
+    var m = $("menu");
+    m.innerHTML = "";
+    m.appendChild(menuItem("Move up", "", function () { movePage(i, i - 1); }, { disabled: i === 0 }));
+    m.appendChild(menuItem("Move down", "", function () { movePage(i, i + 1); }, { disabled: i === doc.pages.length - 1 }));
+    m.appendChild(document.createElement("hr"));
+    m.appendChild(menuItem("Delete page", "", function () { deletePage(i); }, { danger: true, disabled: doc.pages.length < 2 }));
+    showMenuAt(cx, cy);
+  }
+  // dragging a page in the strip: a line shows where it will go
+  var pageDrag = null;
+  function pageSlot(ev) {
+    // the strip runs down the side, or across the top on a phone: whichever way its pages are laid out
+    var rows = $("pageList").children, across = rows.length > 1 && Math.abs(rows[0].getBoundingClientRect().top - rows[1].getBoundingClientRect().top) < 2;
+    $("pageList").classList.toggle("across", across);
+    var v = across ? ev.clientX : ev.clientY, slot = rows.length;
+    for (var k = 0; k < rows.length; k++) { var r = rows[k].getBoundingClientRect(); if (v < (across ? r.left + r.width / 2 : r.top + r.height / 2)) { slot = k; break; } }
+    return slot;
+  }
+  function markPageDrop(slot) {
+    var rows = $("pageList").children;
+    for (var k = 0; k < rows.length; k++) {
+      rows[k].classList.toggle("lifted", !!pageDrag && pageDrag.moved && k === pageDrag.from);
+      rows[k].classList.toggle("drop-before", slot >= 0 && k === slot && slot < rows.length);
+      rows[k].classList.toggle("drop-after", slot >= 0 && slot === rows.length && k === rows.length - 1);
+    }
+  }
   // ----- page strip -----
   var thumbWatch = null, thumbQueue = [], thumbBusy = false;
   function buildPageList() {
@@ -3060,15 +3197,32 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }, { root: nav, rootMargin: "300px" });
     doc.pages.forEach(function (pg, i) {
       var li = document.createElement("li"), b = document.createElement("button");
-      b.type = "button"; b.dataset.page = i; b.setAttribute("aria-label", "Page " + pg.n);
+      b.type = "button"; b.dataset.page = i; b.setAttribute("aria-label", "Page " + (i + 1));
       var c = document.createElement("canvas"); c.className = "thumb";
       c.width = THUMB_PX; c.height = Math.max(1, Math.round(THUMB_PX * pg.h / pg.w));
       var meta = document.createElement("span"); meta.className = "meta";
-      var num = document.createElement("span"); num.textContent = pg.n;
+      var num = document.createElement("span"); num.textContent = i + 1;
       var mark = document.createElement("span"); mark.className = "mark"; mark.hidden = true;
       meta.appendChild(num); meta.appendChild(mark);
       b.appendChild(c); b.appendChild(meta);
-      b.addEventListener("click", function () { showPage(i); canvas.focus({ preventScroll: true }); });
+      b.addEventListener("click", function () { if (pageDrag && pageDrag.moved) return; showPage(i); canvas.focus({ preventScroll: true }); });
+      b.addEventListener("contextmenu", function (ev) { ev.preventDefault(); openPageMenu(i, ev.clientX, ev.clientY); });
+      b.addEventListener("pointerdown", function (ev) { if (ev.button === 0) { pageDrag = { from: i, at: [ev.clientX, ev.clientY], moved: false, to: i }; b.setPointerCapture(ev.pointerId); } });
+      b.addEventListener("pointermove", function (ev) {
+        if (!pageDrag || pageDrag.from !== i) return;
+        if (!pageDrag.moved && Math.hypot(ev.clientX - pageDrag.at[0], ev.clientY - pageDrag.at[1]) < 6) return;
+        pageDrag.moved = true;
+        var slot = pageSlot(ev);
+        pageDrag.to = slot > i ? slot - 1 : slot;
+        markPageDrop(pageDrag.to === i ? -1 : slot);
+      });
+      b.addEventListener("pointerup", function () {
+        var pd = pageDrag; if (!pd) return;
+        markPageDrop(-1);
+        setTimeout(function () { pageDrag = null; }, 0);   // the click that follows a drag does not also open the page
+        if (pd.moved && pd.to !== pd.from) movePage(pd.from, pd.to);
+      });
+      b.addEventListener("pointercancel", function () { pageDrag = null; markPageDrop(-1); });
       li.appendChild(b); list.appendChild(li);
       pg.el = b; pg.thumb = c;
       thumbWatch.observe(b);
@@ -3093,7 +3247,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     pg.el.setAttribute("aria-current", cur ? "page" : "false");
     mark.hidden = !notes && !ink;
     mark.textContent = notes ? String(notes) : "";
-    pg.el.title = "Page " + pg.n + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : "") + (ink ? " · drawing" : "");
+    pg.el.title = "Page " + (i + 1) + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : "") + (ink ? " · drawing" : "");
   }
 
   // ----- PDF export -----
@@ -3148,7 +3302,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       var chain = Promise.resolve();
       d.pages.forEach(function (pg) {
         chain = chain.then(function () {
-          status("Flattening page " + pg.n + " of " + d.pages.length + "…");
+          status("Flattening page " + (d.pages.indexOf(pg) + 1) + " of " + d.pages.length + "…");
           return renderPage(pg).then(function (img) {
             var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
             var g = c.getContext("2d");
@@ -3164,32 +3318,74 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
   }
   var exporting = false;
-  function exportPdf() {
+  // A smaller PDF: each page a JPEG at about 150 dpi with the markup on it.
+  function smallPdf(L, d) {
+    return L.PDFDocument.create().then(function (out) {
+      var chain = Promise.resolve();
+      d.pages.forEach(function (pg, idx) {
+        chain = chain.then(function () {
+          status("Making page " + (idx + 1) + " of " + d.pages.length + " smaller…");
+          return renderPage(pg).then(function (img) {
+            var k = Math.min(1, (150 / 72) * pg.wPt / pg.w), c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round(pg.w * k)); c.height = Math.max(1, Math.round(pg.h * k));
+            var g = c.getContext("2d");
+            g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+            g.setTransform(k, 0, 0, k, 0, 0);
+            g.drawImage(img, 0, 0);
+            withPage(pg, function () { paintMarkup(g); });
+            return canvasBytes(c, "image/jpeg", 0.72);
+          }).then(function (bytes) { return out.embedJpg(bytes); }).then(function (jpg) {
+            out.addPage([pg.wPt, pg.hPt]).drawImage(jpg, { x: 0, y: 0, width: pg.wPt, height: pg.hPt });
+          });
+        });
+      });
+      return chain.then(function () { return out.save({ useObjectStreams: true }); }).then(function (bytes) { return { bytes: bytes, flat: false, small: true }; });
+    });
+  }
+  function sizeText(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
+  function exportPdf(small) {
     if (!doc || exporting) return;
     exporting = true;
     stashPage();
     var d = doc, marked = d.pages.filter(hasMarkup), filename = d.name + "_markup.pdf";
+    // pages moved or deleted in the strip: the export follows the strip
+    var reordered = d.pages.length !== d.total || d.pages.some(function (pg, k) { return pg.n !== k + 1; });
     status("Preparing the PDF…");
     pdfLib().then(function (L) {
-      return L.PDFDocument.load(d.bytes).then(function (out) {
-        var pages = out.getPages();
-        if (pages.length !== d.pages.length) throw new Error("page count differs");
+      // A drawing that is all lines and text can come out larger as pictures: then the full-quality file is the
+      // smaller one, and that is what is saved.
+      var origLen = d.bytes.byteLength || d.bytes.length;
+      if (small) return smallPdf(L, d).then(function (r) { return r.bytes.length < origLen ? r : full().then(function (f) { f.notSmaller = true; return f; }); });
+      return full();
+      function full() { return L.PDFDocument.load(d.bytes).then(function (src) {
+        if (src.getPageCount() !== d.total) throw new Error("page count differs");
+        if (!reordered) return { out: src, pages: src.getPages(), at: function (pg) { return pg.n - 1; } };
+        return L.PDFDocument.create().then(function (out) {
+          return out.copyPages(src, d.pages.map(function (pg) { return pg.n - 1; })).then(function (copied) {
+            copied.forEach(function (p) { out.addPage(p); });
+            return { out: out, pages: out.getPages(), at: function (pg) { return d.pages.indexOf(pg); } };
+          });
+        });
+      }).then(function (base) {
+        var out = base.out, pages = base.pages;
         var chain = Promise.resolve();
         marked.forEach(function (pg, k) {
           chain = chain.then(function () {
-            status("Adding markup to page " + pg.n + " (" + (k + 1) + " of " + marked.length + ")…");
+            status("Adding markup to page " + (d.pages.indexOf(pg) + 1) + " (" + (k + 1) + " of " + marked.length + ")…");
             return overlayPng(pg);
           }).then(function (o) {
             if (!o) return;
-            return out.embedPng(o.bytes).then(function (img) { placeOverlay(L, pages[pg.n - 1], img, pg, o); });
+            return out.embedPng(o.bytes).then(function (img) { placeOverlay(L, pages[base.at(pg)], img, pg, o); });
           });
         });
         return chain.then(function () { return out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false }; });
-      }).catch(function () { return flattenPdf(L, d); });
+      }).catch(function () { return flattenPdf(L, d); }); }
     }).then(function (res) {
       var n = marked.length, what = n === 0 ? "no markup on it yet" : "markup on " + n + (n === 1 ? " page" : " pages");
       saveBlob(new Blob([res.bytes], { type: "application/pdf" }), filename,
-               "Saved " + filename + " (" + d.pages.length + (d.pages.length === 1 ? " page, " : " pages, ") + what +
+               "Saved " + filename + " (" + d.pages.length + (d.pages.length === 1 ? " page, " : " pages, ") + what + ", " + sizeText(res.bytes.length) +
+               (res.small ? "; the PDF you opened was " + sizeText(d.bytes.byteLength || d.bytes.length) : "") +
+               (res.notSmaller ? "; as pictures it came out larger, as this PDF is mostly lines and text, so it was saved at full quality" : "") +
                (res.flat ? "; this PDF could not be edited, so its pages were saved as pictures)." : ")."), false);
     }).catch(function () {
       status("The PDF could not be exported. Save pages as images from the right-click menu instead.");
@@ -3236,6 +3432,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("delPic").addEventListener("click", function () { deletePic(); });
   $("picUp").addEventListener("click", function () { stepPic(1); });
   $("picLeft").addEventListener("click", function () { turnPic(-90); });
+  [["picLineNone", ""], ["picLineThin", "thin"], ["picLineThick", "thick"]].forEach(function (o) {
+    $(o[0]).addEventListener("click", function () {
+      var q = selectedPic(); if (!q) return;
+      snapshot();
+      if (!o[1]) delete q.line; else q.line = { w: o[1], c: q.line ? q.line.c : "black" };
+      sync(); render();
+    });
+  });
   $("picRight").addEventListener("click", function () { turnPic(90); });
   $("picDown").addEventListener("click", function () { stepPic(-1); });
   ["dragenter", "dragover"].forEach(function (t) {
@@ -3291,7 +3495,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         [k("Ctrl/Cmd") + " + wheel, or pinch", "Zoom at the pointer"],
         ["Wheel", "Scroll, when zoomed in; on a PDF, the next or previous page"]
       ]));
-      table("Tools", [[k("V"), "Move"], [k("D"), "Draw"], [k("H"), "Highlighter"], [k("N"), "Notes"], [k("M"), "Measure"], [k("E"), "Eraser"]]);
+      table("Tools", [[k("V"), "Move"], [k("D"), "Draw"], [k("H"), "Highlighter"], [k("S"), "Shapes"], [k("N"), "Notes"], [k("M"), "Measure"], [k("E"), "Eraser"]]);
     });
     col(function () {
       table("Editing", [
@@ -3309,11 +3513,33 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   function closeKeys() { if ($("keysModal").classList.contains("open")) { $("keysModal").classList.remove("open"); canvas.focus({ preventScroll: true }); } }
   $("keysBtn").addEventListener("click", openKeys);
+  // Settings: for now, the legacy controls (the wheel button erases, the right button adds notes)
+  function openModal(id, focus) { $(id).classList.add("open"); if (focus) $(focus).focus(); }
+  function closeModal(id) { if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); } }
+  ["setModal", "pdfModal"].forEach(function (id) {
+    $(id).addEventListener("click", function (e) { if (e.target === $(id)) closeModal(id); });
+    $(id).addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeModal(id); } });
+  });
+  $("setBtn").addEventListener("click", function () { openModal("setModal", "wheelErase"); });
+  $("setClose").addEventListener("click", function () { closeModal("setModal"); });
+  $("grammarTop").addEventListener("click", function () { $("grammar").click(); });
   $("keysClose").addEventListener("click", closeKeys);
   $("keysModal").addEventListener("click", function (e) { if (e.target === $("keysModal")) closeKeys(); });
   $("keysModal").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeKeys(); } });
-  // The header button and Ctrl/Cmd+S save the whole job: a PNG for an image, a PDF for a PDF.
-  $("export").addEventListener("click", function () { if (doc) exportPdf(); else savePng(); });
+  // The header button and Ctrl/Cmd+S open Export: PNG, JPG, or a PDF at full quality or as a smaller file; for a PDF the pictures are of this page
+  $("export").addEventListener("click", function () {
+    if (!state.img) return;
+    $("expPngNote").textContent = doc ? "This page at full resolution, every pixel kept." : "At full resolution, every pixel kept.";
+    $("expJpgNote").textContent = doc ? "This page at full resolution, a smaller file than PNG." : "At full resolution, a smaller file than PNG.";
+    $("pdfFullNote").textContent = doc ? "Every page as it is, sharp at any zoom, with the markup on top." : "The image on a page of its print size, at full resolution.";
+    $("pdfSmallNote").textContent = doc ? "Each page as a picture at about 150 dpi: usually far smaller, but text and lines are no longer sharp when zoomed in." : "The image on a page as a picture at about 150 dpi: a small file to send.";
+    openModal("pdfModal", doc ? "pdfFull" : "expPng");
+  });
+  $("expPng").addEventListener("click", function () { closeModal("pdfModal"); savePng(); });
+  $("expJpg").addEventListener("click", function () { closeModal("pdfModal"); saveJpg(); });
+  $("pdfFull").addEventListener("click", function () { closeModal("pdfModal"); if (doc) exportPdf(false); else imagePdf(false); });
+  $("pdfSmall").addEventListener("click", function () { closeModal("pdfModal"); if (doc) exportPdf(true); else imagePdf(true); });
+  $("pdfCancel").addEventListener("click", function () { closeModal("pdfModal"); });
   function saveBlob(blob, filename, done, isImage) {
     var url = URL.createObjectURL(blob);
     try {
@@ -3326,7 +3552,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // The image on screen (for a PDF, the current page) as a full-resolution PNG.
   function savePng() {
     if (!state.img) return;
-    var w = state.w, h = state.h, filename = state.name + (doc ? "_p" + doc.pages[doc.cur].n : "") + "_markup.png";
+    var w = state.w, h = state.h, filename = state.name + (doc ? "_p" + (doc.cur + 1) : "") + "_markup.png";
     status("Preparing a " + w + " × " + h + " px PNG…");
     pageReady().then(function () {
       fullImage().toBlob(function (blob) {
@@ -3334,6 +3560,48 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         saveBlob(blob, filename, "Saved " + filename + " (" + w + " × " + h + " px).", true);
       }, "image/png");
     }, function () { status("This page could not be drawn, so it cannot be saved as an image."); });
+  }
+  // A JPG: the marked-up image (or this page) at full resolution, on white
+  function saveJpg() {
+    if (!state.img) return;
+    var w = state.w, h = state.h, filename = state.name + (doc ? "_p" + (doc.cur + 1) : "") + "_markup.jpg";
+    status("Preparing a " + w + " × " + h + " px JPG…");
+    pageReady().then(function () {
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, w, h); g.drawImage(fullImage(), 0, 0);
+      c.toBlob(function (blob) {
+        if (!blob) { status("The image is too large for this browser to export."); return; }
+        saveBlob(blob, filename, "Saved " + filename + " (" + w + " × " + h + " px, " + sizeText(blob.size) + ").", true);
+      }, "image/jpeg", 0.9);
+    }, function () { status("This page could not be drawn, so it cannot be saved as an image."); });
+  }
+  // An image as a PDF: one page of its print size (its resolution says how big), the picture at full resolution,
+  // or as a JPEG at about 150 dpi for a smaller file
+  function imagePdf(small) {
+    if (!state.img || exporting) return;
+    exporting = true;
+    var filename = state.name + "_markup.pdf", dpi = state.dpi || 96, wPt = state.w / dpi * 72, hPt = state.h / dpi * 72;
+    status("Preparing the PDF…");
+    pdfLib().then(function (L) {
+      var c = fullImage();
+      if (small) {
+        var k = Math.min(1, 150 / dpi), s2 = document.createElement("canvas");
+        s2.width = Math.max(1, Math.round(c.width * k)); s2.height = Math.max(1, Math.round(c.height * k));
+        var g = s2.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, s2.width, s2.height); g.drawImage(c, 0, 0, s2.width, s2.height);
+        c = s2;
+      }
+      return canvasBytes(c, small ? "image/jpeg" : "image/png", small ? 0.75 : undefined).then(function (bytes) {
+        return L.PDFDocument.create().then(function (out) {
+          return (small ? out.embedJpg(bytes) : out.embedPng(bytes)).then(function (img) {
+            out.addPage([wPt, hPt]).drawImage(img, { x: 0, y: 0, width: wPt, height: hPt });
+            return out.save({ useObjectStreams: true });
+          });
+        });
+      });
+    }).then(function (bytes) {
+      saveBlob(new Blob([bytes], { type: "application/pdf" }), filename, "Saved " + filename + " (" + sizeText(bytes.length) + ").", false);
+    }).catch(function () { status("The PDF could not be made. Save it as an image instead."); })
+      .then(function () { exporting = false; });
   }
   // The whole marked-up image at its own resolution, whatever the zoom on screen.
   function fullImage() {
@@ -3482,10 +3750,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
-    inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", shape: state.pen.shape || "" };
+    inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "" };
     var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
-                                ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase });
+                                ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -3498,12 +3766,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var ink = function (o, dflt) {
       o = o && typeof o === "object" ? o : {};
       return { color: COLORS[o.color] ? o.color : dflt.color, width: num(o.width, PEN_MIN, PEN_MAX, dflt.width),
-               tip: o.tip === "square" ? "square" : "round", dash: DASHES[o.dash] || o.dash === "cloud" ? o.dash : "", shape: SHAPE_KINDS.indexOf(o.shape) > 0 ? o.shape : "" };
+               tip: o.tip === "square" ? "square" : "round", dash: DASHES[o.dash] || o.dash === "cloud" ? o.dash : "" };
     };
     var inks = d.inks && typeof d.inks === "object" ? d.inks : {};
     state.inks = { pen: ink(inks.pen, state.inks.pen), hi: ink(inks.hi, state.inks.hi) };
     var hi = d.ink === "hi", now = state.inks[hi ? "hi" : "pen"];
-    state.pen = { color: now.color, width: now.width, hi: hi, tip: now.tip, dash: now.dash, shape: now.shape };
+    state.pen = { color: now.color, width: now.width, hi: hi, tip: now.tip, dash: now.dash };
+    if (SHAPE_KINDS.indexOf(d.shapeKind) > 0) state.shapeKind = d.shapeKind;
     state.eraser = num(d.eraser, 3, 100, state.eraser);
     var st = d.style;
     if (st && typeof st === "object" && COLORS[st.color]) {
