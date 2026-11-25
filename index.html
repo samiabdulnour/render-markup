@@ -275,6 +275,12 @@ input.entry, .scalebox input {
 /* Options (the legacy controls, then the shortcuts), and the choice of export */
 .modal .box.setbox { width: min(860px, 100%); }
 .optwrap { max-width: 520px; display: flex; flex-direction: column; gap: 6px; }
+details.optsub { border-top: 1px solid var(--divider); padding-top: 14px; margin-top: 10px; }
+details.optsub summary { cursor: pointer; text-transform: uppercase; letter-spacing: 0.02em; list-style: none; display: flex; align-items: center; gap: 8px; }
+details.optsub summary::-webkit-details-marker { display: none; }
+details.optsub summary::before { content: ""; width: 0; height: 0; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 0.15s; }
+details.optsub[open] summary::before { transform: rotate(90deg); }
+details.optsub[open] summary { margin-bottom: 4px; }
 .modal .box h4.optsub { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 10px 0 -8px; padding-top: 14px; border-top: 1px solid var(--divider); }
 .modal .box.pdfbox { width: min(640px, 100%); }
 #cropBar, .floatbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 6px 6px 6px 14px; max-width: calc(100% - 140px); }
@@ -426,6 +432,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 <body>
 <header>
   <h1><svg class="logo" viewBox="0 0 5514 643" role="img" aria-label="Render Markup"><title>Render Markup</title><path fill="currentColor" fill-rule="evenodd" d="M5097 379L5097 115 L5149.9 115L5202.7 115 L5204 143.3C5204.7 158.8 5205.5 172.1 5205.9 172.7C5206.3 173.5 5208.7 170.7 5212 165.7C5218.5 155.8 5233.6 140.6 5244.6 132.8C5281.2 106.8 5330.1 97.9 5378 108.6C5409.3 115.6 5435.9 130.6 5458 153.7C5489.2 186.3 5508 231.7 5513 286.7C5514.6 304.2 5513.8 353.7 5511.7 367.5C5498.9 450.4 5456.7 507.5 5392.6 528.5C5372.7 535 5362.4 536.5 5336.5 536.5C5318.3 536.5 5311.7 536.1 5305 534.7C5268.3 527 5237.6 507.9 5217.1 480.2L5211 471.8 L5211 557.4L5211 643 L5154 643L5097 643 L5097 379ZM602 535.5C574.5 532.2 549.5 524.8 527.1 513.4C490.1 494.6 463.5 467.6 445.5 430.5C430.8 400.2 424.4 371.3 423.3 330C422 280.9 429 245 446.5 210C475.9 151.4 530.6 115.2 603.5 105.9C616.4 104.2 654.6 104.2 667.5 105.9C753.2 116.9 809.1 166.7 830.5 251.1C836.2 273.4 839 299 839 328.2L839 348 L688.5 348L538 348 L538.6 352.8C542.9 389.4 555 416.4 574.3 432C588.1 443.2 607.1 449.7 629.1 450.7C671.6 452.7 704.5 436.7 719.5 406.8C722 401.8 724 397.2 724 396.4C724 395.2 732.7 395 780.1 395C836.3 395 836.3 395 835.6 398.8C834.6 405.4 828 424.1 822.9 435C805.7 471.3 774 501.7 735.8 518.2C715.3 527.1 689.3 533.6 665.6 535.9C651.1 537.3 615.1 537.1 602 535.5ZM1501.4 535.5C1434.2 525.3 1384.5 480.8 1362.2 410.9C1357.8 397.2 1355.1 385.3 1352.5 369C1349.9 352.8 1349.3 300.1 1351.5 281C1356.3 239.1 1367.5 206.7 1387.8 176C1397.9 160.7 1417.2 141.2 1431.6 131.7C1443.3 123.9 1458.9 116.3 1471 112.5C1507.3 101.1 1550.4 101.6 1583.8 113.9C1608.6 122.9 1632.7 140.5 1647.9 160.5L1653 167.3 L1653 85.6L1653 4 L1710 4L1767 4 L1767 265.5L1767 527 L1714.5 527C1662 527 1662 527 1662 524.2C1662 522.7 1661.3 508.9 1660.5 493.5C1659.7 478.1 1659 465.3 1659 465.1C1659 464.9 1656.3 468.9 1653 474C1633.4 503.7 1600 526.1 1563.2 534.1C1550.6 536.8 1515.4 537.6 1501.4 535.5ZM2010.8 535.5C1967.4 530.1 1931.7 515.7 1902.5 492C1892.4 483.8 1877.6 467.9 1869.7 457C1855.6 437.2 1843.2 407.9 1837.7 381.4C1833.2 360.1 1832.5 352.1 1832.5 321C1832.5 282.6 1834.8 265.9 1844 237.9C1866.5 169.3 1919.8 123.4 1993.4 109C2045.2 98.9 2102.4 105 2143.1 124.9C2200.4 152.9 2235.5 207.4 2245.6 284.1C2246.5 291.2 2247.4 307.4 2247.7 322.2L2248.3 348 L2097.6 348L1946.9 348 L1947.5 352.8C1951.1 380.1 1956.8 398.2 1966.5 413.1C1981.8 436.8 2005.3 449.2 2038.1 450.7C2083 452.8 2118.4 433.8 2131.2 401L2133.5 395 L2189.4 395C2245.2 395 2245.2 395 2244.5 398.8C2244.1 400.8 2242.5 406.8 2240.8 412C2225 461.6 2190.4 499.1 2141.7 519.4C2124.8 526.5 2108.7 530.9 2086 534.6C2072.7 536.8 2025.3 537.4 2010.8 535.5ZM3554.7 535.5C3494.2 525.7 3453.9 488.5 3444.4 433.6C3441.9 419.7 3442.9 392 3446.4 378.5C3451.8 357 3459.1 344 3474 328.9C3489.3 313.5 3504.7 304.3 3527.2 297.1C3542.7 292.2 3556.7 289.8 3637.9 278.4L3714.2 267.6 L3713.7 250.6C3713.4 240.3 3712.6 231.5 3711.7 228.5C3706.4 210.1 3693.1 198.3 3671.2 192.7C3663.6 190.8 3659.9 190.5 3642.5 190.5C3619.2 190.6 3610.5 192.2 3596 199.2C3580.6 206.6 3569.7 220.5 3566.8 236L3565.6 242 L3512.4 242L3459.2 242 L3459.7 237.8C3465.7 184.7 3492.7 147.2 3541.3 124.5C3570.5 110.9 3602.8 104.7 3645 104.6C3671.1 104.6 3681.7 105.5 3702 109.7C3761.1 121.7 3802.5 155.6 3816.5 203.5C3822.1 222.8 3822 219 3822 379.2L3822 527 L3770 527C3718 527 3718 527 3718 523.8C3718 522 3717.3 508.3 3716.3 493.3L3714.6 466.1 L3710.2 472.8C3688.9 504.7 3657.6 525.4 3617.2 534.1C3604.3 536.9 3568.1 537.7 3554.7 535.5ZM4756 535.9C4697.6 528.5 4659.6 494.3 4645.1 436C4639 411.4 4639 411.7 4639 256.3L4639 115 L4695.5 115L4751.9 115 L4752.3 246.8C4752.6 362.6 4752.8 379.4 4754.2 386.2C4760.5 416.7 4773.1 433.4 4795.8 441.3C4803.6 444 4806.1 444.4 4819 444.8C4831.4 445.1 4834.8 444.9 4842.5 443.1C4874.6 435.4 4894.5 411.4 4902.7 370.4C4904.3 362.2 4904.5 351.3 4904.7 238.2L4905.1 115 L4961.5 115L5018 115 L5018 321L5018 527 L4963.6 527L4909.2 527 L4908.6 515.8C4908.2 509.6 4907.6 496.5 4907.2 486.7L4906.5 468.9 L4901 476.7C4893.9 486.7 4877.6 502.9 4867.3 510.3C4849.9 522.7 4828.8 531.5 4808.2 535.1C4796 537.1 4769.1 537.6 4756 535.9ZM0 313.9L0 99.9 L117.2 100.3C243.7 100.7 241.2 100.6 267 106.1C329.4 119.6 369.3 158.7 380.7 217.5C383 229.9 383.1 256.3 380.7 268.2C372.9 307.2 348.2 341.4 314.2 360.5C310.3 362.7 307 364.9 307 365.4C307 365.9 328.8 401.9 355.4 445.4C382.1 488.9 404.2 525.3 404.6 526.3C405.2 527.9 401.2 528 339.4 528L273.5 528 L233.1 461.5L192.8 395 L150.9 395L109 395 L109 461.5L109 528 L54.5 528L0 528 L0 313.9ZM2310 321L2310 114 L2364.4 114L2418.7 114 L2419.4 133.8C2419.7 144.6 2420.3 161.9 2420.6 172.3L2421.3 191.1 L2426.1 181C2443.6 144.5 2467.2 124.8 2503.5 116.4C2508.7 115.2 2517.9 114.7 2539.2 114.3L2568 113.8 L2568 169.5L2568 225.2 L2561.2 224.4C2557.5 224 2545.9 223.6 2535.5 223.7C2508.3 223.7 2490.5 227 2473.2 235.1C2444.4 248.4 2428.5 272.1 2424.1 308C2423.4 313.4 2423 354.2 2423 422.2L2423 528 L2366.5 528L2310 528 L2310 321ZM3896 321L3896 114 L3950.4 114C4004.8 114 4004.8 114 4005.4 116.7C4005.6 118.3 4006.1 132.6 4006.5 148.5C4006.8 164.4 4007.3 180.3 4007.7 183.8L4008.3 190.2 L4012.6 181.1C4025 155 4042.6 135.7 4063.5 125.5C4081.8 116.6 4096.7 114 4130.2 114L4154 114 L4154 169.6L4154 225.1 L4148.8 224.6C4126.8 222.3 4101.8 223.3 4084 227.1C4041.9 236.3 4019.1 259.9 4011.3 302.4C4009.8 310.4 4009.6 324.1 4009.3 419.8L4008.9 528 L3952.4 528L3896 528 L3896 321ZM904 321L904 115 L958.3 115L1012.7 115 L1013.9 143.7C1014.6 159.6 1015.4 173.1 1015.6 173.9C1015.9 174.7 1018.8 171.2 1022.7 165.4C1031 153.1 1047.5 136.5 1059 128.9C1086.1 110.8 1118 102.7 1154.5 104.4C1196.4 106.5 1226.6 118.4 1249.2 141.8C1268.6 161.9 1278.8 184.2 1285.7 221C1287.3 229.7 1287.5 242.2 1287.7 378.8L1288.1 527 L1232.5 527L1177 527 L1177 407.8C1177 342.2 1176.5 282.7 1176 275.5C1173.2 237.1 1161.4 214.2 1138.6 202.9C1128 197.7 1118.4 195.7 1103.5 195.7C1057.2 195.4 1025.1 225.8 1018.1 276.5C1017.4 281.6 1017 324.9 1017 405.6L1017 527 L960.5 527L904 527 L904 321ZM2782 313.5L2782 100 L2861.2 100L2940.5 100.1 L3009.5 235C3047.4 309.2 3078.8 369.6 3079.1 369.2C3079.5 368.8 3110.5 308.1 3148 234.2L3216.3 100 L3291.2 100L3366 100 L3366 313.5L3366 527 L3316 527L3266 527 L3265.8 382.2L3265.5 237.4 L3190.4 381.9L3115.3 526.5 L3075.9 526.5L3036.5 526.5 L2961 381.5L2885.5 236.4 L2885.2 381.7L2885 527 L2833.5 527L2782 527 L2782 313.5ZM4214 263.5L4214 0 L4270.5 0L4327 0 L4327.2 130.3L4327.5 260.7 L4399.5 187.8L4471.5 115 L4538 115L4604.5 115 L4525 193.9C4455 263.4 4445.6 273 4446.6 274.6C4447.2 275.7 4484.2 332.6 4528.9 401.2C4573.5 469.7 4610 526.1 4610 526.4C4610 526.7 4581.8 527 4547.2 527L4484.5 526.9 L4425 434.4L4365.6 341.9 L4346.3 361.2L4327 380.5 L4327 453.7L4327 527 L4270.5 527L4214 527 L4214 263.5ZM3627.6 451.9C3648.2 449.8 3668.1 442.8 3682.5 432.6C3696 422.9 3707.3 407.3 3711.5 392.5C3713.8 384.6 3715 344 3713 344C3712.3 344 3685.2 347.6 3652.9 352C3591.3 360.4 3583.1 362 3572.4 368.1C3563.2 373.3 3556.8 381 3553.7 390.5C3545 417.5 3559.5 441.9 3588.7 449.4C3601.5 452.7 3612.5 453.4 3627.6 451.9ZM1581 448C1592.8 445.6 1607.8 438.4 1616.8 430.8C1642.3 409.4 1657 369.1 1657 320.7C1657 256.2 1632.6 209.7 1591.4 195.6C1579.7 191.6 1571.6 190.7 1555.4 191.3C1538.9 191.9 1528.4 194.3 1516.7 200.1C1486.8 215.2 1469.4 246.2 1464.9 292.5C1463.2 310.5 1464.2 348.4 1466.9 363.4C1469.3 376.7 1474.3 392.6 1479.1 402.2C1488 419.9 1502.7 434.5 1519.5 442.1C1525.4 444.7 1538 448.4 1544.5 449.3C1553.3 450.5 1572 449.9 1581 448ZM5330.5 447C5341.2 444.2 5355.1 437.3 5362.7 431.1C5380.1 416.9 5392.1 392.6 5397.7 360.5C5400.2 345.8 5400.2 295.9 5397.7 280.8C5390.8 239.6 5374.9 213.9 5348.3 200.6C5334.6 193.7 5322.2 191 5304.5 191C5284.2 191 5269.9 195 5254.7 204.9C5232.5 219.4 5217.4 244.4 5209.8 279C5207.7 288.7 5207.5 291.8 5207.5 321C5207.6 349.7 5207.7 353.4 5209.8 362.6C5218 400.3 5235.5 426.7 5260.9 439.9C5276.7 448.1 5286.3 450.1 5307 449.6C5318.8 449.3 5324.4 448.7 5330.5 447ZM231.4 304.6C249.9 299.1 261.6 288.2 267.8 270.8C271 261.6 271.4 247.8 268.6 238.5C262.7 218.7 247.8 204.6 228.3 200.5C222.9 199.3 210.3 199 165.2 199L109 199 L109 253.1L109 307.1 L167.2 306.7C219.4 306.4 226.1 306.2 231.4 304.6ZM722.5 265.2C719.6 247.3 713.5 232 704.5 220.2C695.4 208.2 680.3 198.5 663.5 193.8C656.5 191.9 653 191.6 635 191.6C612.8 191.5 606.2 192.5 593 197.7C572.8 205.8 557.1 221.7 548.5 242.7C545.8 249.4 541.7 263.2 540.6 269.2C539.9 273 539.9 273 631.8 273L723.7 273 L722.5 265.2ZM2132 270.1C2132 268.5 2131.3 263.8 2130.5 259.8C2123.1 224.4 2103.8 202.5 2072.5 194C2061.4 190.9 2034.5 190.1 2021.4 192.4C1984.6 198.8 1961.6 221.4 1951.4 261C1950.1 266.2 1949 271.1 1949 271.8C1949 272.7 1968 273 2040.5 273C2132 273 2132 273 2132 270.1Z"/></svg><small id="docname">No image open</small></h1>
+  <button id="newBtn" title="Start a new markup on a fresh blank canvas. If there is markup now, it asks first.">New</button>
   <label class="btn" for="file" title="Start a new markup from a render or a PDF (or drop one onto the stage). If there is markup on the page now, it asks first.">Open file</label>
   <input type="file" id="file" accept="image/*,application/pdf,.pdf" multiple>
   <input type="file" id="addFile" accept="image/*,application/pdf,.pdf">
@@ -635,8 +642,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label class="check" for="wheelErase">Legacy controls<input type="checkbox" role="switch" id="wheelErase"></label>
       <p class="note">On: the wheel button erases and a drag with the right button adds a note, whatever tool is on; the left button draws. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (with Notes, it places notes), and the right button opens the menu.</p>
     </div>
-    <h4 class="optsub" id="keysTitle">Shortcuts</h4>
+    <details class="optsub" id="keysBox"><summary id="keysTitle">Shortcuts</summary>
     <div class="keysgrid" id="keysGrid"></div>
+    </details>
     <div class="actions"><button id="setClose">Close</button></div>
   </div>
 </div>
@@ -3078,7 +3086,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (selectedPic()) deletePic(); else deleteSel(); }
     if (e.key === "Escape") { picSel = null; select(-1); sync(); render(); }
     if (doc && (e.key === "PageDown" || e.key === "PageUp")) { e.preventDefault(); showPage(doc.cur + (e.key === "PageDown" ? 1 : -1)); return; }
-    if (e.key === "?") { e.preventDefault(); openKeys(); return; }
+    if (e.key === "?") { e.preventDefault(); openKeys(true); return; }
     if (e.key === "v" || e.key === "V") setTool("move");
     if (e.key === "d" || e.key === "D") { setTool("draw"); setInk(false); }
     if (e.key === "h" || e.key === "H") { setTool("draw"); setInk(true); }
@@ -3959,14 +3967,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("cmpClouds").addEventListener("click", function () {
     if (!comparing || !doc) return;
     stashPage();
-    var n = 0, pagesMarked = [], w = Math.max(0.5, (state.inks.pen && state.inks.pen.width) || 1);
+    // a fine line, whatever the pen is set to (0.6 is about 0.13% of the page's width), so the clouds mark the
+    // changes without hiding them; the scallops are sized from it
+    var n = 0, pagesMarked = [], w = 0.6;
     doc.pages.forEach(function (pg, i) {
       var b = comparing.boxes.get(pg);
       if (!b || !b.length) return;
       // one step to undo on each page
       pg.history.push(JSON.stringify({ notes: pg.notes, strokes: pg.strokes, pics: pg.pics || [], sel: pg.sel, picks: pg.picks, dpi: state.dpi }));
       pg.future = [];
-      b.forEach(function (r) { pg.strokes.push({ color: "red", width: w, hi: false, tip: "round", dash: "cloud", shape: "rect", points: [[r[0], r[1]], [r[2], r[3]]] }); n++; });
+      // each cloud at least three scallops across, so a small change gets a cloud and not a blob
+      var chord = Math.max(pg.refW / 100 * 0.22 * w * 7, Math.min(pg.refW, pg.refH) / 50), least = chord * 3;
+      b.forEach(function (r) {
+        var cx = (r[0] + r[2]) / 2, cy = (r[1] + r[3]) / 2, hw = Math.max(r[2] - r[0], least) / 2, hh = Math.max(r[3] - r[1], least) / 2;
+        pg.strokes.push({ color: "red", width: w, hi: false, tip: "round", dash: "cloud", shape: "rect", points: [[cx - hw, cy - hh], [cx + hw, cy + hh]] }); n++;
+      });
       pagesMarked.push(i + 1);
     });
     showPage(doc.cur, true, n ? n + (n === 1 ? " cloud" : " clouds") + " drawn round the changes, on page" + (pagesMarked.length > 1 ? "s " : " ") + pagesMarked.join(", ") + ". Undo on a page takes them off it." : "No changes to mark.");
@@ -4389,7 +4404,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // ---------- loading images ----------
   function loadFile(file) {
     // opening starts a new markup: if there is any now, ask before it is cleared
-    if (file && hasWork() && !window.confirm("Open " + (file.name || "this file") + " as a new markup?\n\nThe markup on the page now will be cleared. Export it first if you want to keep it. To put a picture onto this page instead, use Add image under Move.")) {
+    if (file && hasWork() && !window.confirm("Open " + (file.name || "this file") + " as a new markup?")) {
       status("Nothing opened; the markup is as it was.");
       return;
     }
@@ -4420,7 +4435,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (files.length < 2) { loadFile(files[0]); return; }
     var ok = files.filter(isPageFile);
     if (!ok.length) { status("Those files are not images or PDFs. Open PNG, JPG, WebP or PDF files."); return; }
-    if (hasWork() && !window.confirm("Open these " + ok.length + " files as a new markup?\n\nThe markup on the page now will be cleared. Export it first if you want to keep it. To add their pages to this one instead, use Add pages in the right-click menu.")) {
+    if (hasWork() && !window.confirm("Open these " + ok.length + " files as a new markup?")) {
       status("Nothing opened; the markup is as it was.");
       return;
     }
@@ -4517,14 +4532,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
     $("keysGrid").innerHTML = html.join("");
   }
-  function openKeys() { writeKeys(); openModal("setModal", "wheelErase"); }
+  // the gear opens Options with the shortcuts folded away; ? opens them unfolded
+  function openKeys(unfold) { writeKeys(); $("keysBox").open = !!unfold; openModal("setModal", unfold ? "setClose" : "wheelErase"); }
   function openModal(id, focus) { $(id).classList.add("open"); if (focus) $(focus).focus(); }
   function closeModal(id) { if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); } }
   ["setModal", "pdfModal", "formModal"].forEach(function (id) {
     $(id).addEventListener("click", function (e) { if (e.target === $(id)) closeModal(id); });
     $(id).addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeModal(id); } });
   });
-  $("setBtn").addEventListener("click", openKeys);
+  $("setBtn").addEventListener("click", function () { openKeys(false); });
   $("setClose").addEventListener("click", function () { closeModal("setModal"); });
   $("grammarTop").addEventListener("click", function () { $("grammar").click(); });
   // The header button and Ctrl/Cmd+S open Export: PNG, JPG, or a PDF at full quality or as a smaller file. For a
@@ -4781,6 +4797,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   });
 
   // ---------- blank start ----------
+  // New: a fresh blank canvas, everything else let go (asking first if there is markup)
+  function newCanvas() {
+    if (hasWork() && !window.confirm("Start a new markup?")) { status("Nothing changed."); return; }
+    ++loadToken;
+    closeDoc();
+    state.notes = []; state.strokes = []; state.pics = []; state.edits = []; state.pg = null; picSel = null; picStore = {}; picThumb = {};
+    state.dpi = 96; state.pageRatio = null; select(-1); history = []; future = [];
+    closeAsk(true);
+    loadBlank();
+    status("A fresh blank canvas. Open, drop or paste a render to mark it up instead.");
+  }
+  $("newBtn").addEventListener("click", newCanvas);
   function loadBlank() {
     var c = document.createElement("canvas"); c.width = 1920; c.height = 1080;
     var x = c.getContext("2d"); x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height);
