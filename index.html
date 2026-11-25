@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Architects+Daughter&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans+Condensed:wght@400;700&display=swap" rel="stylesheet">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
@@ -43,6 +43,7 @@
   --font-body: Arial, "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: Arial, "Helvetica Neue", Helvetica, sans-serif;
   /* the on/off switch, in Loriini's colours: grey off, ink with a pale lemon knob on */
+  --fs: 14px;               /* the one size of the interface's text */
   --switch-off: #cdcdcd; --switch-off-knob: #ffffff; --switch-on: #000000; --switch-on-knob: #fff07a;
   color-scheme: light only;   /* light only: no dark version, whatever the system is set to */
 }
@@ -50,11 +51,10 @@
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--chrome); color: var(--ink); font-family: var(--font-body);
-  font-size: 18px; line-height: 1.4; display: flex; flex-direction: column;
-  /* Set like Site Analyst: one font (Arial) at one weight, never bold, in two sizes and a headline. 18px for
-     the controls and what is typed, the labels, buttons and headings in capitals spaced a little apart; 12px
-     for the small print (the footer, hints, values, keys, the menu); the drop placeholder's line as a
-     headline. Every word black. */
+  font-size: var(--fs); line-height: 1.4; display: flex; flex-direction: column;
+  /* Set like Site Analyst: one font (Arial) at one weight, never bold, and here at one size too: every word
+     of the interface is 14px (--fs). Labels, buttons and headings are in capitals spaced a little apart;
+     what is typed, values and the small print keep their own case. Every word black. */
   font-weight: 400; -webkit-font-smoothing: antialiased;
 }
 header {
@@ -62,10 +62,10 @@ header {
   border-bottom: 1px solid var(--divider); background: var(--chrome); flex-wrap: wrap;
 }
 header h1 {
-  font-family: var(--font-display); font-weight: 400; font-size: 18px;
+  font-family: var(--font-display); font-weight: 400; font-size: var(--fs);
   margin: 0; margin-right: auto; text-wrap: balance;
 }
-header h1 small { font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0.02em; margin-left: 8px; }
+header h1 small { font-weight: 400; color: var(--muted); font-size: var(--fs); letter-spacing: 0.02em; margin-left: 8px; }
 /* the wordmark, drawn in the text colour so it follows the theme */
 header h1 { display: flex; align-items: center; gap: 6px; }
 header h1 .logo { display: block; flex: none; height: 19px; width: auto; aspect-ratio: 5514 / 643; }
@@ -87,17 +87,17 @@ button.danger { color: var(--ink); }
 button[disabled], button[disabled]:hover, button[disabled]:active {
   background: var(--off); border-color: var(--divider); color: var(--ink); opacity: 0.45; cursor: default;
 }
-main { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; }   /* 360: room for the 18px type */
+main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
 #stage { position: relative; background: var(--stage); min-height: 320px; overflow: hidden; touch-action: none; }
 #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
 #view:focus { outline: none; }
 #hint {
   position: absolute; left: 12px; bottom: 12px; background: var(--card); border: 1px solid var(--divider);
-  border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted); pointer-events: none;
+  border-radius: 8px; padding: 6px 10px; font-size: var(--fs); color: var(--muted); pointer-events: none;
 }
 /* Zoom read-out in the corner of the stage; a click fits the image again */
 #zoom {
-  position: absolute; top: 12px; right: 12px; padding: 4px 9px; font-family: var(--font-mono); font-size: 12px;
+  position: absolute; top: 12px; right: 12px; padding: 4px 9px; font-family: var(--font-mono); font-size: var(--fs);
   color: var(--muted); background: var(--card); border-color: var(--divider);
 }
 #zoom[hidden] { display: none; }
@@ -105,7 +105,7 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; 
 /* Size label shown beside the preview while a size is being changed. Fixed colours: it sits over the image. */
 #hud {
   position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; background: #000000; color: #ffffff;
-  font-family: var(--font-mono); font-size: 12px; line-height: 1; padding: 6px 9px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: var(--fs); line-height: 1; padding: 6px 9px; border-radius: 8px;
 }
 #hud[hidden] { display: none; }
 #drop {
@@ -124,10 +124,11 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 360px; min-height: 0; 
 }
 #empty[hidden], #stage.dragging #empty { display: none; }
 #empty .ico { color: #000000; flex: none; }
+/* the drop placeholder keeps its own sizes: a 30px headline, an 18px button and small 12px notes */
 #empty .big { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1.083; margin: 0; text-wrap: balance; }
-#empty .btn { pointer-events: auto; color: #000000; }
+#empty .btn { pointer-events: auto; color: #000000; font-size: 18px; }
 #empty .note { color: #000000; font-size: 12px; }
-#empty kbd { border-color: #cdcdcd; background: #ffffff; color: #000000; }
+#empty kbd { border-color: #cdcdcd; background: #ffffff; color: #000000; font-size: 12px; }
 #empty.compact { gap: 6px; padding: 8px; border-radius: 8px; }
 #empty.compact .ico, #empty.compact .alt { display: none; }
 #empty.compact .big { font-size: 18px; }
@@ -143,13 +144,13 @@ aside {
 }
 .section[hidden] { display: none; }
 aside h2 {
-  font-family: var(--font-display); font-weight: 400; font-size: 18px; text-transform: uppercase; line-height: normal;
+  font-family: var(--font-display); font-weight: 400; font-size: var(--fs); text-transform: uppercase; line-height: normal;
   letter-spacing: 0.02em; color: var(--muted); margin: -12px -12px 2px; padding: 8px 12px;
   border-bottom: 1px solid var(--divider);
 }
 #notesPanel { display: flex; flex-direction: column; gap: 8px; }
 #notesPanel[hidden] { display: none; }
-label { font-size: 18px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+label { font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 textarea, select, input[type="range"] { font: inherit; color: var(--ink); }
 /* what is typed or chosen in a field keeps its own case */
 textarea, select, input { text-transform: none; letter-spacing: normal; }
@@ -191,9 +192,9 @@ label.check input:checked { background: var(--switch-on); }
 label.check input:checked::before { transform: translateX(12px); background: var(--switch-on-knob); }
 label.check input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { label.check input, label.check input::before { transition: none; } }
-.field { font-size: 18px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.field { font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .field[hidden] { display: none; }
-.ratio { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 18px; text-transform: none; letter-spacing: normal; color: var(--ink); }
+.ratio { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: var(--fs); text-transform: none; letter-spacing: normal; color: var(--ink); }
 .ratio .pre { flex: none; white-space: nowrap; }
 input.entry, .scalebox input {
   font: inherit; color: var(--ink); width: 100%; min-width: 0; border: 1px solid var(--field-edge); border-radius: 8px;
@@ -206,8 +207,8 @@ input.entry, .scalebox input {
 .scalebox .row button { flex: 1; justify-content: center; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .swatches.five { grid-template-columns: repeat(5, 1fr); gap: 4px; }
-.swatches.five button { padding: 6px 2px; font-size: 11.5px; }
-.swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: 12px; gap: 4px; }
+.swatches.five button { padding: 6px 2px; font-size: var(--fs); }
+.swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: var(--fs); gap: 4px; }
 .swatches button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen-edge); color: var(--on-chosen); }
 .swatches svg.shape { flex: none; display: block; }
 /* A colour row: solid circles, no names. The chosen one has an ink ring round it, clear of the colour. */
@@ -218,7 +219,7 @@ input.entry, .scalebox input {
 .swatches.colours .chip { width: 20px; height: 20px; border-radius: 50%; }
 .unseen { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent); display: inline-block; }
-.val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; text-transform: none; letter-spacing: normal; color: var(--ink); }
+.val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs); text-transform: none; letter-spacing: normal; color: var(--ink); }
 #list, #picList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 #list li button, #picList li button {
   width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent;
@@ -229,6 +230,12 @@ input.entry, .scalebox input {
 #list li button[aria-pressed="true"], #picList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
 #picEditor[hidden] { display: none; }
+/* Bold and the case of every note, under the typeface */
+.textstyle { display: flex; gap: 8px; }
+.textstyle .seg { flex: 1; }
+#boldBtn { width: 44px; flex: none; justify-content: center; font-weight: 700; text-transform: none; }
+#boldBtn[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
+.seg.case button { text-transform: none; letter-spacing: normal; }
 /* the tool wheel: the tools in a ring round the pointer, opened with the wheel button (as in Grasshopper) */
 #wheel { position: absolute; z-index: 6; width: 0; height: 0; pointer-events: none; }
 #wheel[hidden] { display: none; }
@@ -239,7 +246,7 @@ input.entry, .scalebox input {
 #wheel .item.current { box-shadow: inset 0 0 0 2px var(--ink); }
 #wheel .item.hot { background: var(--chosen); border-color: var(--chosen); }
 #wheel .label { position: absolute; top: 108px; left: 0; transform: translateX(-50%); white-space: nowrap; background: var(--ink); color: #ffffff;
-  font-size: 12px; line-height: 1; padding: 6px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.02em; }
+  font-size: var(--fs); line-height: 1; padding: 6px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.02em; }
 @media (prefers-reduced-motion: no-preference) { #wheel .disc, #wheel .item { animation: wheel-in 90ms ease-out; } }
 @keyframes wheel-in { from { opacity: 0; transform: scale(0.85); } }
 #picList { touch-action: none; }
@@ -249,14 +256,14 @@ input.entry, .scalebox input {
 #list { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
 label[hidden] { display: none; }
 #list .num {
-  font-family: var(--font-mono); font-size: 12px; min-width: 22px; height: 22px; border-radius: 11px;
+  font-family: var(--font-mono); font-size: var(--fs); min-width: 22px; height: 22px; border-radius: 11px;
   display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(0,0,0,0.2);
 }
 #list .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.empty, .note { color: var(--muted); font-size: 12px; margin: 0; }
+.empty, .note { color: var(--muted); font-size: var(--fs); margin: 0; }
 #editor[hidden], #del[hidden] { display: none; }
 footer {
-  border-top: 1px solid var(--divider); background: var(--chrome); padding: 6px 16px; font-size: 12px;
+  border-top: 1px solid var(--divider); background: var(--chrome); padding: 6px 16px; font-size: var(--fs);
   color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap;
 }
 footer #status { color: var(--ink); }
@@ -266,7 +273,7 @@ footer #status { color: var(--ink); }
   footer #status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   footer > span:last-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
-kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
+kbd { font-family: var(--font-mono); font-size: var(--fs); border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
 /* Right-click pop-up menu: a card; it floats over the image, so it alone keeps a soft shadow to say so */
 .menu {
   position: fixed; z-index: 30; min-width: 200px; max-width: 280px; background: var(--card);
@@ -276,11 +283,11 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--fa
 .menu[hidden] { display: none; }
 .menu > button {
   border: 0; background: transparent; border-radius: 8px; width: 100%; justify-content: flex-start;
-  text-align: left; padding: 8px 10px; gap: 10px; font-size: 12px;   /* the menu in the small size, like a running head */
+  text-align: left; padding: 8px 10px; gap: 10px;
 }
 .menu > button:focus { background: var(--chosen-tint); outline: none; }
 .menu > button[disabled] { background: transparent; }
-.menu > button .key { margin-left: auto; padding-left: 16px; color: var(--muted); font-family: var(--font-mono); font-size: 12px; text-transform: none; letter-spacing: normal; }
+.menu > button .key { margin-left: auto; padding-left: 16px; color: var(--muted); font-family: var(--font-mono); font-size: var(--fs); text-transform: none; letter-spacing: normal; }
 .menu hr { border: 0; border-top: 1px solid var(--divider); margin: 4px 2px; width: auto; align-self: stretch; }
 .menu .swatches { padding: 4px 6px 2px; }
 .menu .swatches + .swatches { padding-bottom: 6px; }
@@ -292,7 +299,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--fa
   background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 18px; width: min(900px, 100%); max-height: 100%;
   display: flex; flex-direction: column; gap: 12px; overflow: auto;
 }
-.modal .box h3 { font-family: var(--font-display); font-weight: 400; font-size: 18px; text-transform: uppercase; letter-spacing: 0.02em; margin: 0; }
+.modal .box h3 { font-family: var(--font-display); font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 0; }
 #modalImg { max-width: 100%; height: auto; border: 1px solid var(--divider); border-radius: 8px; }
 #fixList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 #fixList li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; border: 1px solid var(--divider); border-radius: 12px; padding: 10px; }
@@ -300,14 +307,14 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--fa
 #fixList .was { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); }
 #fixList label { text-transform: none; letter-spacing: normal; }
 #fixList .now { font-weight: 400; }
-#fixList .why { color: var(--muted); font-size: 12px; }
+#fixList .why { color: var(--muted); font-size: var(--fs); }
 #fixList mark { background: var(--chosen-tint); color: inherit; border-radius: 3px; padding: 0 2px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 input[type="file"] { display: none; }
 /* Page strip, shown down the left side when a document with several pages is open */
 #pages { border-right: 1px solid var(--divider); background: var(--chrome); overflow-y: auto; padding: 12px 10px; min-height: 0; }
 #pages[hidden] { display: none; }
-body.has-pages main { grid-template-columns: 132px 1fr 360px; }
+body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 #pageList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 #pageList button {
   width: 100%; flex-direction: column; align-items: stretch; gap: 5px; padding: 5px;
@@ -316,7 +323,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
 #pageList button:hover { border-color: transparent; background: var(--chosen-tint); }
 #pageList button[aria-current="page"] { border-color: var(--chosen); background: var(--chosen); }
 #pageList .thumb { width: 100%; height: auto; display: block; background: #ffffff; border: 1px solid var(--divider); border-radius: 4px; }
-#pageList .meta { display: flex; align-items: center; justify-content: space-between; min-height: 16px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+#pageList .meta { display: flex; align-items: center; justify-content: space-between; min-height: 16px; font-family: var(--font-mono); font-size: var(--fs); color: var(--muted); }
 #pageList button[aria-current="page"] .meta { color: var(--on-chosen); }
 #pageList .mark {
   min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #ffffff;
@@ -464,13 +471,20 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
       <label for="font">Typeface
         <select id="font">
           <option value="arial">Arial</option>
-          <option value="arialBold">Arial bold</option>
-          <option value="cond">Condensed sans</option>
-          <option value="condBold">Condensed sans bold</option>
-          <option value="hand">Architect's hand</option>
-          <option value="mono">Mono</option>
+          <option value="narrow">Arial Narrow</option>
+          <option value="verdana">Verdana</option>
+          <option value="times">Times New Roman</option>
+          <option value="menlo">Menlo</option>
         </select>
       </label>
+      <div class="textstyle">
+        <button id="boldBtn" aria-pressed="false" aria-label="Bold" title="Bold: every note and length in the bold of the typeface">B</button>
+        <div class="seg case" role="group" aria-label="Case of every note">
+          <button id="caseAs" aria-pressed="true" title="As typed">Aa</button>
+          <button id="caseUp" aria-pressed="false" title="All capitals: every note in upper case. What you typed is kept, so As typed brings it back.">AA</button>
+          <button id="caseLow" aria-pressed="false" title="All lower case: every note in lower case. What you typed is kept, so As typed brings it back.">aa</button>
+        </div>
+      </div>
     </div>
     </div>
   </aside>
@@ -508,16 +522,19 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
 <script>
 (function () {
   "use strict";
-  // The typefaces notes and lengths can be set in, Arial first and by default. Arial is the computer's own; the
-  // rest come from Google Fonts with the page. Architect's hand is hand lettering of the kind on a drawing.
+  // The typefaces notes and lengths can be set in: five usual ones, Arial first and by default. Each is the
+  // computer's own where it has it (Menlo on a Mac, Consolas, its like, on Windows); a computer without Arial
+  // Narrow or a mono gets a web copy of one like it. Bold and the case are switches of their own, for every note.
   var FONTS = {
-    arial:     { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif', weight: 400 },
-    arialBold: { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif', weight: 700 },
-    cond:      { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 500 },
-    condBold:  { family: '"IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif', weight: 700 },
-    hand:      { family: '"Architects Daughter", "Comic Sans MS", cursive', weight: 400 },
-    mono:      { family: '"IBM Plex Mono", Menlo, Consolas, monospace', weight: 500 }
+    arial:   { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif' },
+    narrow:  { family: '"Arial Narrow", "IBM Plex Sans Condensed", Arial, sans-serif' },
+    verdana: { family: 'Verdana, "DejaVu Sans", Geneva, sans-serif' },
+    times:   { family: '"Times New Roman", Times, "Liberation Serif", serif' },
+    menlo:   { family: 'Menlo, Consolas, "DejaVu Sans Mono", "IBM Plex Mono", monospace' }
   };
+  // the typefaces offered before, and what each is now
+  var OLD_FONTS = { arialBold: ["arial", true], cond: ["narrow", false], condBold: ["narrow", true], mono: ["menlo", false],
+                    monoBold: ["menlo", true], hand: ["arial", false] };
   var COLORS = {
     black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     white: { name: "White", fill: "#ffffff", ink: "#111214", halo: "rgba(0,0,0,0.35)" },
@@ -543,7 +560,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
     circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], sel: -1, picks: [], font: "arial", style: null,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], sel: -1, picks: [], font: "arial", bold: false, caps: "", style: null,
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
@@ -570,7 +587,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
 
   // ---------- geometry ----------
   function fontPx(n) { return state.w / 100 * n.size; }
-  function fontStr(fs) { var f = FONTS[state.font]; return f.weight + " " + fs + "px " + f.family; }
+  function fontStr(fs) { return (state.bold ? 700 : 400) + " " + fs + "px " + FONTS[state.font].family; }
+  // a note's words as they are set: as typed, or all in capitals or all in lower case
+  function noteWords(n) { var t = n.text || ""; return state.caps === "upper" ? t.toUpperCase() : state.caps === "lower" ? t.toLowerCase() : t; }
 
   function wrapLines(c, text, maxW) {
     var out = [];
@@ -590,7 +609,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
   function layout(n, c) {
     var fs = fontPx(n);
     c.font = fontStr(fs);
-    var lines = wrapLines(c, n.text, WRAP_EM * fs);
+    var lines = wrapLines(c, noteWords(n), WRAP_EM * fs);
     var lw = 0;
     lines.forEach(function (l) { lw = Math.max(lw, c.measureText(l).width); });
     var lineH = fs * 1.22;
@@ -1483,7 +1502,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
       b.type = "button"; b.title = SHAPES[k].title;
       b.setAttribute("aria-pressed", String(k === current));
       b.innerHTML = '<svg class="shape" viewBox="0 0 22 12" width="22" height="12" fill="currentColor" aria-hidden="true">' + SHAPES[k].icon + "</svg>";
-      b.appendChild(document.createTextNode(SHAPES[k].name));
+      var nm = document.createElement("span"); nm.className = "unseen"; nm.textContent = SHAPES[k].name; b.appendChild(nm);
       b.addEventListener("click", function () { onPick(k); });
       el.appendChild(b);
     });
@@ -1549,6 +1568,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
     $("oriH").setAttribute("aria-pressed", String(!look.vertical));
     if (document.activeElement !== $("noteSize")) $("noteSize").value = look.size;
     $("noteSizeVal").textContent = textLabel(look);
+    $("boldBtn").setAttribute("aria-pressed", String(!!state.bold));
+    $("caseAs").setAttribute("aria-pressed", String(!state.caps));
+    $("caseUp").setAttribute("aria-pressed", String(state.caps === "upper"));
+    $("caseLow").setAttribute("aria-pressed", String(state.caps === "lower"));
     swatchRow($("penColors"), state.pen.color, function (k) { state.pen.color = k; sync(); }, PEN_COLORS);
     $("penTitle").textContent = state.pen.hi ? "Highlighter" : "Pen";
     $("toolDraw").setAttribute("aria-pressed", String(state.tool === "draw" && !state.pen.hi));
@@ -1659,6 +1682,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
     select(Math.min(gone[gone.length - 1], state.notes.length - 1));
     sync(); render();
   }
+  // Bold, and the case of every note: the words as typed are kept, only how they are set changes
+  $("boldBtn").addEventListener("click", function () {
+    state.bold = !state.bold; sync(); backToText();
+    document.fonts.load(fontStr(40)).then(render, render);
+  });
+  [["caseAs", ""], ["caseUp", "upper"], ["caseLow", "lower"]].forEach(function (c) {
+    $(c[0]).addEventListener("click", function () { state.caps = c[1]; sync(); render(); backToText(); });
+  });
   $("font").addEventListener("change", function (e) {
     state.font = e.target.value;
     backToText();
@@ -3118,7 +3149,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip };
     var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
-                                style: state.style, font: state.font, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
+                                style: state.style, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
@@ -3144,7 +3175,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
       state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1) };
     }
     // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
-    if (FONTS[d.font] && !(d.font === "cond" && !(d.v >= 3))) state.font = d.font;
+    if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
+    else if (OLD_FONTS[d.font]) { state.font = OLD_FONTS[d.font][0]; state.bold = OLD_FONTS[d.font][1]; }
+    else if (FONTS[d.font]) state.font = d.font;
+    if (typeof d.bold === "boolean") state.bold = d.bold;
+    if (d.caps === "" || d.caps === "upper" || d.caps === "lower") state.caps = d.caps;
     $("font").value = state.font;
     if (d.dim && typeof d.dim === "object") state.dim = { color: COLORS[d.dim.color] ? d.dim.color : "red", size: num(d.dim.size, 0.25, 4, 1) };
     if (UNITS[d.unit]) state.unit = d.unit;
@@ -3163,7 +3198,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 360px; }
   setTool("draw");
   if (COARSE) $("listEmpty").textContent = "No notes yet. Tap the image to add one.";
   $("font").value = state.font;
-  Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('500 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
+  Promise.all([document.fonts.load(fontStr(40)), document.fonts.load('400 40px "IBM Plex Mono"')]).then(loadBlank, loadBlank);
   sync();
 })();
 </script>
