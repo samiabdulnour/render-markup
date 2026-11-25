@@ -201,6 +201,7 @@ input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(
 #tools button:hover { background: var(--chosen-tint); border-color: transparent; }
 #tools button[aria-pressed="true"] { background: var(--chosen); color: var(--on-chosen); border-color: var(--chosen); }
 #tools svg { flex: none; }
+#tools .sep { height: 1px; background: var(--divider); margin: 0 4px; }
 /* An on/off switch, the one Loriini uses: a 28 x 16 pill with a 12 px knob two pixels in from the edge.
    Off it is grey with a white knob; on it is ink with a knob in Loriini's pale lemon. */
 label.check { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink); cursor: pointer; }
@@ -240,11 +241,14 @@ input.entry, .scalebox input {
 .swatches button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen-edge); color: var(--on-chosen); }
 .swatches svg.shape { flex: none; display: block; }
 /* A colour row: solid circles, no names. The chosen one has an ink ring round it, clear of the colour. */
-.swatches.colours { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.swatches.colours { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0; }
 .swatches.colours button { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; justify-content: center; }
 .swatches.colours button:hover { background: var(--chosen-tint); }
 .swatches.colours button[aria-pressed="true"] { background: transparent; box-shadow: inset 0 0 0 2px var(--ink); }
 .swatches.colours .chip { width: 20px; height: 20px; border-radius: 50%; }
+.swatches.colours .chip.own { position: relative; background: conic-gradient(#e53935, #fdd835, #43a047, #00acc1, #1e63c8, #8e24aa, #e53935); }
+.swatches.colours .chip.own::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--own, transparent); }
+#ownColor { position: fixed; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
 .unseen { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent); display: inline-block; }
 .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs); text-transform: none; letter-spacing: normal; color: var(--ink); }
@@ -268,8 +272,10 @@ input.entry, .scalebox input {
 }
 #status.on { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { #status { transition: none; } }
-/* Settings, and the choice of PDF export */
-.modal .box.setbox { width: min(520px, 100%); }
+/* Options (the legacy controls, then the shortcuts), and the choice of export */
+.modal .box.setbox { width: min(860px, 100%); }
+.optwrap { max-width: 520px; display: flex; flex-direction: column; gap: 6px; }
+.modal .box h4.optsub { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 10px 0 -8px; padding-top: 14px; border-top: 1px solid var(--divider); }
 .modal .box.pdfbox { width: min(640px, 100%); }
 .pdfchoices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 760px) { .pdfchoices { grid-template-columns: 1fr; } }
@@ -281,8 +287,7 @@ input.entry, .scalebox input {
 #pageList li.drop-after button { box-shadow: inset 0 -3px 0 var(--ink); }
 #pageList.across li.drop-before button { box-shadow: inset 3px 0 0 var(--ink); }
 #pageList.across li.drop-after button { box-shadow: inset -3px 0 0 var(--ink); }
-/* The Shortcuts list: a table for each kind, two abreast */
-.modal .box.keysbox { width: min(860px, 100%); }
+/* The shortcuts, in Options: a table for each kind, two abreast */
 .keysgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
 @media (max-width: 760px) { .keysgrid { grid-template-columns: 1fr; } }
 table.keys { border-collapse: collapse; width: 100%; }
@@ -308,6 +313,11 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 #boldBtn { width: 44px; flex: none; justify-content: center; font-weight: 700; text-transform: none; }
 #boldBtn[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 .seg.case button { text-transform: none; letter-spacing: normal; }
+/* choices shown as pictograms (their names in the tooltip and for a screen reader); a row of such groups */
+.seg button svg.shape { flex: none; display: block; }
+.seg button:has(svg.shape) { padding: 6px 4px; }
+.segrow { display: flex; gap: 6px; }
+.segrow .seg { flex: 1 1 0; }
 /* the tool wheel: the tools in a ring round the pointer, opened with the wheel button (as in Grasshopper) */
 #wheel { position: absolute; z-index: 6; width: 0; height: 0; pointer-events: none; }
 #wheel[hidden] { display: none; }
@@ -413,8 +423,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <label class="btn" for="addFile" title="Add a picture, such as a screenshot, onto this page; the markup stays. Ctrl/Cmd+V pastes one the same way.">Add image</label>
   <input type="file" id="addFile" accept="image/*">
   <button id="grammarTop" title="Proofread every note with LanguageTool (only the note text is sent); you review each fix before it applies">Check grammar</button>
-  <button id="keysBtn" title="The shortcuts, and what each mouse button does (?)">Shortcuts</button>
-  <button id="setBtn" title="Settings: how the mouse works">Settings</button>
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
   <button id="export" class="primary" title="Save as PNG, JPG or PDF (Ctrl/Cmd+S)">Export</button>
 </header>
@@ -433,6 +441,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
       <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-45 12 11)"><rect x="4" y="7" width="16" height="8" rx="2"/><rect x="4" y="7" width="6.5" height="8" rx="2" fill="currentColor"/></g><path d="M10 21h10"/></svg></button>
+      <span class="sep" aria-hidden="true"></span>
+      <button id="setBtn" aria-label="Options" title="Options: how the mouse works, and the shortcuts (?)"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
     <div id="wheel" role="menu" aria-label="Tool wheel" hidden><div class="disc"></div><div class="hub"></div><div class="label" id="wheelLabel"></div></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad, or press + and -. It goes in to 800% and out to a tenth of the fitted size. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
@@ -456,8 +466,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button type="button" data-shape="ellipse" title="Circle: drag across it (Shift for a true circle)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><ellipse cx="15" cy="7" rx="9" ry="5.6" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Circle</span></button>
       </div>
       <div class="seg" role="group" aria-label="Tip shape">
-        <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded">Round tip</button>
-        <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker">Square tip</button>
+        <button id="tipRound" aria-pressed="true" title="Round tip: lines end and turn rounded"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M8.5 7h13" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg><span class="unseen">Round tip</span></button>
+        <button id="tipSquare" aria-pressed="false" title="Square tip: lines end square and turn with sharp corners, like a marker"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M8.5 7h13" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="square"/></svg><span class="unseen">Square tip</span></button>
       </div>
       <div class="swatches" id="penDash" role="group" aria-label="Line style">
         <button type="button" data-dash="" title="Solid"><svg class="shape" viewBox="0 0 30 12" width="30" height="12" aria-hidden="true"><path d="M3 6h24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="butt"/></svg><span class="unseen">Solid</span></button>
@@ -479,8 +489,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <div class="section" id="erasePanel" hidden>
       <h2>Eraser</h2>
       <div class="seg" role="group" aria-label="Eraser shape">
-        <button id="eraseRound" aria-pressed="true" title="A round eraser">Round</button>
-        <button id="eraseSquare" aria-pressed="false" title="A square eraser, upright: it reaches into its corners">Square</button>
+        <button id="eraseRound" aria-pressed="true" title="Round: a round eraser"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><circle cx="15" cy="7" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span class="unseen">Round</span></button>
+        <button id="eraseSquare" aria-pressed="false" title="Square: an upright square eraser, which reaches into its corners"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="9.4" y="1.4" width="11.2" height="11.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span class="unseen">Square</span></button>
       </div>
       <label for="eraserSize" class="slider" title="The size of the eraser: the Eraser tool, and the wheel button when it erases."><span class="head">Eraser size <span class="val" id="eraserSizeVal"></span></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
@@ -510,19 +520,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     </div>
     <div class="section" id="picEditor" hidden>
       <h2>Selected picture</h2>
+      <div class="segrow">
       <div class="seg" role="group" aria-label="Layer order">
-        <button id="picUp" title="Bring forward: in front of the picture above it in the list (Ctrl/Cmd+])">Forward</button>
-        <button id="picDown" title="Send backward: behind the picture below it in the list (Ctrl/Cmd+[)">Backward</button>
+        <button id="picUp" title="Bring forward: in front of the picture above it in the list (Ctrl/Cmd+])"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4.5" y="4.5" width="10" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="9" y="1" width="10" height="8" fill="currentColor"/><path d="M25 12.5V2.5M22 5.5l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Forward</span></button>
+        <button id="picDown" title="Send backward: behind the picture below it in the list (Ctrl/Cmd+[)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="9" y="1" width="10" height="8" fill="currentColor"/><rect x="4.5" y="4.5" width="10" height="8" style="fill: var(--card)" stroke="currentColor" stroke-width="1.6"/><path d="M25 1.5v10M22 8.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Backward</span></button>
       </div>
       <div class="seg" role="group" aria-label="Turn">
-        <button id="picLeft" title="Turn it a quarter turn anticlockwise">Rotate left</button>
-        <button id="picRight" title="Turn it a quarter turn clockwise">Rotate right</button>
+        <button id="picLeft" title="Rotate left: a quarter turn anticlockwise"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M10.2 3.6A5.6 5.6 0 1 1 9.4 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M7.2 1.4l3.6 2.2-3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Rotate left</span></button>
+        <button id="picRight" title="Rotate right: a quarter turn clockwise"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M19.8 3.6A5.6 5.6 0 1 0 20.6 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M22.8 1.4l-3.6 2.2 3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Rotate right</span></button>
+      </div>
       </div>
       <div class="field">Outline
         <div class="seg" role="group" aria-label="Outline">
-          <button id="picLineNone" aria-pressed="true" title="No outline round the picture">None</button>
-          <button id="picLineThin" aria-pressed="false" title="A thin outline round the picture">Thin</button>
-          <button id="picLineThick" aria-pressed="false" title="A thick outline round the picture">Thick</button>
+          <button id="picLineNone" aria-pressed="true" title="No outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M6 12.5l5.5-6.5 3.8 4 2.7-2.7 6 5.2z" fill="currentColor" opacity="0.55"/><circle cx="20" cy="3.8" r="1.6" fill="currentColor" opacity="0.55"/></svg><span class="unseen">None</span></button>
+          <button id="picLineThin" aria-pressed="false" title="A thin outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.2" width="20" height="11.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.5 12l5-5.5 3.5 3.5 2.5-2.4 5.5 4.4z" fill="currentColor" opacity="0.55"/></svg><span class="unseen">Thin</span></button>
+          <button id="picLineThick" aria-pressed="false" title="A thick outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="6" y="2.2" width="18" height="9.6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M8 11l4-4 3 3 2-2 4 3z" fill="currentColor" opacity="0.55"/></svg><span class="unseen">Thick</span></button>
         </div>
         <div class="swatches five" id="picLineColors" role="group" aria-label="Outline colour" hidden></div>
       </div>
@@ -543,17 +555,19 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       </label>
       <div class="swatches five" id="noteColors" role="group" aria-label="Colour"></div>
       <div class="swatches" id="noteShapes" role="group" aria-label="Shape"></div>
+      <div class="segrow">
       <div class="seg" role="group" aria-label="Orientation">
-        <button id="oriH" aria-pressed="true">Horizontal</button>
-        <button id="oriV" aria-pressed="false">Vertical</button>
+        <button id="oriH" aria-pressed="true" title="Horizontal"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriH"><rect width="30" height="14" fill="#fff"/><path d="M10 7h10" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></mask></defs><rect x="4" y="2" width="22" height="10" rx="5" fill="currentColor" mask="url(#mkOriH)"/></svg><span class="unseen">Horizontal</span></button>
+        <button id="oriV" aria-pressed="false" title="Vertical"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriV"><rect width="30" height="14" fill="#fff"/><path d="M15 4v6" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></mask></defs><rect x="10" y="0.5" width="10" height="13" rx="5" fill="currentColor" mask="url(#mkOriV)"/></svg><span class="unseen">Vertical</span></button>
       </div>
       <div class="seg" role="group" aria-label="Fill">
-        <button id="fillOn" aria-pressed="true" title="The shape filled with the colour">Filled</button>
-        <button id="fillOff" aria-pressed="false" title="An outline in the colour round the words, white inside (a yellow one with dark words; a white one dark inside)">Outline</button>
+        <button id="fillOn" aria-pressed="true" title="Filled: the shape filled with the colour"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4" y="2" width="22" height="10" rx="5" fill="currentColor"/></svg><span class="unseen">Filled</span></button>
+        <button id="fillOff" aria-pressed="false" title="Outline: an outline in the colour round the words, white inside (a yellow one with dark words; a white one dark inside)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4.8" y="2.8" width="20.4" height="8.4" rx="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="unseen">Outline</span></button>
       </div>
       <div class="seg" role="group" aria-label="End of the line">
-        <button id="endDot" aria-pressed="true" title="The line ends in a dot on the spot">Dot end</button>
-        <button id="endArrow" aria-pressed="false" title="The line ends in an arrowhead pointing at the spot">Arrow end</button>
+        <button id="endDot" aria-pressed="true" title="Dot end: the line ends in a dot on the spot"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M26 2L8 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="6.6" cy="10.6" r="2.7" fill="currentColor"/></svg><span class="unseen">Dot end</span></button>
+        <button id="endArrow" aria-pressed="false" title="Arrow end: the line ends in an arrowhead pointing at the spot"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M26 2L10.4 9.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 12L11.7 12L9.05 6.2Z" fill="currentColor"/></svg><span class="unseen">Arrow end</span></button>
+      </div>
       </div>
       <label for="noteSize" class="slider"><span class="head">Text size <span class="val" id="noteSizeVal"></span></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
@@ -594,6 +608,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   </div>
 </div>
 <div class="menu" id="menu" role="menu" hidden></div>
+<input type="color" id="ownColor" tabindex="-1" aria-hidden="true">
 <form class="menu scalebox" id="scaleBox" role="dialog" aria-label="Set the scale" hidden>
   <label for="scaleLen">Real length of this line</label>
   <div class="row"><input id="scaleLen" type="text" inputmode="decimal" autocomplete="off">
@@ -602,9 +617,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 </form>
 <div class="modal" id="setModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="box setbox">
-    <h3 id="setTitle">Settings</h3>
-    <label class="check" for="wheelErase">Legacy controls<input type="checkbox" role="switch" id="wheelErase"></label>
-    <p class="note">On: the wheel button erases and a drag with the right button adds a note, whatever tool is on; the left button draws. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (with Notes, it places notes), and the right button opens the menu.</p>
+    <h3 id="setTitle">Options</h3>
+    <div class="optwrap">
+      <label class="check" for="wheelErase">Legacy controls<input type="checkbox" role="switch" id="wheelErase"></label>
+      <p class="note">On: the wheel button erases and a drag with the right button adds a note, whatever tool is on; the left button draws. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (with Notes, it places notes), and the right button opens the menu.</p>
+    </div>
+    <h4 class="optsub" id="keysTitle">Shortcuts</h4>
+    <div class="keysgrid" id="keysGrid"></div>
     <div class="actions"><button id="setClose">Close</button></div>
   </div>
 </div>
@@ -618,13 +637,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="pdfSmall" class="choice"><span class="ttl">PDF, smaller file</span><span class="note" id="pdfSmallNote"></span></button>
     </div>
     <div class="actions"><button id="pdfCancel">Cancel</button></div>
-  </div>
-</div>
-<div class="modal" id="keysModal" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
-  <div class="box keysbox">
-    <h3 id="keysTitle">Shortcuts</h3>
-    <div class="keysgrid" id="keysGrid"></div>
-    <div class="actions"><button id="keysClose">Close</button></div>
   </div>
 </div>
 <div class="modal" id="fixModal" role="dialog" aria-modal="true" aria-labelledby="fixTitle">
@@ -668,6 +680,24 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   };
   // The pen draws in the same colours as the notes.
   var PEN_COLORS = COLORS;
+  // Besides those, any colour of your own, kept as #rrggbb: its words are white, or near-black on a light one
+  // (it is then treated as yellow is: an outline note is white inside with dark words, a dimension has no halo).
+  function isHex(c) { return typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c); }
+  var ownDefs = {};
+  function colorDef(c, fallback) {
+    if (COLORS[c]) return COLORS[c];
+    if (isHex(c)) {
+      var key = c.toLowerCase();
+      if (!ownDefs[key]) {
+        var lin = function (i) { var v = parseInt(key.substr(i, 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        var light = 0.2126 * lin(1) + 0.7152 * lin(3) + 0.0722 * lin(5) > 0.3;
+        ownDefs[key] = { name: "Your colour " + key, fill: key, ink: light ? "#111214" : "#ffffff", halo: light ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.45)", own: true, light: light };
+      }
+      return ownDefs[key];
+    }
+    return COLORS[fallback] || COLORS.red;
+  }
+  function validColor(c, fallback) { return COLORS[c] ? c : isHex(c) ? c.toLowerCase() : fallback; }
   // Line width is a multiple of a unit that scales with the image (0.22% of its width). The slider runs from
   // PEN_MIN to PEN_MAX on a logarithmic scale, so thin lines keep fine control while wide ones are in reach.
   var PEN_MIN = 0.3, PEN_MAX = 24, HI_ALPHA = 0.4;
@@ -705,7 +735,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $("view"), ctx = canvas.getContext("2d"), stage = $("stage");
 
-  function colorOf(n) { return COLORS[n.color] || (n.dark === false ? COLORS.white : COLORS.black); }
+  function colorOf(n) { return colorDef(n.color, n.dark === false ? "white" : "black"); }
 
   // ---------- geometry ----------
   function fontPx(n) { return state.w / 100 * n.size; }
@@ -855,7 +885,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function drawDim(c, s) {
     var a = s.points[0], b = s.points[s.points.length - 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
     if (len < 0.5) return;
-    var col = COLORS[s.color] || COLORS.red, fs = fontPx(s), lw = dimLine(s);
+    var col = colorDef(s.color, "red"), fs = fontPx(s), lw = dimLine(s);
     var ux = dx / len, uy = dy / len, nx = -uy, ny = ux, e = fs * 0.5, k = fs * 0.3;
     // the line, a short bar across each end, and an architect's 45-degree tick through each end
     var path = function () {
@@ -868,7 +898,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     c.save(); c.lineCap = "round";
     // a faint light halo under the dark colours, so they read on any render; yellow and white have no dark
     // outline round them, as their lengths have none
-    if (s.color !== "yellow" && s.color !== "white") { path(); c.strokeStyle = col.halo; c.lineWidth = lw * 2.6; c.stroke(); }
+    if (col.ink === "#ffffff") { path(); c.strokeStyle = col.halo; c.lineWidth = lw * 2.6; c.stroke(); }
     path(); c.strokeStyle = col.fill; c.lineWidth = lw; c.stroke();
     c.restore();
     writeLength(c, a, b, col, fs, lw * 1.5 + fs * 0.25);
@@ -1121,7 +1151,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     return true;
   }
   function drawLine(c, s) {
-    var col = (PEN_COLORS[s.color] || PEN_COLORS.red).fill, pts = s.points, lw = penPx(s), dash = dashOf(s, lw);
+    var col = colorDef(s.color, "red").fill, pts = s.points, lw = penPx(s), dash = dashOf(s, lw);
     c.save();
     if (s.hi) c.globalAlpha = HI_ALPHA;      // a highlighter stroke lets the image show through, evenly along its length
     c.strokeStyle = c.fillStyle = col;
@@ -1247,7 +1277,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // words (yellow on white would not read); a white one dark inside with white words.
   function outlineLook(n) {
     var col = colorOf(n), k = n.color || (n.dark === false ? "white" : "black");
-    return k === "yellow" ? { inside: "#ffffff", words: col.ink } : { inside: col.ink, words: col.fill };
+    return k === "yellow" || col.light ? { inside: "#ffffff", words: col.ink } : { inside: col.ink, words: col.fill };
   }
   function accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#d9442e"; }
   function drawSelection(c, n, L) {
@@ -1318,7 +1348,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       var im = picStore[q.id], r = rotOf(q); if (!im || !im.complete) return;
       c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r);
       c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
-      if (q.line) { c.strokeStyle = (COLORS[q.line.c] || COLORS.black).fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      if (q.line) { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
       c.restore();
     });
   }
@@ -1561,7 +1591,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       shape(tip + 1.5 / view.s);
       ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
       shape(tip);
-      ctx.fillStyle = (PEN_COLORS[state.pen.color] || PEN_COLORS.red).fill;
+      ctx.fillStyle = colorDef(state.pen.color, "red").fill;
       if (state.pen.hi) {
         // the highlighter tip is see-through like its line, with an outline so its size still reads
         ctx.save(); ctx.globalAlpha = HI_ALPHA; ctx.fill(); ctx.restore();
@@ -1594,7 +1624,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     // Show length: while a line is drawn with Shift its length shows along it, in the scale and units set under
     // Measure. It is only a read-out: it goes when the button is let go and is never part of the image.
     var ls = drag && drag.part === "stroke" && state.showLen && (drag.stroke.straight || drag.stroke.shape === "arrow") && (!drag.stroke.shape || drag.stroke.shape === "arrow") ? drag.stroke : null;
-    if (ls && ls.points.length === 2) writeLength(ctx, ls.points[0], ls.points[1], PEN_COLORS[ls.color] || PEN_COLORS.red, 15 / view.s, penPx(ls) / 2 + 6 / view.s);
+    if (ls && ls.points.length === 2) writeLength(ctx, ls.points[0], ls.points[1], colorDef(ls.color, "red"), 15 / view.s, penPx(ls) / 2 + 6 / view.s);
     placeHud(hud, r);
   }
 
@@ -1622,6 +1652,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     else if (state.picks.indexOf(state.sel) < 0) state.picks = [state.sel];
   }
   function snapshot() {
+    if (ownApplying) { if (ownApplying.snapped) return; ownApplying.snapped = true; }   // one step for a whole go at the colour picker
     history.push(current());
     if (history.length > 80) history.shift();
     future = [];
@@ -1706,7 +1737,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   function nextLook() {
     var l = state.style || {};
-    return { vertical: !!l.vertical, color: COLORS[l.color] ? l.color : "red", shape: SHAPES[l.shape] ? l.shape : "pill",
+    return { vertical: !!l.vertical, color: validColor(l.color, "red"), shape: SHAPES[l.shape] ? l.shape : "pill",
              size: typeof l.size === "number" ? l.size : 1, outline: !!l.outline, end: l.end === "arrow" ? "arrow" : "" };
   }
   // change the look of the next note (nothing on the image changes)
@@ -1788,6 +1819,35 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       b.addEventListener("click", function () { onPick(k); });
       el.appendChild(b);
     });
+    // the last one: your own colour, from the browser's colour picker. It shows a ring of colours, with the colour
+    // in use (or the one picked last) in its middle.
+    var mine = isHex(current), ob = document.createElement("button");
+    ob.type = "button"; ob.className = "own";
+    ob.setAttribute("aria-pressed", String(mine));
+    ob.title = mine ? "Your colour (" + current + "): click to change it" : "Your own colour: pick any colour";
+    var oc = document.createElement("span"); oc.className = "chip own";
+    if (mine || state.ownColor) oc.style.setProperty("--own", mine ? current : state.ownColor);
+    var on = document.createElement("span"); on.className = "unseen"; on.textContent = "Your colour";
+    ob.appendChild(oc); ob.appendChild(on);
+    ob.addEventListener("click", function () { pickOwn(ob, mine ? current : state.ownColor || "#ff7a00", onPick); });
+    el.appendChild(ob);
+  }
+  // The browser's colour picker, for your own colour. It applies as it changes; all of that is one step to undo.
+  var ownPick = null, ownApplying = null;
+  function pickOwn(btn, start, onPick) {
+    var inp = $("ownColor"), r = btn.getBoundingClientRect();
+    inp.style.left = Math.round(r.left) + "px"; inp.style.top = Math.round(r.bottom) + "px";
+    inp.value = start;
+    ownPick = { onPick: onPick, snapped: false };
+    try { if (inp.showPicker) inp.showPicker(); else inp.click(); } catch (e) { inp.click(); }
+  }
+  function applyOwn(v, last) {
+    var p = ownPick; if (!p || !isHex(v)) return;
+    state.ownColor = v.toLowerCase();
+    ownApplying = p;
+    try { p.onPick(state.ownColor); } finally { ownApplying = null; }
+    if (last) ownPick = null;
+    saveSettings();
   }
 
   function shapeRow(el, current, onPick) {
@@ -1953,6 +2013,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.target.value === textAtFocus && history.length && history[history.length - 1] === current()) history.pop();
     textAtFocus = null; $("undo").disabled = history.length === 0;
   });
+  $("ownColor").addEventListener("input", function (e) { applyOwn(e.target.value, false); });
+  $("ownColor").addEventListener("change", function (e) { applyOwn(e.target.value, true); });
   $("noteText").addEventListener("input", function (e) {
     var n = selected(); if (!n) return;
     n.text = e.target.value;
@@ -2060,6 +2122,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (switchByPointer) e.target.blur();
     switchByPointer = false;
     setTool(state.tool);   // the hint under the image says what the wheel button does
+    writeKeys();           // and the shortcuts in Options say what the buttons do now
     status(state.wheelErase ? "Legacy controls: the wheel button erases, and a right-drag adds a note." : "A click with the wheel button opens the tool wheel; each tool works with the left button, the right button opens the menu.");
   });
   $("showLen").addEventListener("change", function (e) {
@@ -3473,9 +3536,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     // long enough to read, then it goes
     statusTimer = setTimeout(function () { el.classList.remove("on"); }, Math.min(7000, 2200 + msg.length * 35));
   }
-  // ---------- the Shortcuts list ----------
-  // Written as it is opened, so it says what the mouse does with the settings as they are now.
-  function openKeys() {
+  // ---------- Options: the legacy controls, and the shortcuts ----------
+  // The shortcuts are written as Options opens, and again when Legacy controls is switched, so they say what the
+  // mouse does with the settings as they are now.
+  function writeKeys() {
     var we = !!state.wheelErase, html = [];
     var k = function () { return Array.prototype.map.call(arguments, function (t) { return "<kbd>" + t + "</kbd>"; }).join(" "); };
     var table = function (title, rows) {
@@ -3505,27 +3569,20 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         [k("Ctrl/Cmd+]") + " / " + k("Ctrl/Cmd+["), "Bring the selected picture forward / send it backward"]
       ]);
       table("File", [[k("Ctrl/Cmd+V"), "Paste a picture onto the page"], [k("Ctrl/Cmd+S"), "Export"], [k("Ctrl/Cmd+C"), "Copy the image"]]);
-      table("View", [[k("0"), "Fit the image"], [k("+") + " / " + k("-"), "Zoom in / out"], [k("PageDown") + " / " + k("PageUp"), "Next / previous page of a PDF"], [k("?"), "This list"]]);
+      table("View", [[k("0"), "Fit the image"], [k("+") + " / " + k("-"), "Zoom in / out"], [k("PageDown") + " / " + k("PageUp"), "Next / previous page of a PDF"], [k("?"), "Options and these shortcuts"]]);
     });
     $("keysGrid").innerHTML = html.join("");
-    $("keysModal").classList.add("open");
-    $("keysClose").focus();
   }
-  function closeKeys() { if ($("keysModal").classList.contains("open")) { $("keysModal").classList.remove("open"); canvas.focus({ preventScroll: true }); } }
-  $("keysBtn").addEventListener("click", openKeys);
-  // Settings: for now, the legacy controls (the wheel button erases, the right button adds notes)
+  function openKeys() { writeKeys(); openModal("setModal", "wheelErase"); }
   function openModal(id, focus) { $(id).classList.add("open"); if (focus) $(focus).focus(); }
   function closeModal(id) { if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); } }
   ["setModal", "pdfModal"].forEach(function (id) {
     $(id).addEventListener("click", function (e) { if (e.target === $(id)) closeModal(id); });
     $(id).addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeModal(id); } });
   });
-  $("setBtn").addEventListener("click", function () { openModal("setModal", "wheelErase"); });
+  $("setBtn").addEventListener("click", openKeys);
   $("setClose").addEventListener("click", function () { closeModal("setModal"); });
   $("grammarTop").addEventListener("click", function () { $("grammar").click(); });
-  $("keysClose").addEventListener("click", closeKeys);
-  $("keysModal").addEventListener("click", function (e) { if (e.target === $("keysModal")) closeKeys(); });
-  $("keysModal").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeKeys(); } });
   // The header button and Ctrl/Cmd+S open Export: PNG, JPG, or a PDF at full quality or as a smaller file; for a PDF the pictures are of this page
   $("export").addEventListener("click", function () {
     if (!state.img) return;
@@ -3753,7 +3810,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "" };
     var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
-                                ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind });
+                                ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "" });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -3765,7 +3822,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var num = function (v, lo, hi, dflt) { return typeof v === "number" && isFinite(v) ? clamp(v, lo, hi) : dflt; };
     var ink = function (o, dflt) {
       o = o && typeof o === "object" ? o : {};
-      return { color: COLORS[o.color] ? o.color : dflt.color, width: num(o.width, PEN_MIN, PEN_MAX, dflt.width),
+      return { color: validColor(o.color, dflt.color), width: num(o.width, PEN_MIN, PEN_MAX, dflt.width),
                tip: o.tip === "square" ? "square" : "round", dash: DASHES[o.dash] || o.dash === "cloud" ? o.dash : "" };
     };
     var inks = d.inks && typeof d.inks === "object" ? d.inks : {};
@@ -3775,8 +3832,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (SHAPE_KINDS.indexOf(d.shapeKind) > 0) state.shapeKind = d.shapeKind;
     state.eraser = num(d.eraser, 3, 100, state.eraser);
     var st = d.style;
-    if (st && typeof st === "object" && COLORS[st.color]) {
-      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
+    if (st && typeof st === "object" && validColor(st.color, "")) {
+      state.style = { vertical: st.vertical === true, color: validColor(st.color, "red"), shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
     }
     // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
     if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
@@ -3785,7 +3842,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (typeof d.bold === "boolean") state.bold = d.bold;
     if (d.caps === "" || d.caps === "upper" || d.caps === "lower") state.caps = d.caps;
     $("font").value = state.font;
-    if (d.dim && typeof d.dim === "object") state.dim = { color: COLORS[d.dim.color] ? d.dim.color : "red", size: num(d.dim.size, 0.25, 4, 1) };
+    if (d.dim && typeof d.dim === "object") state.dim = { color: validColor(d.dim.color, "red"), size: num(d.dim.size, 0.25, 4, 1) };
+    if (isHex(d.own)) state.ownColor = d.own.toLowerCase();
     if (UNITS[d.unit]) state.unit = d.unit;
     // Show line length starts on; a choice saved before it did (version 1) is not held to
     if (d.v >= 2 && typeof d.showLen === "boolean") state.showLen = d.showLen;
