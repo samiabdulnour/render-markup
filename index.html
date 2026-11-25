@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans+Condensed:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
@@ -19,7 +19,7 @@
    (Export) is the one lemon button. A button's edge turns lemon under the pointer; a field's edge is darker
    than a button's, because it is typed in, and goes ink when it has the keyboard. */
 :root {
-  --chrome: #efefef;        /* the surround: header, footer, side panel, page strip */
+  --chrome: #efefef;        /* the surround: header, side panel, page strip */
   --card: #ffffff;          /* cards, buttons, fields, menus */
   /* every word of the interface is black, hints included: no greys for text */
   --ink: #000000;
@@ -132,7 +132,7 @@ main { flex: 1; display: grid; grid-template-columns: 1fr 300px; min-height: 0; 
 #empty.compact { gap: 6px; padding: 8px; border-radius: 8px; }
 #empty.compact .ico, #empty.compact .alt { display: none; }
 #empty.compact .big { font-size: 18px; }
-#stage.has-image #hint { display: block; } #hint { display: none; }
+#hint { display: none; }   /* what the mouse does now: shown in the Shortcuts list, not over the image */
 /* The side panel: the surround, with every group of settings on a white card under its caption */
 aside {
   border-left: 1px solid var(--divider); background: var(--chrome); overflow-y: auto;
@@ -160,7 +160,29 @@ textarea {
 }
 select { border: 1px solid var(--field-edge); border-radius: 8px; background: var(--card); padding: 6px 8px; }
 textarea:focus, select:focus, input.entry:focus, .scalebox input:focus { outline: none; border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-input[type="range"] { width: 100%; accent-color: var(--body); }
+/* A slider: its name and value on one line, the value at the right; under them a thin track, inked up to a
+   round knob in the switch's colours. A click leaves no box round it; the keyboard gets a ring round the knob. */
+label.slider .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 20px; margin: 0; padding: 0;
+  background: transparent; cursor: pointer; --f: 0.5;
+}
+input[type="range"]:focus-visible { outline: none; }
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px; border-radius: 1px;
+  background: linear-gradient(to right, var(--ink) calc(8px + (100% - 16px) * var(--f)), var(--face-edge) 0);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; box-sizing: border-box; width: 16px; height: 16px; margin-top: -7px;
+  border-radius: 50%; border: 1.5px solid var(--ink); background: var(--switch-on-knob);
+}
+input[type="range"]::-moz-range-track { height: 2px; border-radius: 1px; background: var(--face-edge); }
+input[type="range"]::-moz-range-progress { height: 2px; border-radius: 1px; background: var(--ink); }
+input[type="range"]::-moz-range-thumb {
+  box-sizing: border-box; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--switch-on-knob);
+}
+input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
 /* a segmented control: the chosen segment filled in lemon, as Archicad marks the segment that is on */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--face-edge); border-radius: 8px; overflow: hidden; background: var(--card); }
 .seg button { border: 0; border-radius: 0; justify-content: center; background: transparent; padding: 6px 10px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -230,6 +252,37 @@ input.entry, .scalebox input {
 #list li button[aria-pressed="true"], #picList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
 #picEditor[hidden] { display: none; }
+/* What the page has to say (saved, copied, a picture added...): a message at the foot of the stage that shows
+   for a moment and goes. */
+#status {
+  position: absolute; left: 50%; bottom: 16px; z-index: 5; transform: translate(-50%, 6px);
+  max-width: min(560px, calc(100% - 140px)); width: max-content; text-align: center;
+  background: var(--ink); color: #ffffff; padding: 8px 14px; border-radius: 12px; pointer-events: none;
+  opacity: 0; transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+#status.on { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { #status { transition: none; } }
+/* The Shortcuts list: a table for each kind, two abreast */
+.keysbox { width: min(860px, 100%); }
+.keysgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+@media (max-width: 760px) { .keysgrid { grid-template-columns: 1fr; } }
+table.keys { border-collapse: collapse; width: 100%; }
+table.keys th { text-align: left; font-weight: 400; text-transform: uppercase; letter-spacing: 0.02em; padding: 14px 0 6px; border-bottom: 1px solid var(--ink); }
+table.keys td { padding: 6px 0; border-bottom: 1px solid var(--divider); vertical-align: top; }
+table.keys td:first-child { width: 45%; padding-right: 12px; }
+/* The typeface list: each name in its own face. Where the browser lets a list be styled (base-select), it opens
+   as a card like the menu, the chosen face lemon; elsewhere it is the system's list, the closed field still
+   showing the chosen face in itself. */
+@supports (appearance: base-select) {
+  #font, #font::picker(select) { appearance: base-select; }
+  #font { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+  #font::picker(select) { border: 1px solid var(--divider); border-radius: 12px; background: var(--card); padding: 4px;
+    margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.14); }
+  #font option { padding: 7px 10px; border-radius: 8px; font-size: var(--fs); }
+  #font option:hover, #font option:focus-visible { background: var(--chosen-tint); outline: none; }
+  #font option:checked { background: var(--chosen); color: var(--on-chosen); }
+  #font option::checkmark { display: none; }
+}
 /* Bold and the case of every note, under the typeface */
 .textstyle { display: flex; gap: 8px; }
 .textstyle .seg { flex: 1; }
@@ -262,17 +315,6 @@ label[hidden] { display: none; }
 #list .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty, .note { color: var(--muted); font-size: var(--fs); margin: 0; }
 #editor[hidden], #del[hidden] { display: none; }
-footer {
-  border-top: 1px solid var(--divider); background: var(--chrome); padding: 6px 16px; font-size: var(--fs);
-  color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap;
-}
-footer #status { color: var(--ink); }
-@media (min-width: 761px) {
-  /* one line only: a longer status message must not change the height of the stage under the pointer */
-  footer { flex-wrap: nowrap; white-space: nowrap; }
-  footer #status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  footer > span:last-child { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-}
 kbd { font-family: var(--font-mono); font-size: var(--fs); border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
 /* Right-click pop-up menu: a card; it floats over the image, so it alone keeps a soft shadow to say so */
 .menu {
@@ -292,7 +334,7 @@ kbd { font-family: var(--font-mono); font-size: var(--fs); border: 1px solid var
 .menu .swatches { padding: 4px 6px 2px; }
 .menu .swatches + .swatches { padding-bottom: 6px; }
 .modal {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; padding: 24px;
+  position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; padding: 24px;
 }
 .modal.open { display: flex; }
 .modal .box {
@@ -351,6 +393,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <input type="file" id="file" accept="image/*,application/pdf,.pdf">
   <label class="btn" for="addFile" title="Add a picture, such as a screenshot, onto this page; the markup stays. Ctrl/Cmd+V pastes one the same way.">Add image</label>
   <input type="file" id="addFile" accept="image/*">
+  <button id="keysBtn" title="The shortcuts, and what each mouse button does (?)">Shortcuts</button>
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
   <button id="export" class="primary" title="Save the marked-up image at full resolution (Ctrl/Cmd+S)">Export PNG</button>
 </header>
@@ -360,6 +403,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <canvas id="view" tabindex="0" aria-label="Render with notes. The left button draws (or measures, with Measure on), the wheel button erases, dragging with the right button adds a note, a right-click opens a menu. D, N and M switch between Draw, Notes and Measure. Ctrl or Cmd+Z to undo."></canvas>
     <div id="hint"></div>
     <div id="hud" hidden></div>
+    <div id="status" role="status" aria-live="polite">Blank canvas. Open, drop or paste a render to mark it up instead.</div>
     <div id="tools" role="toolbar" aria-label="Tools" aria-orientation="vertical">
       <button id="toolMove" aria-pressed="false" aria-label="Move" title="Move (V): the left button drags pictures and notes; the side panel lists the pictures"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v17M3.5 12h17"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg></button>
       <button id="toolDraw" aria-pressed="true" aria-label="Draw" title="Draw (D): the left button draws a pen line"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.8L16.6 3.8a2.2 2.2 0 0 1 3.1 3.1L8.3 18.3z"/><path d="M14.6 5.8l3.1 3.1"/></svg></button>
@@ -391,7 +435,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <label for="lenScale" id="lenScaleWrap" hidden title="The scale the drawing is drawn at, such as 1:100: the length shows in real units at that scale. The same scale as under Measure.">Scale
         <input id="lenScale" class="entry" type="text" autocomplete="off" spellcheck="false" placeholder="1:100">
       </label>
-      <label for="penWidth">Line width <span class="val" id="penWidthVal"></span>
+      <label for="penWidth" class="slider"><span class="head">Line width <span class="val" id="penWidthVal"></span></span>
         <input type="range" id="penWidth" min="0" max="1000" step="1" value="275">
       </label>
       <button id="clearDraw" class="danger">Clear drawing</button>
@@ -403,14 +447,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="eraseSquare" aria-pressed="false" title="A square eraser, upright: it reaches into its corners">Square</button>
       </div>
       <label class="check" title="On: dragging with the wheel button erases and the right button adds notes, whatever tool is on. Off: a click with the wheel button opens the tool wheel round the pointer, each tool works with the left button (Notes places notes) and the right button opens the menu.">Wheel button erases<input type="checkbox" role="switch" id="wheelErase"></label>
-      <label for="eraserSize" title="The size of the eraser: the Eraser tool, and the wheel button when it erases.">Eraser size <span class="val" id="eraserSizeVal"></span>
+      <label for="eraserSize" class="slider" title="The size of the eraser: the Eraser tool, and the wheel button when it erases."><span class="head">Eraser size <span class="val" id="eraserSizeVal"></span></span>
         <input type="range" id="eraserSize" min="6" max="200" step="2" value="100">
       </label>
     </div>
     <div class="section" id="measurePanel" hidden>
       <h2>Measure</h2>
       <div class="swatches five" id="dimColors" role="group" aria-label="Dimension colour"></div>
-      <label for="dimSize">Text size <span class="val" id="dimSizeVal"></span>
+      <label for="dimSize" class="slider"><span class="head">Text size <span class="val" id="dimSizeVal"></span></span>
         <input type="range" id="dimSize" min="0.25" max="4" step="0.05" value="1">
       </label>
       <label for="scaleRatio" title="The scale the drawing is drawn at, such as 1:100. Or right-click a dimension and set its length.">Scale
@@ -460,7 +504,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="oriH" aria-pressed="true">Horizontal</button>
         <button id="oriV" aria-pressed="false">Vertical</button>
       </div>
-      <label for="noteSize">Text size <span class="val" id="noteSizeVal"></span>
+      <label for="noteSize" class="slider"><span class="head">Text size <span class="val" id="noteSizeVal"></span></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
       </label>
       <button id="del" class="danger">Delete note</button>
@@ -473,7 +517,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
           <option value="arial">Arial</option>
           <option value="narrow">Arial Narrow</option>
           <option value="verdana">Verdana</option>
-          <option value="times">Times New Roman</option>
+          <option value="opensans">Open Sans</option>
           <option value="menlo">Menlo</option>
         </select>
       </label>
@@ -489,10 +533,6 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     </div>
   </aside>
 </main>
-<footer>
-  <span id="status">Blank canvas. Open, drop or paste a render to mark it up instead.</span>
-  <span><kbd>D</kbd> pen · <kbd>N</kbd> notes · <kbd>Del</kbd> removes the selected note or picture · <kbd>Esc</kbd> deselects · <kbd>Ctrl/Cmd+Z</kbd> undo · <kbd>Ctrl/Cmd+V</kbd> pastes a picture onto the page</span>
-</footer>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="box">
     <h3 id="modalTitle">Your marked-up image</h3>
@@ -508,6 +548,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     <select id="scaleUnit" aria-label="Unit"><option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option></select></div>
   <div class="row"><button type="submit" class="primary">Set scale</button><button type="button" id="scaleCancel">Cancel</button></div>
 </form>
+<div class="modal" id="keysModal" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
+  <div class="box keysbox">
+    <h3 id="keysTitle">Shortcuts</h3>
+    <div class="keysgrid" id="keysGrid"></div>
+    <div class="actions"><button id="keysClose">Close</button></div>
+  </div>
+</div>
 <div class="modal" id="fixModal" role="dialog" aria-modal="true" aria-labelledby="fixTitle">
   <div class="box">
     <h3 id="fixTitle">Grammar check</h3>
@@ -523,18 +570,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 (function () {
   "use strict";
   // The typefaces notes and lengths can be set in: five usual ones, Arial first and by default. Each is the
-  // computer's own where it has it (Menlo on a Mac, Consolas, its like, on Windows); a computer without Arial
-  // Narrow or a mono gets a web copy of one like it. Bold and the case are switches of their own, for every note.
+  // computer's own where it has it (Menlo on a Mac, Consolas, its like, on Windows); Open Sans comes from
+  // Google Fonts, and a computer without Arial Narrow or a mono gets a web copy of one like it. Bold and the case are switches of their own, for every note.
   var FONTS = {
     arial:   { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif' },
     narrow:  { family: '"Arial Narrow", "IBM Plex Sans Condensed", Arial, sans-serif' },
     verdana: { family: 'Verdana, "DejaVu Sans", Geneva, sans-serif' },
-    times:   { family: '"Times New Roman", Times, "Liberation Serif", serif' },
+    opensans: { family: '"Open Sans", Arial, sans-serif' },
     menlo:   { family: 'Menlo, Consolas, "DejaVu Sans Mono", "IBM Plex Mono", monospace' }
   };
   // the typefaces offered before, and what each is now
   var OLD_FONTS = { arialBold: ["arial", true], cond: ["narrow", false], condBold: ["narrow", true], mono: ["menlo", false],
-                    monoBold: ["menlo", true], hand: ["arial", false] };
+                    monoBold: ["menlo", true], hand: ["arial", false], times: ["opensans", false] };
   var COLORS = {
     black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     white: { name: "White", fill: "#ffffff", ink: "#111214", halo: "rgba(0,0,0,0.35)" },
@@ -744,7 +791,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       });
     };
     c.save(); c.lineCap = "round";
-    path(); c.strokeStyle = col.halo; c.lineWidth = lw * 2.6; c.stroke();     // a faint halo so it reads on any render
+    // a faint light halo under the dark colours, so they read on any render; yellow and white have no dark
+    // outline round them, as their lengths have none
+    if (s.color !== "yellow" && s.color !== "white") { path(); c.strokeStyle = col.halo; c.lineWidth = lw * 2.6; c.stroke(); }
     path(); c.strokeStyle = col.fill; c.lineWidth = lw; c.stroke();
     c.restore();
     writeLength(c, a, b, col, fs, lw * 1.5 + fs * 0.25);
@@ -1569,6 +1618,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (document.activeElement !== $("noteSize")) $("noteSize").value = look.size;
     $("noteSizeVal").textContent = textLabel(look);
     $("boldBtn").setAttribute("aria-pressed", String(!!state.bold));
+    $("font").style.fontFamily = FONTS[state.font].family;   // the chosen face, shown in itself
     $("caseAs").setAttribute("aria-pressed", String(!state.caps));
     $("caseUp").setAttribute("aria-pressed", String(state.caps === "upper"));
     $("caseLow").setAttribute("aria-pressed", String(state.caps === "lower"));
@@ -1599,6 +1649,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
     if (document.activeElement !== $("scaleDpi")) $("scaleDpi").value = String(state.dpi);
     if (document.activeElement !== $("unit")) $("unit").value = state.unit;
+    Array.prototype.forEach.call(document.querySelectorAll('input[type="range"]'), fillRange);
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
     $("grammar").disabled = state.notes.length === 0;
@@ -1690,8 +1741,21 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   [["caseAs", ""], ["caseUp", "upper"], ["caseLow", "lower"]].forEach(function (c) {
     $(c[0]).addEventListener("click", function () { state.caps = c[1]; sync(); render(); backToText(); });
   });
+  function fillRange(r) {
+    var lo = parseFloat(r.min) || 0, hi = parseFloat(r.max) || 100;
+    r.style.setProperty("--f", String(clamp((parseFloat(r.value) - lo) / (hi - lo), 0, 1)));
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[type="range"]'), function (r) {
+    fillRange(r);
+    r.addEventListener("input", function () { fillRange(r); });
+    r.addEventListener("pointerdown", function () { r.byPointer = true; });
+    r.addEventListener("change", function () { if (r.byPointer && document.activeElement === r) r.blur(); r.byPointer = false; });
+  });
+  // each typeface in the list is written in its own face
+  Array.prototype.forEach.call($("font").options, function (o) { if (FONTS[o.value]) o.style.fontFamily = FONTS[o.value].family; });
   $("font").addEventListener("change", function (e) {
     state.font = e.target.value;
+    e.target.style.fontFamily = FONTS[state.font].family;
     backToText();
     saveSettings();
     document.fonts.load(fontStr(40)).then(render, render);
@@ -2592,6 +2656,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (selectedPic()) deletePic(); else deleteSel(); }
     if (e.key === "Escape") { picSel = null; select(-1); sync(); render(); }
     if (doc && (e.key === "PageDown" || e.key === "PageUp")) { e.preventDefault(); showPage(doc.cur + (e.key === "PageDown" ? 1 : -1)); return; }
+    if (e.key === "?") { e.preventDefault(); openKeys(); return; }
     if (e.key === "v" || e.key === "V") setTool("move");
     if (e.key === "d" || e.key === "D") { setTool("draw"); setInk(false); }
     if (e.key === "h" || e.key === "H") { setTool("draw"); setInk(true); }
@@ -2976,7 +3041,59 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   });
 
   // ---------- export ----------
-  function status(msg) { $("status").textContent = msg; }
+  var statusTimer = null;
+  function status(msg) {
+    var el = $("status");
+    el.textContent = msg;
+    clearTimeout(statusTimer);
+    if (!msg) { el.classList.remove("on"); return; }
+    el.classList.add("on");
+    // long enough to read, then it goes
+    statusTimer = setTimeout(function () { el.classList.remove("on"); }, Math.min(7000, 2200 + msg.length * 35));
+  }
+  // ---------- the Shortcuts list ----------
+  // Written as it is opened, so it says what the mouse does with the settings as they are now.
+  function openKeys() {
+    var we = !!state.wheelErase, html = [];
+    var k = function () { return Array.prototype.map.call(arguments, function (t) { return "<kbd>" + t + "</kbd>"; }).join(" "); };
+    var table = function (title, rows) {
+      html.push('<table class="keys"><tr><th colspan="2">' + title + "</th></tr>" +
+        rows.map(function (r) { return "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>"; }).join("") + "</table>");
+    };
+    var col = function (fn) { html.push("<div>"); fn(); html.push("</div>"); };
+    col(function () {
+      table("Mouse", [
+        ["Left button", we ? "Draw; with Move, Measure or the Eraser on, what that tool does" : "What the chosen tool does: draw, place a note, measure, erase or move"],
+        ["Wheel button", we ? "Erase" : "A click opens the tool wheel round the pointer"]
+      ].concat(we ? [["Right button, dragged", "Add a note, its pill where you let go"]] : []).concat([
+        ["Right-click", "The menu"],
+        [k("Shift") + " + drag", "Keep it straight: a line, a dimension, a note's leader" + (we ? ", the eraser" : "")],
+        [k("Ctrl") + " + drag", "Change the size of what that button does"],
+        [k("Space") + " + drag", "Move the image, when zoomed in"],
+        [k("Ctrl/Cmd") + " + wheel, or pinch", "Zoom at the pointer"],
+        ["Wheel", "Scroll, when zoomed in; on a PDF, the next or previous page"]
+      ]));
+      table("Tools", [[k("V"), "Move"], [k("D"), "Draw"], [k("H"), "Highlighter"], [k("N"), "Notes"], [k("M"), "Measure"], [k("E"), "Eraser"]]);
+    });
+    col(function () {
+      table("Editing", [
+        [k("Ctrl/Cmd+Z"), "Undo"], [k("Ctrl/Cmd+Shift+Z") + " or " + k("Ctrl+Y"), "Redo"],
+        [k("Delete"), "Delete the selected note or picture"], [k("Esc"), "Deselect"], [k("Ctrl/Cmd+A"), "Select all notes"],
+        [k("Enter") + " or " + k("F2"), "Type in the selected note"],
+        [k("Ctrl/Cmd+]") + " / " + k("Ctrl/Cmd+["), "Bring the selected picture forward / send it backward"]
+      ]);
+      table("File", [[k("Ctrl/Cmd+V"), "Paste a picture onto the page"], [k("Ctrl/Cmd+S"), "Export"], [k("Ctrl/Cmd+C"), "Copy the image"]]);
+      table("View", [[k("0"), "Fit the image"], [k("+") + " / " + k("-"), "Zoom in / out"], [k("PageDown") + " / " + k("PageUp"), "Next / previous page of a PDF"], [k("?"), "This list"]]);
+    });
+    $("keysGrid").innerHTML = html.join("");
+    $("keysModal").classList.add("open");
+    $("keysClose").focus();
+  }
+  function closeKeys() { if ($("keysModal").classList.contains("open")) { $("keysModal").classList.remove("open"); canvas.focus({ preventScroll: true }); } }
+  $("keysBtn").addEventListener("click", openKeys);
+  $("keysClose").addEventListener("click", closeKeys);
+  $("keysModal").addEventListener("click", function (e) { if (e.target === $("keysModal")) closeKeys(); });
+  $("keysModal").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeKeys(); } });
   // The header button and Ctrl/Cmd+S save the whole job: a PNG for an image, a PDF for a PDF.
   $("export").addEventListener("click", function () { if (doc) exportPdf(); else savePng(); });
   function saveBlob(blob, filename, done, isImage) {
