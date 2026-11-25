@@ -282,17 +282,28 @@ details.optsub summary::before { content: ""; width: 0; height: 0; border-left: 
 details.optsub[open] summary::before { transform: rotate(90deg); }
 details.optsub[open] summary { margin-bottom: 4px; }
 .modal .box h4.optsub { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 10px 0 -8px; padding-top: 14px; border-top: 1px solid var(--divider); }
-.modal .box.pdfbox { width: min(640px, 100%); }
+.modal .box.pdfbox { width: min(760px, 100%); }
 #cropBar, .floatbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 6px 6px 6px 14px; max-width: calc(100% - 140px); }
+#txtEdit { position: absolute; z-index: 7; margin: 0; padding: 0 2px; border: 1px dashed #1e63c8; border-radius: 0; background: #ffffff; outline: none; line-height: 1.15; box-sizing: content-box; text-transform: none; letter-spacing: normal; }
+#txtEdit[hidden] { display: none; }
 #cropBar span, .floatbar span { flex: 1 1 auto; min-width: 0; }
 #cropBar[hidden], .floatbar[hidden], .exppages[hidden] { display: none; }
+#cmpBar { flex-wrap: wrap; max-width: min(760px, calc(100% - 140px)); }
+#cmpBar .seg button { padding: 6px 10px; }
+#cmpBar .ovl { display: flex; gap: 12px; flex: 1 0 100%; order: 10; }
+#cmpBar .ovl[hidden] { display: none; }
+#cmpBar .ovl label { flex-direction: row; align-items: center; gap: 6px; flex: 1 1 0; }
+#cmpBar .ovl input { flex: 1 1 auto; min-width: 60px; }
+.ovlchip { width: 18px; height: 18px; min-width: 0; padding: 0; border-radius: 50%; border: 1px solid rgba(0,0,0,0.25); flex: none; }
 .modal .box.formbox { width: min(560px, 100%); }
 .formfields { display: flex; flex-direction: column; gap: 10px; }
 .formfields h4 { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 6px 0 0; padding-top: 10px; border-top: 1px solid var(--divider); }
 .formfields h4:first-child { border-top: 0; padding-top: 0; }
 .exppages { display: flex; flex-direction: column; gap: 8px; }
-.pdfchoices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-@media (max-width: 760px) { .pdfchoices { grid-template-columns: 1fr; } }
+.pdfchoices { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.pdfchoices #expPng, .pdfchoices #expJpg { grid-column: span 3; }
+.pdfchoices #pdfFull, .pdfchoices #pdfCompact, .pdfchoices #pdfSmall { grid-column: span 2; }
+@media (max-width: 760px) { .pdfchoices { grid-template-columns: 1fr; } .pdfchoices .choice { grid-column: auto !important; } }
 .pdfchoices .choice { flex-direction: column; align-items: flex-start; text-align: left; gap: 4px; padding: 12px 14px; }
 .pdfchoices .choice .note { text-transform: none; letter-spacing: normal; }
 /* the page strip: a page being dragged to a new place, and where it will go */
@@ -460,9 +471,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <span class="sep" aria-hidden="true"></span>
       <button id="setBtn" aria-label="Options" title="Options: how the mouse works, and the shortcuts (?)"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
+    <div id="editBar" class="floatbar" role="group" aria-label="Edit text" hidden><span>Edit text: click the PDF's words to change them, or a clear spot to add some · drag to white out</span><button id="editDone" class="primary">Done</button></div>
+    <input id="txtEdit" type="text" autocomplete="off" spellcheck="true" aria-label="Text" hidden>
     <div id="cropBar" role="group" aria-label="Crop page" hidden><span>Crop page: drag a frame over what to keep</span><button id="cropApply" class="primary">Apply</button><button id="cropCancel">Cancel</button></div>
     <div id="redactBar" class="floatbar" role="group" aria-label="Redact" hidden><span>Redact: drag boxes over what to remove · click one to take it off</span><button id="redactApply" class="primary">Apply</button><button id="redactCancel">Cancel</button></div>
-    <div id="cmpBar" class="floatbar" role="group" aria-label="Compare" hidden><span id="cmpText"></span><button id="cmpOther" aria-pressed="false" title="Show the other file's page in place of this one, to see what changed">Show other</button><button id="cmpClouds" title="Put a red revision cloud round every change, on every page">Mark with clouds</button><button id="cmpClose">Close</button></div>
+    <div id="cmpBar" class="floatbar" role="group" aria-label="Compare" hidden><span id="cmpText"></span><div class="seg" role="group" aria-label="Show"><button id="cmpThis" aria-pressed="true" title="This file's page">This</button><button id="cmpOther" aria-pressed="false" title="The other file's page in place of this one">Other</button><button id="cmpBoth" aria-pressed="false" title="Both laid over each other, each in its own colour, as Trace and Reference does: what they share mixes dark, what only one has shows in its colour">Overlay</button></div><span class="ovl" id="cmpOvl" hidden><label title="This file: its colour (click the dot to change it) and how strong it is"><button type="button" class="ovlchip" id="ovlThisC" aria-label="This file's colour"></button>This<input type="range" id="ovlThis" min="0" max="100" value="100" aria-label="This file"></label><label title="The other file: its colour (click the dot to change it) and how strong it is"><button type="button" class="ovlchip" id="ovlOtherC" aria-label="The other file's colour"></button>Other<input type="range" id="ovlOther" min="0" max="100" value="100" aria-label="The other file"></label></span><button id="cmpClouds" title="Put a red revision cloud round every change, on every page">Mark with clouds</button><button id="cmpClose">Close</button></div>
     <div id="wheel" role="menu" aria-label="Tool wheel" hidden><div class="disc"></div><div class="hub"></div><div class="label" id="wheelLabel"></div></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad, or press + and -. It goes in to 800% and out to a tenth of the fitted size. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the file to open it</div>
@@ -664,7 +677,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="expPng" class="choice"><span class="ttl">PNG</span><span class="note" id="expPngNote"></span></button>
       <button id="expJpg" class="choice"><span class="ttl">JPG</span><span class="note" id="expJpgNote"></span></button>
       <button id="pdfFull" class="choice"><span class="ttl">PDF, full quality</span><span class="note" id="pdfFullNote"></span></button>
-      <button id="pdfSmall" class="choice"><span class="ttl">PDF, smaller file</span><span class="note" id="pdfSmallNote"></span></button>
+      <button id="pdfCompact" class="choice"><span class="ttl">PDF, compact</span><span class="note" id="pdfCompactNote"></span></button>
+      <button id="pdfSmall" class="choice"><span class="ttl">PDF, smallest</span><span class="note" id="pdfSmallNote"></span></button>
     </div>
     <div class="actions"><button id="pdfCancel">Cancel</button></div>
   </div>
@@ -750,7 +764,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], sel: -1, picks: [], font: "arial", bold: false, caps: "", style: null,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], edits: [], pg: null, sel: -1, picks: [], font: "arial", bold: false, caps: "", style: null,
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
@@ -1477,12 +1491,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Is there any markup that opening something else would clear? (Every page of a PDF counts.)
   function hasWork() {
     if (doc) { stashPage(); return doc.pages.some(hasMarkup); }
-    return state.notes.length > 0 || state.strokes.length > 0 || state.pics.length > 0;
+    return state.notes.length > 0 || state.strokes.length > 0 || state.pics.length > 0 || state.edits.length > 0;
   }
 
   // The ink (pen and highlighter lines, with the eraser's passes) is drawn on a layer of its own, so the eraser
   // takes out ink and never the picture under it; then the dimensions, and the notes on top.
-  function paintMarkup(c) {
+  function paintMarkup(c, editsOnly) {
+    paintEdits(c, editsOnly);   // changes to the PDF's own words are part of the page: under everything else
     drawPics(c);        // pictures added to the page lie on it, under the drawing and the notes
     var ink = [], dims = [], erased = false;
     state.strokes.forEach(function (s) { if (s.dim) dims.push(s); else { ink.push(s); if (s.erase) erased = true; } });
@@ -1621,6 +1636,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (cropping && doc && cropping.pg === doc.pages[doc.cur]) drawCrop(ctx);
     if (redacting && doc && redacting.pg === doc.pages[doc.cur]) drawRedacting(ctx);
     if (comparing && doc) drawCompare(ctx);
+    if (editing && doc && editing.pg === doc.pages[doc.cur]) { drawEditing(ctx); placeTxtEdit(); }
     // Previews while a size is being changed, by Ctrl + drag or by a slider. Text and eraser sizes get a label
     // with the number; the pen tip is shown at its real size and needs none.
     var sizing = drag && drag.part === "size" ? drag.what : null, hud = null;
@@ -1687,10 +1703,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
 
   // ---------- state helpers ----------
   var future = [];
-  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, pics: state.pics, sel: state.sel, picks: state.picks, dpi: state.dpi }); }
+  function current() { return JSON.stringify({ notes: state.notes, strokes: state.strokes, pics: state.pics, edits: state.edits, sel: state.sel, picks: state.picks, dpi: state.dpi }); }
   function restore(s) {
     var o = JSON.parse(s);
-    state.notes = o.notes; state.strokes = o.strokes || []; state.pics = o.pics || []; state.sel = Math.min(o.sel, state.notes.length - 1);
+    state.notes = o.notes; state.strokes = o.strokes || []; state.pics = o.pics || []; state.edits = o.edits || []; state.sel = Math.min(o.sel, state.notes.length - 1);
     if (typeof o.dpi === "number") state.dpi = o.dpi;
     state.picks = (o.picks || []).filter(function (i) { return i < state.notes.length; });
     if (state.sel < 0) state.picks = [];
@@ -2981,6 +2997,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(menuItem("Copy to clipboard", "Ctrl+C", copyImage, { disabled: !state.img }));
       rule();
       // the page tools are the page's own menu, as in the page strip
+      if (canEditText()) add(menuItem("Edit text…", "", startEditText));
       add(menuItem("Page", "▸", function () { openPageMenu(doc ? doc.cur : null, cx, cy); }, { disabled: !state.img }));
       add(menuItem("Compare with…", "", startCompare, { disabled: !state.img }));
       if (doc && doc.sources.some(function (src) { return src.fields; })) add(menuItem("Fill in form…", "", openForm));
@@ -3024,6 +3041,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (e.key === "Enter") applyCrop(); else { endCrop(); status("Not cropped."); }
       return;
     }
+    if (editing && e.key === "Escape" && !document.querySelector(".modal.open")) { e.preventDefault(); endEditText(); status("Done editing text."); return; }
     if (redacting && !document.querySelector(".modal.open") && (e.key === "Enter" || e.key === "Escape" || e.key === "Backspace" || e.key === "Delete")) {
       e.preventDefault();
       if (e.key === "Enter") applyRedact();
@@ -3134,7 +3152,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     return pdfLibReady;
   }
   function isPdf(file) { return !!file && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || "")); }
-  function hasMarkup(pg) { return pg.notes.length > 0 || pg.strokes.length > 0 || (pg.pics || []).length > 0; }
+  function hasMarkup(pg) { return pg.notes.length > 0 || pg.strokes.length > 0 || (pg.pics || []).length > 0 || (pg.edits || []).length > 0; }
   function whitePage() {
     if (!whiteCanvas) {
       whiteCanvas = document.createElement("canvas"); whiteCanvas.width = whiteCanvas.height = 2;
@@ -3157,7 +3175,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function newPage(source, n, proxy, bw, bh, k) {
     var pg = { source: source, n: n, proxy: proxy || null, bw: bw, bh: bh, k: k, rot: 0, crop: null, gen: 0,
                img: null, rendering: null, used: 0, el: null, thumb: null,
-               notes: [], strokes: [], pics: [], sel: -1, picks: [], history: [], future: [] };
+               notes: [], strokes: [], pics: [], edits: [], sel: -1, picks: [], history: [], future: [] };
     sizePage(pg);
     pg.refW = pg.w; pg.refH = pg.h;           // markup sizes stay as they were when the page is turned or cropped
     return pg;
@@ -3179,10 +3197,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     return { x: c.x, y: c.y };
   }
   // Draw a page as shown onto a canvas, at k pixels to the point. Returns a promise.
+  // A PDF page's viewport as it is shown (turned and cropped), at k pixels to the point: from the PDF's own
+  // coordinates to the page's pixels and back.
+  function pageViewport(pg, k) {
+    var t = turnedCrop(pg);
+    k = k || pg.k;
+    return pg.proxy.getViewport({ scale: k, rotation: ((pg.proxy.rotate || 0) + pg.rot) % 360, offsetX: -t.x * k, offsetY: -t.y * k });
+  }
   function paintPage(pg, c, k) {
     if (pg.source.kind === "pdf") {
-      var t = turnedCrop(pg);
-      var vp = pg.proxy.getViewport({ scale: k, rotation: ((pg.proxy.rotate || 0) + pg.rot) % 360, offsetX: -t.x * k, offsetY: -t.y * k });
+      var vp = pageViewport(pg, k);
       // form fields drawn with what has been filled in (Fill in form), redactions on top
       var opts = { canvas: c, viewport: vp, background: "#ffffff" };
       if (pdfjsLib && pdfjsLib.AnnotationMode) opts.annotationMode = pdfjsLib.AnnotationMode.ENABLE_STORAGE;
@@ -3292,7 +3316,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var source = state.blank ? { kind: "blank", label: "Blank page", dpi: 96 }
                              : imageSource(state.img, state.file, state.dpi || 96, state.name);
     var pg = newPage(source, 1, null, state.w * 72 / source.dpi, state.h * 72 / source.dpi, source.dpi / 72);
-    pg.notes = state.notes; pg.strokes = state.strokes; pg.pics = state.pics; pg.sel = state.sel; pg.picks = state.picks;
+    pg.notes = state.notes; pg.strokes = state.strokes; pg.pics = state.pics; pg.sel = state.sel; pg.picks = state.picks; pg.edits = [];
     pg.history = history; pg.future = future; pg.pageRatio = state.pageRatio;
     var label = state.blank ? "Blank page" : (state.file && state.file.name) || state.name;
     doc = { name: state.name, label: label, sources: [source], cur: 0, pages: [pg] };
@@ -3322,6 +3346,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (cropping) endCrop();
     if (redacting) endRedact();
     if (comparing) endCompare();
+    if (editing) endEditText();
     var old = doc; doc = null;
     old.sources.forEach(function (src) { if (src.pdf) { try { src.pdf.destroy(); } catch (e) { /* already gone */ } } });
     thumbQueue = [];
@@ -3355,14 +3380,15 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function stashPage() {
     if (!doc) return;
     var pg = doc.pages[doc.cur];
-    pg.notes = state.notes; pg.strokes = state.strokes; pg.sel = state.sel; pg.picks = state.picks; pg.pageRatio = state.pageRatio; pg.pics = state.pics;
+    pg.notes = state.notes; pg.strokes = state.strokes; pg.sel = state.sel; pg.picks = state.picks; pg.pageRatio = state.pageRatio; pg.pics = state.pics; pg.edits = state.edits;
     pg.history = history; pg.future = future;
   }
   function showPage(i, first, said) {
     if (!doc || i < 0 || i >= doc.pages.length || (!first && i === doc.cur)) return;
     if (cropping && cropping.pg !== doc.pages[i]) endCrop();
     if (redacting && redacting.pg !== doc.pages[i]) endRedact();
-    if (comparing) comparing.show = false;
+    if (editing && editing.pg !== doc.pages[i]) endEditText();
+    if (comparing && comparing.view !== "this") setTimeout(function () { if (comparing) cmpView(comparing.view); }, 0);   // the same view on the next page
     $("noteText").blur();
     if (drag) endDrag(true);
     closeMenu();
@@ -3370,7 +3396,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     doc.cur = i;
     var pg = doc.pages[i], total = doc.pages.length;
     state.notes = pg.notes; state.strokes = pg.strokes; state.sel = pg.sel; state.picks = pg.picks; state.pageRatio = pg.pageRatio != null ? pg.pageRatio : null;
-    state.pics = pg.pics || []; picSel = null;
+    state.pics = pg.pics || []; state.edits = pg.edits || []; state.pg = pg; picSel = null;
     closeAsk(true);
     history = pg.history; future = pg.future;
     state.w = pg.w; state.h = pg.h; state.refW = pg.refW; state.refH = pg.refH; state.img = pg.img || whitePage();
@@ -3446,13 +3472,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     cp.rot = pg.rot; cp.crop = pg.crop ? { x: pg.crop.x, y: pg.crop.y, w: pg.crop.w, h: pg.crop.h } : null;
     sizePage(cp); cp.refW = pg.refW; cp.refH = pg.refH; cp.pageRatio = pg.pageRatio;
     if (pg.redact) cp.redact = pg.redact.map(function (r) { return { x: r.x, y: r.y, w: r.w, h: r.h }; });
-    var m = JSON.parse(JSON.stringify({ notes: pg.notes, strokes: pg.strokes, pics: pg.pics || [] }));
+    var m = JSON.parse(JSON.stringify({ notes: pg.notes, strokes: pg.strokes, pics: pg.pics || [], edits: pg.edits || [] }));
     m.notes.forEach(function (n) { n.id = state.nextId++; });
     m.pics.forEach(function (q) {   // the copy's pictures are pictures of their own, showing the same image
       var id = "pic" + (state.nextId++) + Date.now().toString(36);
       picStore[id] = picStore[q.id]; if (picThumb[q.id]) picThumb[id] = picThumb[q.id]; q.id = id;
     });
-    cp.notes = m.notes; cp.strokes = m.strokes; cp.pics = m.pics;
+    cp.notes = m.notes; cp.strokes = m.strokes; cp.pics = m.pics; cp.edits = m.edits;
     doc.pages.splice(i + 1, 0, cp);
     buildPageList();
     showPage(i + 1, true, "Page " + (i + 1) + " duplicated, with its markup: the copy is page " + (i + 2) + " of " + doc.pages.length + ".");
@@ -3501,6 +3527,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag) endDrag(true);
     if (redacting) endRedact();
     if (comparing) endCompare();
+    if (editing) endEditText();
     var pg = doc.pages[doc.cur];
     cropping = { pg: pg, r: null, act: null };     // no frame until one is dragged out
     $("cropBar").hidden = false;
@@ -3624,6 +3651,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (drag) endDrag(true);
     if (cropping) endCrop();
     if (comparing) endCompare();
+    if (editing) endEditText();
     redacting = { pg: doc.pages[doc.cur], boxes: [], act: null };
     $("redactBar").hidden = false;
     render();
@@ -3823,6 +3851,286 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     try { form.updateFieldAppearances(); } catch (e) { /* the old looks stay */ }
   }
 
+  // ----- Edit text: change the words already in a PDF, add words, or white out an area -----
+  // The PDF's own fonts can rarely be written with again (they hold only the letters used), so a change covers the
+  // old words in the colour round them and sets the new ones in the nearest standard face (sans, serif or mono,
+  // bold and italic as the old), at their size, place and colour. An edit is kept in the PDF's own coordinates:
+  // { x, y (where the words start, on the baseline), size, angle, family, bold, italic, color, text, cover, bg },
+  // cover being { x, y, w, h, angle }: the box over what was there. Each change is a step to undo.
+  var editing = null;
+  function editFamily(ed) { return ed.family === "serif" ? '"Times New Roman", Times, serif' : ed.family === "mono" ? '"Courier New", Courier, monospace' : "Arial, Helvetica, sans-serif"; }
+  function editFont(ed, px) { return (ed.italic ? "italic " : "") + (ed.bold ? "700 " : "400 ") + px + "px " + editFamily(ed); }
+  function coverQuad(cv) {
+    var c = Math.cos(cv.angle || 0), s = Math.sin(cv.angle || 0);
+    return [[0, 0], [cv.w, 0], [cv.w, cv.h], [0, cv.h]].map(function (q) { return [cv.x + c * q[0] - s * q[1], cv.y + s * q[0] + c * q[1]]; });
+  }
+  // the edits of the page being painted (state.pg), in its pixels; `only` keeps some of them (the export writes
+  // the rest into the PDF itself)
+  function paintEdits(c, only) {
+    var pg = state.pg;
+    if (!pg || !pg.proxy || !state.edits || !state.edits.length) return;
+    var vp = pageViewport(pg);
+    state.edits.forEach(function (ed) {
+      if (only && !only(ed)) return;
+      c.save();
+      if (ed.cover) {
+        var q = coverQuad(ed.cover).map(function (p) { return vp.convertToViewportPoint(p[0], p[1]); });
+        c.beginPath(); c.moveTo(q[0][0], q[0][1]); for (var i = 1; i < 4; i++) c.lineTo(q[i][0], q[i][1]); c.closePath();
+        c.fillStyle = ed.bg || "#ffffff"; c.fill();
+      }
+      if (ed.text) {
+        var o = vp.convertToViewportPoint(ed.x, ed.y), o2 = vp.convertToViewportPoint(ed.x + Math.cos(ed.angle || 0), ed.y + Math.sin(ed.angle || 0));
+        c.translate(o[0], o[1]); c.rotate(Math.atan2(o2[1] - o[1], o2[0] - o[0]));
+        c.font = editFont(ed, ed.size * Math.hypot(o2[0] - o[0], o2[1] - o[1]));
+        c.fillStyle = ed.color || "#111214"; c.textBaseline = "alphabetic";
+        c.fillText(ed.text, 0, 0);
+      }
+      c.restore();
+    });
+  }
+  // The words on a PDF page, as PDF.js reads them: each run with where it starts, its size, angle, width and face
+  function pageText(pg) {
+    if (pg.textItems) return Promise.resolve(pg.textItems);
+    return pg.proxy.getTextContent().then(function (tc) {
+      var items = [];
+      tc.items.forEach(function (it, i) {
+        if (!it.str || !it.str.trim() || !it.transform) return;
+        var tr = it.transform, sx = Math.hypot(tr[0], tr[1]), sy = Math.hypot(tr[2], tr[3]), st = tc.styles[it.fontName] || {};
+        if (!sx || !sy || st.vertical) return;
+        // the face: serif, sans or mono from what PDF.js would fall back to; bold and italic from the font itself
+        var fam = /mono/i.test(st.fontFamily || "") ? "mono" : /^serif/i.test(st.fontFamily || "") ? "serif" : "sans", f = null;
+        try { if (pg.proxy.commonObjs.has(it.fontName)) f = pg.proxy.commonObjs.get(it.fontName); } catch (e) { f = null; }
+        var name = (f && (f.name || f.loadedName)) || "";
+        if (/Courier|Mono|Consol/i.test(name)) fam = "mono"; else if (/Times|Georgia|Garamond|Serif/i.test(name) && !/Sans/i.test(name)) fam = "serif";
+        items.push({ i: i, str: it.str, x: tr[4], y: tr[5], size: sy, angle: Math.atan2(tr[1], tr[0]), width: it.width || sx * it.str.length * 0.5,
+                     asc: st.ascent || 0.8, desc: st.descent || -0.2, family: fam,
+                     bold: !!(f && (f.bold || f.black)) || /Bold|Black|Heavy|Semibold|Demi/i.test(name), italic: !!(f && f.italic) || /Italic|Oblique/i.test(name) });
+      });
+      pg.textItems = items;
+      return items;
+    });
+  }
+  // a run's box: round its letters (with a little room), as a cover in the PDF's coordinates
+  function itemCover(it, pad) {
+    var p = it.size * pad, c = Math.cos(it.angle), s = Math.sin(it.angle), down = it.size * it.desc - p;
+    return { x: it.x - c * p - (-s) * -down, y: it.y - s * p - c * -down, w: it.width + 2 * p, h: it.size * (it.asc - it.desc) + 2 * p, angle: it.angle };
+  }
+  function boxOf(vp, cv) {
+    var q = coverQuad(cv).map(function (p) { return vp.convertToViewportPoint(p[0], p[1]); });
+    return [Math.min(q[0][0], q[1][0], q[2][0], q[3][0]), Math.min(q[0][1], q[1][1], q[2][1], q[3][1]), Math.max(q[0][0], q[1][0], q[2][0], q[3][0]), Math.max(q[0][1], q[1][1], q[2][1], q[3][1])];
+  }
+  // the box an edit's words take up (or its cover), in page pixels
+  function editBox(vp, ed) {
+    if (!ed.text && ed.cover) return boxOf(vp, ed.cover);
+    ctx.save(); ctx.font = editFont(ed, 100); var w = ctx.measureText(ed.text || "M").width / 100 * ed.size; ctx.restore();
+    var an = ed.angle || 0, b = boxOf(vp, { x: ed.x + Math.sin(an) * ed.size * 0.25, y: ed.y - Math.cos(an) * ed.size * 0.25, w: Math.max(w, ed.size), h: ed.size * 1.15, angle: an });
+    return ed.cover ? (function (c) { return [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[2]), Math.max(b[3], c[3])]; })(boxOf(vp, ed.cover)) : b;
+  }
+  // the colours under a box of the page as drawn: the background (round its edge) and the ink (what differs most)
+  function sampleColours(pg, box) {
+    var out = { bg: "#ffffff", ink: "#111214" };
+    var img = pg.img;
+    if (!img || !img.getContext) return out;
+    var x0 = clamp(Math.floor(box[0]) - 2, 0, pg.w - 1), y0 = clamp(Math.floor(box[1]) - 2, 0, pg.h - 1), x1 = clamp(Math.ceil(box[2]) + 2, x0 + 1, pg.w), y1 = clamp(Math.ceil(box[3]) + 2, y0 + 1, pg.h);
+    var d = img.getContext("2d").getImageData(x0, y0, x1 - x0, y1 - y0).data, W = x1 - x0, H = y1 - y0, edge = [], all = [];
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var i = (y * W + x) * 4, px = [d[i], d[i + 1], d[i + 2]];
+      all.push(px);
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) edge.push(px);
+    }
+    var med = function (a, k) { var v = a.map(function (p) { return p[k]; }).sort(function (m, n) { return m - n; }); return v[v.length >> 1] || 0; };
+    var bg = [med(edge, 0), med(edge, 1), med(edge, 2)];
+    var far = 0;
+    all.forEach(function (p) { far = Math.max(far, Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2])); });
+    var inkPx = all.filter(function (p) { return far > 60 && Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) >= far * 0.7; });
+    var hex = function (c) { return "#" + c.map(function (v) { return ("0" + Math.round(v).toString(16)).slice(-2); }).join(""); };
+    out.bg = hex(bg);
+    if (inkPx.length) out.ink = hex([med(inkPx, 0), med(inkPx, 1), med(inkPx, 2)]);
+    return out;
+  }
+  function canEditText() { return !!(doc && doc.pages[doc.cur] && doc.pages[doc.cur].proxy); }
+  function startEditText() {
+    if (!canEditText()) { status("Edit text works on a PDF's pages."); return; }
+    closeMenu();
+    if (drag) endDrag(true);
+    if (cropping) endCrop();
+    if (redacting) endRedact();
+    if (comparing) endCompare();
+    var pg = doc.pages[doc.cur];
+    status("Reading the words on this page…");
+    renderPage(pg).then(function () { return pageText(pg); }).then(function (items) {
+      if (!doc || doc.pages[doc.cur] !== pg) return;
+      editing = { pg: pg, items: items, act: null, hover: null, open: null };
+      $("editBar").hidden = false;
+      render();
+      status(items.length ? "Edit text: click words to change them (empty deletes them), click a clear spot to add words, or drag over an area to white it out. Each change can be undone." : "This page has no words PDF.js can read (it may be a scan): click to add words, or drag to white out an area.");
+    }, function () { status("The words on this page could not be read."); });
+  }
+  function endEditText() {
+    if (!editing) return;
+    closeTxtEdit(true);
+    editing = null;
+    $("editBar").hidden = true; canvas.style.cursor = "";
+    render();
+  }
+  // what is under a point: one of this page's edits (its words or cover), or one of the PDF's own runs of words
+  function editTarget(p) {
+    var vp = pageViewport(editing.pg), i, b;
+    for (i = state.edits.length - 1; i >= 0; i--) {
+      b = editBox(vp, state.edits[i]);
+      if (b && state.edits[i].text && p.x >= b[0] && p.x <= b[2] && p.y >= b[1] && p.y <= b[3]) return { edit: state.edits[i] };
+    }
+    for (i = editing.items.length - 1; i >= 0; i--) {
+      var it = editing.items[i];
+      if (state.edits.some(function (e) { return e.src === it.i; })) continue;          // already changed
+      b = boxOf(vp, itemCover(it, 0.08));
+      if (p.x >= b[0] && p.x <= b[2] && p.y >= b[1] && p.y <= b[3]) return { item: it, box: b };
+    }
+    return null;
+  }
+  function drawEditing(c) {
+    var vp = pageViewport(editing.pg), u = 1 / view.s;
+    c.save();
+    c.lineWidth = u;
+    editing.items.forEach(function (it) {
+      if (state.edits.some(function (e) { return e.src === it.i; })) return;
+      var b = boxOf(vp, itemCover(it, 0.08));
+      c.strokeStyle = "rgba(30,99,200,0.35)"; c.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    });
+    state.edits.forEach(function (ed) {
+      var b = editBox(vp, ed); if (!b) return;
+      c.setLineDash([4 * u, 3 * u]); c.strokeStyle = "rgba(30,99,200,0.6)"; c.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); c.setLineDash([]);
+    });
+    var h = editing.hover;
+    if (h) {
+      var hb = h.edit ? editBox(vp, h.edit) : h.box;
+      if (hb) { c.lineWidth = 2 * u; c.strokeStyle = "#1e63c8"; c.strokeRect(hb[0], hb[1], hb[2] - hb[0], hb[3] - hb[1]); }
+    }
+    var a = editing.act;
+    if (a && a.moved) {
+      var r = [Math.min(a.from[0], a.to[0]), Math.min(a.from[1], a.to[1]), Math.abs(a.to[0] - a.from[0]), Math.abs(a.to[1] - a.from[1])];
+      c.fillStyle = "rgba(255,255,255,0.85)"; c.fillRect(r[0], r[1], r[2], r[3]);
+      c.lineWidth = 1.5 * u; c.setLineDash([5 * u, 3 * u]); c.strokeStyle = "#1e63c8"; c.strokeRect(r[0], r[1], r[2], r[3]); c.setLineDash([]);
+    }
+    c.restore();
+  }
+  // The box to type in: over the words being changed, in their face and size (on screen), or where words go in
+  function openTxtEdit(t, p) {
+    closeTxtEdit(true);
+    var pg = editing.pg, vp = pageViewport(pg), ed, box;
+    if (t && t.edit) { ed = t.edit; box = editBox(vp, ed); }
+    else if (t && t.item) {
+      var it = t.item, cols = sampleColours(pg, t.box);
+      ed = { src: it.i, x: it.x, y: it.y, size: it.size, angle: it.angle, family: it.family, bold: it.bold, italic: it.italic, color: cols.ink, bg: cols.bg, text: it.str, cover: itemCover(it, 0.12), fresh: true };
+      box = t.box;
+    } else {
+      // new words: upright on screen, as large as the words on this page mostly are (12 pt failing that)
+      var sizes = editing.items.map(function (x) { return x.size; }).sort(function (a, b) { return a - b; }), size = sizes.length ? sizes[sizes.length >> 1] : 12;
+      var a0 = vp.convertToPdfPoint(p.x, p.y + size * pg.k * 0.35), a1 = vp.convertToPdfPoint(p.x + 10, p.y + size * pg.k * 0.35);
+      ed = { src: null, x: a0[0], y: a0[1], size: size, angle: Math.atan2(a1[1] - a0[1], a1[0] - a0[0]), family: "sans", bold: false, italic: false, color: "#111214", text: "", cover: null, fresh: true };
+      box = editBox(vp, ed);
+    }
+    var el = $("txtEdit"), o = vp.convertToViewportPoint(ed.x, ed.y), o2 = vp.convertToViewportPoint(ed.x + Math.cos(ed.angle || 0), ed.y + Math.sin(ed.angle || 0));
+    var px = ed.size * Math.hypot(o2[0] - o[0], o2[1] - o[1]) * view.s;
+    editing.open = { ed: ed, was: t && t.edit ? JSON.stringify(t.edit) : null };
+    el.style.font = editFont(ed, Math.max(8, px));
+    el.style.color = ed.color || "#111214";
+    el.style.background = ed.bg || "#ffffff";
+    el.value = ed.text;
+    el.hidden = false;
+    placeTxtEdit(box);
+    el.focus(); el.select();
+    render();
+  }
+  function placeTxtEdit(box) {
+    var el = $("txtEdit");
+    if (el.hidden || !editing || !editing.open) return;
+    if (!box) box = editBox(pageViewport(editing.pg), editing.open.ed);
+    var px = parseFloat(el.style.fontSize) || 12;
+    el.style.left = (view.ox + box[0] * view.s - 3) + "px";
+    el.style.top = (view.oy + (box[1] + box[3]) / 2 * view.s - px * 0.62) + "px";
+    ctx.save(); ctx.font = el.style.font; var w = ctx.measureText(el.value || "M").width; ctx.restore();
+    el.style.width = Math.max((box[2] - box[0]) * view.s, w + px * 0.6) + "px";
+  }
+  // Keep what was typed (or, with keep false, leave things as they were). Empty words over the PDF's own delete
+  // them; an added box left empty is not added.
+  function closeTxtEdit(keep) {
+    var el = $("txtEdit");
+    if (el.hidden) return;
+    el.hidden = true;
+    var o = editing && editing.open;
+    if (!o) return;
+    editing.open = null;
+    var ed = o.ed, text = el.value.replace(/\s+$/, "");
+    canvas.focus({ preventScroll: true });
+    if (!keep || (!ed.fresh && text === ed.text) || (ed.fresh && ed.src != null && text === ed.text) || (ed.fresh && ed.src == null && !text)) { render(); return; }
+    snapshot();
+    if (ed.fresh) {
+      delete ed.fresh;
+      ed.text = text;
+      state.edits.push(ed);
+    } else if (!text && ed.src == null && !ed.cover) {
+      state.edits.splice(state.edits.indexOf(ed), 1);
+    } else ed.text = text;
+    sync(); render();
+    status(!text ? "Words taken off the page. Undo brings them back." : "Changed. In the exported PDF the old words are covered over, not deleted: to take words out for good, use Redact. Undo brings them back.");
+  }
+  $("txtEdit").addEventListener("keydown", function (e) {
+    e.stopPropagation();
+    if (e.key === "Enter") { e.preventDefault(); closeTxtEdit(true); }
+    else if (e.key === "Escape") { e.preventDefault(); closeTxtEdit(false); }
+  });
+  $("txtEdit").addEventListener("input", function () { placeTxtEdit(); });
+  $("txtEdit").addEventListener("blur", function () { setTimeout(function () { if (document.activeElement !== $("txtEdit")) closeTxtEdit(true); }, 0); });
+  $("editDone").addEventListener("click", function () { endEditText(); status("Done editing text."); });
+  stage.addEventListener("pointerdown", function (e) {
+    if (!editing || e.target !== canvas) return;
+    e.stopPropagation(); e.preventDefault();
+    if (e.button !== 0) return;
+    closeTxtEdit(true);
+    var p = toImg(e);
+    editing.act = { from: [p.x, p.y], to: [p.x, p.y], moved: false, sx: e.clientX, sy: e.clientY };
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
+  }, true);
+  stage.addEventListener("pointermove", function (e) {
+    if (!editing) return;
+    if (e.target !== canvas && !editing.act) return;
+    e.stopPropagation();
+    var p = toImg(e), a = editing.act;
+    if (a) {
+      a.to = [clamp(p.x, 0, state.w), clamp(p.y, 0, state.h)];
+      if (!a.moved && Math.hypot(e.clientX - a.sx, e.clientY - a.sy) > 4) a.moved = true;
+      if (a.moved) render();
+      return;
+    }
+    var t = editTarget(p), was = editing.hover;
+    editing.hover = t;
+    canvas.style.cursor = t ? "text" : "crosshair";
+    if ((t && (t.edit || t.item)) !== (was && (was.edit || was.item))) render();
+  }, true);
+  stage.addEventListener("pointerup", function (e) {
+    if (!editing || !editing.act) return;
+    e.stopPropagation();
+    var a = editing.act, p = toImg(e);
+    editing.act = null;
+    if (a.moved) {
+      // white out the area dragged over, in the colour round it
+      var x0 = Math.min(a.from[0], a.to[0]), y0 = Math.min(a.from[1], a.to[1]), x1 = Math.max(a.from[0], a.to[0]), y1 = Math.max(a.from[1], a.to[1]);
+      if (x1 - x0 >= 2 && y1 - y0 >= 2) {
+        var vp = pageViewport(editing.pg), q = [vp.convertToPdfPoint(x0, y0), vp.convertToPdfPoint(x1, y0), vp.convertToPdfPoint(x1, y1), vp.convertToPdfPoint(x0, y1)];
+        var ux0 = Math.min(q[0][0], q[1][0], q[2][0], q[3][0]), uy0 = Math.min(q[0][1], q[1][1], q[2][1], q[3][1]), ux1 = Math.max(q[0][0], q[1][0], q[2][0], q[3][0]), uy1 = Math.max(q[0][1], q[1][1], q[2][1], q[3][1]);
+        var cols = sampleColours(editing.pg, [x0, y0, x1, y1]);
+        snapshot();
+        state.edits.push({ src: null, text: "", cover: { x: ux0, y: uy0, w: ux1 - ux0, h: uy1 - uy0, angle: 0 }, bg: cols.bg });
+        sync();
+        status("Area whited out. In the exported PDF what was there is covered over, not deleted (Redact deletes). Undo brings it back.");
+      }
+      render();
+      return;
+    }
+    openTxtEdit(editTarget(p), p);
+  }, true);
+
   // ----- Compare: this document against another version of it, page by page -----
   // Both pages are drawn at about 1400 px and compared; the areas that differ are ringed in magenta. Show other
   // puts the other file's page in place of this one; Mark with clouds puts a red revision cloud round each change.
@@ -3842,7 +4150,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     status("Comparing with " + (file.name || "the other file") + "…");
     return readPart(file).then(function (part) {
       if (!doc) return;
-      var c = comparing = { label: file.name || "the other file", part: part, boxes: new Map(), other: new Map(), img: new Map(), show: false };
+      var c = comparing = { label: file.name || "the other file", part: part, boxes: new Map(), other: new Map(), img: new Map(), tints: new Map(), view: "this",
+                            colThis: OVL_COLS[0], colOther: OVL_COLS[1], opThis: 1, opOther: 1 };
+      $("ovlThis").value = 100; $("ovlOther").value = 100; fillRange($("ovlThis")); fillRange($("ovlOther"));
       var n = Math.min(doc.pages.length, part.pages.length), chain = Promise.resolve();
       doc.pages.slice(0, n).forEach(function (pg, i) {
         c.other.set(pg, part.pages[i]);
@@ -3855,7 +4165,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       return chain.then(function () {
         if (comparing !== c || !doc) return;
         $("cmpBar").hidden = false;
-        cmpText(); render();
+        cmpText(); cmpView("this");
         var changed = [], total = 0;
         doc.pages.forEach(function (pg, i) { var b = c.boxes.get(pg); if (b && b.length) { changed.push(i + 1); total += b.length; } });
         var extra = (doc.pages.length > n ? " Page" + (doc.pages.length - n > 1 ? "s " + (n + 1) + "–" + doc.pages.length + " are" : " " + doc.pages.length + " is") + " not in " + c.label + "." : "") +
@@ -3919,8 +4229,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (!comparing || !doc) return;
     var pg = doc.pages[doc.cur], b = comparing.boxes.get(pg);
     $("cmpText").textContent = "Compared with " + comparing.label + " · " + (!comparing.other.has(pg) ? "this page is not in it" : !b || !b.length ? "no changes on this page" : b.length + (b.length === 1 ? " change" : " changes") + " on this page");
-    $("cmpOther").disabled = !comparing.other.has(pg);
-    $("cmpOther").setAttribute("aria-pressed", String(!!comparing.show));
+    $("cmpOther").disabled = $("cmpBoth").disabled = !comparing.other.has(pg);
   }
   function drawCompare(c) {
     var pg = doc.pages[doc.cur], b = comparing.boxes.get(pg), u = 1 / view.s;
@@ -3953,15 +4262,78 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (doc) state.img = doc.pages[doc.cur].img || state.img;
     render();
   }
-  $("cmpOther").addEventListener("click", function () {
+  // What the page shows while comparing: this file's page, the other's, or both laid over each other (Overlay),
+  // each tinted its own colour and as strong as its slider says, multiplied together as on a light table: where
+  // both have ink it mixes dark, where only one has it shows in that one's colour. The dots change the colours.
+  var OVL_COLS = ["#1e63c8", "#d6301f", "#1d8a4b", "#d4148c", "#e08a00", "#111214"];
+  function tinted(src, col, w, h) {
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var g = c.getContext("2d");
+    g.fillStyle = col; g.fillRect(0, 0, w, h);
+    g.globalCompositeOperation = "screen";        // white stays white, black becomes the colour
+    g.drawImage(src, 0, 0, w, h);
+    return c;
+  }
+  function overlayImage(pg) {
+    var c = comparing;
+    return Promise.all([renderPage(pg), otherImage(pg)]).then(function (r) {
+      if (!r[1] || comparing !== c) return null;
+      var key = c.colThis + c.colOther, t = c.tints.get(pg);
+      if (!t || t.key !== key) { t = { key: key, a: tinted(r[0], c.colThis, pg.w, pg.h), b: tinted(r[1], c.colOther, pg.w, pg.h) }; c.tints.set(pg, t); }
+      var out = c.ovlCanvas && c.ovlCanvas.width === pg.w && c.ovlCanvas.height === pg.h ? c.ovlCanvas : document.createElement("canvas");
+      out.width = pg.w; out.height = pg.h;
+      var g = out.getContext("2d");
+      g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; g.fillStyle = "#ffffff"; g.fillRect(0, 0, pg.w, pg.h);
+      g.globalCompositeOperation = "multiply";
+      g.globalAlpha = c.opThis; g.drawImage(t.a, 0, 0);
+      g.globalAlpha = c.opOther; g.drawImage(t.b, 0, 0);
+      g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+      c.ovlCanvas = out;
+      return out;
+    });
+  }
+  function cmpView(v) {
     if (!comparing || !doc) return;
     var pg = doc.pages[doc.cur], c = comparing;
-    c.show = !c.show;
-    if (!c.show) { state.img = pg.img || state.img; cmpText(); render(); status("This file's page again."); return; }
-    otherImage(pg).then(function (img) {
-      if (comparing !== c || !c.show || doc.pages[doc.cur] !== pg || !img) return;
-      state.img = img; cmpText(); render();
-      status("Showing " + c.label + "'s page " + (doc.pages.indexOf(pg) + 1) + ". Show other again goes back.");
+    if (!c.other.has(pg)) v = "this";
+    c.view = v;
+    ["cmpThis", "cmpOther", "cmpBoth"].forEach(function (id, i) { $(id).setAttribute("aria-pressed", String(v === ["this", "other", "overlay"][i])); });
+    $("cmpOvl").hidden = v !== "overlay";
+    $("ovlThisC").style.background = c.colThis; $("ovlOtherC").style.background = c.colOther;
+    if (v === "this") { if (pg.img) state.img = pg.img; render(); return Promise.resolve(); }
+    return (v === "other" ? otherImage(pg) : overlayImage(pg)).then(function (img) {
+      if (comparing !== c || c.view !== v || doc.pages[doc.cur] !== pg || !img) return;
+      state.img = img; render();
+    });
+  }
+  $("cmpThis").addEventListener("click", function () { cmpView("this"); status("This file's page."); });
+  $("cmpOther").addEventListener("click", function () {
+    if (!comparing || !doc) return;
+    var c = comparing, n = doc.cur + 1;
+    cmpView("other").then(function () { if (comparing === c && c.view === "other") status("Showing " + c.label + "'s page " + n + "."); });
+  });
+  $("cmpBoth").addEventListener("click", function () {
+    if (!comparing) return;
+    cmpView("overlay").then(function () { if (comparing && comparing.view === "overlay") status("Both pages over each other: this file in one colour, " + comparing.label + " in the other; where they agree the ink mixes dark."); });
+  });
+  var ovlFrame = 0;
+  [["ovlThis", "opThis"], ["ovlOther", "opOther"]].forEach(function (o) {
+    $(o[0]).addEventListener("input", function (e) {
+      if (!comparing) return;
+      comparing[o[1]] = e.target.value / 100;
+      fillRange(e.target);
+      cancelAnimationFrame(ovlFrame);
+      ovlFrame = requestAnimationFrame(function () { if (comparing && comparing.view === "overlay") cmpView("overlay"); });
+    });
+  });
+  [["ovlThisC", "colThis", "colOther"], ["ovlOtherC", "colOther", "colThis"]].forEach(function (o) {
+    $(o[0]).addEventListener("click", function (e) {
+      e.preventDefault();
+      if (!comparing) return;
+      var i = OVL_COLS.indexOf(comparing[o[1]]), next;
+      do { i = (i + 1) % OVL_COLS.length; next = OVL_COLS[i]; } while (next === comparing[o[2]]);
+      comparing[o[1]] = next;
+      cmpView("overlay");
     });
   });
   $("cmpClouds").addEventListener("click", function () {
@@ -4086,9 +4458,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // ----- PDF export -----
   // Paint with another page's size and markup standing in for the one on screen.
   function withPage(pg, fn) {
-    var keep = { w: state.w, h: state.h, refW: state.refW, refH: state.refH, notes: state.notes, strokes: state.strokes, pics: state.pics };
-    state.w = pg.w; state.h = pg.h; state.refW = pg.refW; state.refH = pg.refH; state.notes = pg.notes; state.strokes = pg.strokes; state.pics = pg.pics || [];
-    try { return fn(); } finally { state.w = keep.w; state.h = keep.h; state.refW = keep.refW; state.refH = keep.refH; state.notes = keep.notes; state.strokes = keep.strokes; state.pics = keep.pics; }
+    var keep = { w: state.w, h: state.h, refW: state.refW, refH: state.refH, notes: state.notes, strokes: state.strokes, pics: state.pics, edits: state.edits, pg: state.pg };
+    state.w = pg.w; state.h = pg.h; state.refW = pg.refW; state.refH = pg.refH; state.notes = pg.notes; state.strokes = pg.strokes; state.pics = pg.pics || []; state.edits = pg.edits || []; state.pg = pg;
+    try { return fn(); } finally { state.w = keep.w; state.h = keep.h; state.refW = keep.refW; state.refH = keep.refH; state.notes = keep.notes; state.strokes = keep.strokes; state.pics = keep.pics; state.edits = keep.edits; state.pg = keep.pg; }
   }
   function canvasBytes(c, type, quality) {
     return new Promise(function (resolve, reject) {
@@ -4099,10 +4471,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
   }
   // A page's markup alone, on a transparent background, cut down to the part that has anything on it.
-  function overlayPng(pg) {
+  function overlayPng(pg, editsIn) {
     var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
     var g = c.getContext("2d");
-    withPage(pg, function () { paintMarkup(g); });
+    withPage(pg, function () { paintMarkup(g, editsIn ? function (ed) { return editsIn.indexOf(ed) >= 0; } : null); });
     var d = g.getImageData(0, 0, pg.w, pg.h).data, x0 = pg.w, y0 = pg.h, x1 = -1, y1 = -1;
     for (var y = 0, i = 3; y < pg.h; y++) {
       for (var x = 0; x < pg.w; x++, i += 4) {
@@ -4212,6 +4584,109 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     src.embedded = { out: out, img: p };
     return p;
   }
+  // Changes to a page's words, written into the PDF page: the covers as filled boxes, the words as text in a standard
+  // PDF face. Resolves to the edits whose words those faces cannot write (letters outside their set, such as ř):
+  // those go into the markup picture laid over the page instead.
+  var STD_FACES = { sans: ["Helvetica", "HelveticaBold", "HelveticaOblique", "HelveticaBoldOblique"], serif: ["TimesRoman", "TimesRomanBold", "TimesRomanItalic", "TimesRomanBoldItalic"],
+                    mono: ["Courier", "CourierBold", "CourierOblique", "CourierBoldOblique"] };
+  function hexRgb(L, hex) { var n = parseInt(String(hex || "#000000").slice(1), 16) || 0; return L.rgb((n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255); }
+  function pdfEdits(L, out, page, pg) {
+    var edits = pg.edits || [], raster = [], chain = Promise.resolve();
+    if (!out.__faces) out.__faces = {};
+    edits.forEach(function (ed) {
+      chain = chain.then(function () {
+        if (ed.cover) page.drawRectangle({ x: ed.cover.x, y: ed.cover.y, width: ed.cover.w, height: ed.cover.h, rotate: L.degrees((ed.cover.angle || 0) * 180 / Math.PI), color: hexRgb(L, ed.bg || "#ffffff"), borderWidth: 0 });
+        if (!ed.text) return;
+        var name = (STD_FACES[ed.family] || STD_FACES.sans)[(ed.bold ? 1 : 0) + (ed.italic ? 2 : 0)];
+        if (!out.__faces[name]) out.__faces[name] = out.embedFont(L.StandardFonts[name]);
+        return out.__faces[name].then(function (font) {
+          try {
+            font.encodeText(ed.text);
+            page.drawText(ed.text, { x: ed.x, y: ed.y, size: ed.size, font: font, color: hexRgb(L, ed.color || "#111214"), rotate: L.degrees((ed.angle || 0) * 180 / Math.PI) });
+          } catch (e) { raster.push(ed); }
+        });
+      });
+    });
+    return chain.then(function () { return raster; });
+  }
+  // Compact: the PDF made smaller with its lines and text as they are (vectors stay vectors). The pictures in it that
+  // are large are made JPEGs of at most 2000 px across, and streams kept unpacked are packed; each only where that
+  // comes out smaller. Pictures it cannot safely redo (CMYK, indexed colours, masks and the like) are left alone.
+  function streamThrough(bytes, t) { return new Response(new Blob([bytes]).stream().pipeThrough(t)).arrayBuffer().then(function (b) { return new Uint8Array(b); }); }
+  // undo the PNG predictors a flate-packed picture may use, row by row
+  function unpredict(data, w, comps) {
+    var row = w * comps, out = new Uint8Array(row * Math.floor(data.length / (row + 1))), prev = new Uint8Array(row), r, i, at = 0, o = 0;
+    for (r = 0; at + row + 1 <= data.length; r++) {
+      var type = data[at++], cur = out.subarray(o, o + row);
+      for (i = 0; i < row; i++) {
+        var x = data[at + i], a = i >= comps ? cur[i - comps] : 0, b = prev[i], c = i >= comps ? prev[i - comps] : 0;
+        if (type === 1) x += a; else if (type === 2) x += b; else if (type === 3) x += (a + b) >> 1;
+        else if (type === 4) { var pa = Math.abs(b - c), pb = Math.abs(a - c), pc = Math.abs(a + b - 2 * c); x += pa <= pb && pa <= pc ? a : pb <= pc ? b : c; }
+        cur[i] = x & 255;
+      }
+      prev = cur; at += row; o += row;
+    }
+    return out;
+  }
+  function compactPdf(L, out) {
+    if (typeof DecompressionStream === "undefined") return Promise.resolve();
+    var N = function (n) { return L.PDFName.of(n); }, cx = out.context, chain = Promise.resolve();
+    var num = function (v) { return v && v.asNumber ? v.asNumber() : NaN; };
+    cx.enumerateIndirectObjects().forEach(function (pair) {
+      var ref = pair[0], obj = pair[1];
+      if (!(obj instanceof L.PDFRawStream)) return;
+      var d = obj.dict, filter = d.lookup(N("Filter"));
+      if (filter instanceof L.PDFArray) filter = filter.size() === 1 ? filter.lookup(0) : null;
+      if (d.lookup(N("Subtype")) === N("Image")) {
+        chain = chain.then(function () {
+          var W = num(d.lookup(N("Width"))), H = num(d.lookup(N("Height"))), bpc = num(d.lookup(N("BitsPerComponent"))), cs = d.lookup(N("ColorSpace")), comps = 0;
+          if (!(W * H > 250000) || d.lookup(N("ImageMask")) || d.lookup(N("Mask")) || d.lookup(N("Decode"))) return;
+          if (cs === N("DeviceRGB")) comps = 3; else if (cs === N("DeviceGray")) comps = 1;
+          else if (cs instanceof L.PDFArray && cs.lookup(0) === N("ICCBased")) { var icc = cs.lookup(1); comps = icc && icc.dict ? num(icc.dict.lookup(N("N"))) : 0; }
+          if (comps !== 1 && comps !== 3) return;
+          var bitmap;
+          if (filter === N("DCTDecode")) bitmap = createImageBitmap(new Blob([obj.contents], { type: "image/jpeg" }));
+          else if (filter === N("FlateDecode") && bpc === 8) {
+            var parms = d.lookup(N("DecodeParms")), pred = parms && parms.lookup ? num(parms.lookup(N("Predictor"))) || 1 : 1;
+            if (pred !== 1 && pred < 10) return;
+            bitmap = streamThrough(obj.contents, new DecompressionStream("deflate")).then(function (raw) {
+              if (pred >= 10) raw = unpredict(raw, W, comps);
+              if (raw.length < W * H * comps) throw new Error("short");
+              var im = new ImageData(W, H), p = im.data;
+              for (var i = 0, j = 0; i < W * H; i++, j += comps) {
+                p[i * 4] = raw[j]; p[i * 4 + 1] = comps === 3 ? raw[j + 1] : raw[j]; p[i * 4 + 2] = comps === 3 ? raw[j + 2] : raw[j]; p[i * 4 + 3] = 255;
+              }
+              return createImageBitmap(im);
+            });
+          } else return;
+          return bitmap.then(function (bm) {
+            var k = Math.min(1, 2000 / Math.max(W, H)), c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round(W * k)); c.height = Math.max(1, Math.round(H * k));
+            var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+            g.imageSmoothingQuality = "high"; g.drawImage(bm, 0, 0, c.width, c.height);
+            return canvasBytes(c, "image/jpeg", 0.75).then(function (jpg) {
+              if (jpg.length >= obj.contents.length * 0.85) return;
+              var nd = { Type: "XObject", Subtype: "Image", Width: c.width, Height: c.height, ColorSpace: "DeviceRGB", BitsPerComponent: 8, Filter: "DCTDecode" };
+              var ns = cx.stream(jpg, nd), sm = d.get(N("SMask"));
+              if (sm) ns.dict.set(N("SMask"), sm);
+              cx.assign(ref, ns);
+            });
+          });
+        }).catch(function () { /* a picture that could not be redone stays as it was */ });
+      } else if (!filter && obj.contents.length > 1024 && d.lookup(N("Type")) !== N("Metadata")) {
+        chain = chain.then(function () {
+          return streamThrough(obj.contents, new CompressionStream("deflate")).then(function (z) {
+            if (z.length >= obj.contents.length * 0.9) return;
+            var nd = d.clone(cx);
+            nd.set(N("Filter"), N("FlateDecode"));
+            nd.delete(N("DecodeParms"));
+            cx.assign(ref, L.PDFRawStream.of(nd, z));
+          });
+        }).catch(function () { /* left as it was */ });
+      }
+    });
+    return chain;
+  }
   // Turn and crop a page of the PDF being written as the page is shown.
   function shapePdfPage(L, page, pg) {
     if (pg.rot) page.setRotation(L.degrees(((((page.getRotation().angle || 0) + pg.rot) % 360) + 360) % 360));
@@ -4226,7 +4701,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // an image as a page of its own size, a blank page white; turned and cropped as shown, the markup on top.
   // One whole PDF, untouched apart from that, is kept as it is (its links, outline and form fields with it).
   function redacted(pg) { return !!(pg.redact && pg.redact.length); }
-  function fullPdf(L, d, pages) {
+  function fullPdf(L, d, pages, compact) {
     var src0 = d.sources[0], flat = new Set(pages.filter(redacted));   // redacted pages go in as pictures
     var whole = d.sources.length === 1 && src0.kind === "pdf" && pages.length === src0.count && !flat.size && pages.every(function (pg, k) { return pg.n === k + 1; });
     var base;
@@ -4272,6 +4747,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
             return renderPage(pg).then(function (img) {
               var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
               var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, pg.w, pg.h); g.drawImage(img, 0, 0);
+              withPage(pg, function () { paintEdits(g); });
               return canvasBytes(c, "image/jpeg", 0.92);
             }).then(function (bytes) { return out.embedJpg(bytes); }).then(function (jpg) { fp.drawImage(jpg, { x: 0, y: 0, width: pg.wPt, height: pg.hPt }); });
           }
@@ -4289,19 +4765,24 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       marked.forEach(function (pg, k) {
         chain = chain.then(function () {
           status("Adding markup to page " + (d.pages.indexOf(pg) + 1) + " (" + (k + 1) + " of " + marked.length + ")…");
-          return overlayPng(pg);
+          // a PDF page's changed words go in as text; a page made a picture has them in it already
+          if (flat.has(pg) || !pg.proxy || !(pg.edits || []).length) return overlayPng(pg, []);
+          return pdfEdits(L, b.out, b.pages[pages.indexOf(pg)], pg).then(function (raster) { return overlayPng(pg, raster); });
         }).then(function (o) {
           if (!o) return;
           return b.out.embedPng(o.bytes).then(function (img) { placeOverlay(L, b.pages[pages.indexOf(pg)], img, pg, o); });
         });
       });
-      return chain.then(function () { return b.out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false }; });
+      if (!compact) return chain.then(function () { return b.out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false }; });
+      return chain.then(function () { status("Making the pictures in it lighter…"); return compactPdf(L, b.out); })
+        .then(function () { return b.out.save({ useObjectStreams: true }); }).then(function (bytes) { return { bytes: bytes, flat: false, compact: true }; });
     });
   }
   // A PDF of some pages: full quality, or smaller (pages as pictures) when that does come out smaller.
   // A PDF that cannot be edited is saved as pictures of its pages instead.
-  function buildPdf(L, d, pages, small) {
-    var full = function () { return fullPdf(L, d, pages).catch(function () { return flattenPdf(L, pages); }); };
+  function buildPdf(L, d, pages, mode) {
+    var small = mode === "small";
+    var full = function () { return fullPdf(L, d, pages, mode === "compact").catch(function () { return flattenPdf(L, pages); }); };
     if (!small) return full();
     // about what these pages take up in what was opened: when the pictures come in under that, they are smaller
     var est = 0;
@@ -4336,7 +4817,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   var pageChoice = { how: "all" };
   function pagesText(pages) { return pages.length === doc.pages.length ? "" : pages.length === 1 ? "_p" + (doc.pages.indexOf(pages[0]) + 1) : "_p" + pages.map(function (pg) { return doc.pages.indexOf(pg) + 1; }).join("-").replace(/^(\d+)-.*-(\d+)$/, "$1-$2"); }
-  function exportPdf(small) {
+  function exportPdf(mode) {
+    var small = mode === "small";
     if (!doc || exporting) return;
     var pages = chosenPages();
     if (!pages) { status("Pages: type page numbers such as 1-3, 5 (this document has " + doc.pages.length + ")."); return; }
@@ -4346,11 +4828,11 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var origLen = d.sources.reduce(function (t, src) { return t + (src.bytes ? src.bytes.length : src.file ? src.file.size || 0 : 0); }, 0);
     status("Preparing the PDF…");
     pdfLib().then(function (L) {
-      if (!split) return buildPdf(L, d, pages, small).then(function (res) {
+      if (!split) return buildPdf(L, d, pages, mode).then(function (res) {
         var filename = d.name + pagesText(pages) + "_markup.pdf", n = marked.length, what = n === 0 ? "no markup on it yet" : "markup on " + n + (n === 1 ? " page" : " pages");
         saveBlob(new Blob([res.bytes], { type: "application/pdf" }), filename,
                  "Saved " + filename + " (" + pages.length + (pages.length === 1 ? " page, " : " pages, ") + what + ", " + sizeText(res.bytes.length) +
-                 (res.small && origLen ? "; what you opened was " + sizeText(origLen) : "") +
+                 ((res.small || res.compact) && origLen ? "; what you opened was " + sizeText(origLen) : "") +
                  (res.notSmaller ? "; as pictures it came out larger, as these pages are mostly lines and text, so it was saved at full quality" : "") +
                  (res.flat ? "; this PDF could not be edited, so its pages were saved as pictures)." : ")."), false);
       });
@@ -4359,7 +4841,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       pages.forEach(function (pg, i) {
         chain = chain.then(function () {
           status("Page " + (i + 1) + " of " + pages.length + "…");
-          return buildPdf(L, d, [pg], small);
+          return buildPdf(L, d, [pg], mode);
         }).then(function (res) { files.push({ name: d.name + "_p" + (d.pages.indexOf(pg) + 1) + "_markup.pdf", bytes: res.bytes }); });
       });
       return chain.then(function () {
@@ -4418,7 +4900,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       state.img = im; state.w = im.naturalWidth; state.h = im.naturalHeight; state.refW = state.w; state.refH = state.h; state.file = file;
       view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
       state.name = (file.name || "render").replace(/\.[^.]+$/, "");
-      state.notes = []; state.strokes = []; state.pics = []; picSel = null; picStore = {}; picThumb = {}; state.dpi = 96; state.pageRatio = null; select(-1); history = []; future = [];
+      state.notes = []; state.strokes = []; state.pics = []; state.edits = []; state.pg = null; picSel = null; picStore = {}; picThumb = {}; state.dpi = 96; state.pageRatio = null; select(-1); history = []; future = [];
       closeAsk(true);
       readDpi(file).then(function (d) { if (d && token === loadToken && !doc) { state.dpi = d; sync(); } });
       state.blank = false; stage.classList.add("has-image");
@@ -4557,6 +5039,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("expJpgNote").textContent = pics + ", a smaller file than PNG.";
     $("pdfFullNote").textContent = !doc ? "The image on a page of its print size, at full resolution."
       : (split ? which + ", each a PDF of its own in a .zip" : n === 1 ? which + " as a PDF" : which) + ", sharp at any zoom, with the markup on top.";
+    $("pdfCompactNote").textContent = !doc ? "The image on a page as a JPEG at full resolution: smaller than full quality, still sharp."
+      : (split ? which + ", each a PDF in a .zip" : which) + " sharp at any zoom, as full quality, with the pictures in it made lighter: much smaller when it holds photos or scans.";
     $("pdfSmallNote").textContent = !doc ? "The image on a page as a picture at about 150 dpi: a small file to send."
       : (split ? which + " as PDFs in a .zip, each page" : n === 1 ? which : which + ", each") + " as a picture at about 150 dpi: usually far smaller, but text and lines are no longer sharp when zoomed in.";
   }
@@ -4577,8 +5061,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("expSplit").addEventListener("change", expNotes);
   $("expPng").addEventListener("click", function () { closeModal("pdfModal"); saveImages("png"); });
   $("expJpg").addEventListener("click", function () { closeModal("pdfModal"); saveImages("jpg"); });
-  $("pdfFull").addEventListener("click", function () { if (doc && !chosenPages()) { expNotes(); $("pgList").focus(); return; } closeModal("pdfModal"); if (doc) exportPdf(false); else imagePdf(false); });
-  $("pdfSmall").addEventListener("click", function () { if (doc && !chosenPages()) { expNotes(); $("pgList").focus(); return; } closeModal("pdfModal"); if (doc) exportPdf(true); else imagePdf(true); });
+  [["pdfFull", "full"], ["pdfCompact", "compact"], ["pdfSmall", "small"]].forEach(function (o) {
+    $(o[0]).addEventListener("click", function () {
+      if (doc && !chosenPages()) { expNotes(); $("pgList").focus(); return; }
+      closeModal("pdfModal");
+      if (doc) exportPdf(o[1]); else imagePdf(o[1]);
+    });
+  });
   // PNG or JPG of the pages chosen: one page as a file, several in a .zip
   function saveImages(type) {
     if (!doc) { if (type === "png") savePng(); else saveJpg(); return; }
@@ -4646,7 +5135,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   // An image as a PDF: one page of its print size (its resolution says how big), the picture at full resolution,
   // or as a JPEG at about 150 dpi for a smaller file
-  function imagePdf(small) {
+  function imagePdf(mode) {
+    var small = mode === "small", jpeg = mode !== "full";
     if (!state.img || exporting) return;
     exporting = true;
     var filename = state.name + "_markup.pdf", dpi = state.dpi || 96, wPt = state.w / dpi * 72, hPt = state.h / dpi * 72;
@@ -4659,9 +5149,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         var g = s2.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, s2.width, s2.height); g.drawImage(c, 0, 0, s2.width, s2.height);
         c = s2;
       }
-      return canvasBytes(c, small ? "image/jpeg" : "image/png", small ? 0.75 : undefined).then(function (bytes) {
+      if (jpeg && !small) {
+        // compact: a JPEG at full resolution, on white
+        var w2 = document.createElement("canvas"); w2.width = c.width; w2.height = c.height;
+        var g2 = w2.getContext("2d"); g2.fillStyle = "#ffffff"; g2.fillRect(0, 0, w2.width, w2.height); g2.drawImage(c, 0, 0); c = w2;
+      }
+      return canvasBytes(c, jpeg ? "image/jpeg" : "image/png", small ? 0.75 : jpeg ? 0.85 : undefined).then(function (bytes) {
         return L.PDFDocument.create().then(function (out) {
-          return (small ? out.embedJpg(bytes) : out.embedPng(bytes)).then(function (img) {
+          return (jpeg ? out.embedJpg(bytes) : out.embedPng(bytes)).then(function (img) {
             out.addPage([wPt, hPt]).drawImage(img, { x: 0, y: 0, width: wPt, height: hPt });
             return out.save({ useObjectStreams: true });
           });
