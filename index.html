@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans+Condensed:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
 <style>
+/* osifont: the free ISO 3098 lettering that stands in for ISOCPEUR where AutoCAD's is not installed */
+@font-face { font-family: "osifont"; src: url("fonts/osifont-lgpl3fe.ttf") format("truetype"); font-display: swap; }
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
    The look is Loriini's (samiabdulnour/loriini, app/theme.py and scripts/make_icons.py): a light grey surround,
@@ -229,6 +231,8 @@ input.entry, .scalebox input {
 .scalebox .row button { flex: 1; justify-content: center; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 #penDash { grid-template-columns: repeat(5, 1fr); }
+#penShape { grid-template-columns: repeat(6, 1fr); }
+#penShape button { padding-left: 0; padding-right: 0; }
 .swatches.five { grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .swatches.five button { padding: 6px 2px; font-size: var(--fs); }
 .swatches button { flex-direction: column; justify-content: center; padding: 6px 4px; font-size: var(--fs); gap: 4px; }
@@ -427,6 +431,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <aside>
     <div class="section" id="penPanel" hidden>
       <h2 id="penTitle">Pen</h2>
+      <div class="swatches" id="penShape" role="group" aria-label="What to draw">
+        <button type="button" data-shape="" title="Line: draw freehand (Shift for a straight line)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M3 10c4-8 8 4 12-2s7-5 12 1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="unseen">Line</span></button>
+        <button type="button" data-shape="arrow" title="Arrow: drag from its tail to its point (Shift keeps it at 0, 45 or 90 degrees)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M3 11L22 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M27 2.2L19.4 1.2L21.9 8.2Z" fill="currentColor"/></svg><span class="unseen">Arrow</span></button>
+        <button type="button" data-shape="rect" title="Rectangle: drag from corner to corner (Shift for a square)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="6" y="2" width="18" height="10" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Rectangle</span></button>
+        <button type="button" data-shape="round" title="Rounded rectangle: drag from corner to corner (Shift for a square)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="6" y="2" width="18" height="10" rx="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Rounded rectangle</span></button>
+        <button type="button" data-shape="pill" title="Pill: drag from corner to corner"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4" y="2" width="22" height="10" rx="5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Pill</span></button>
+        <button type="button" data-shape="ellipse" title="Circle: drag across it (Shift for a true circle)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><ellipse cx="15" cy="7" rx="9" ry="5.6" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span class="unseen">Circle</span></button>
+      </div>
       <div class="seg" role="group" aria-label="Tip shape">
         <button id="tipRound" aria-pressed="true" title="Lines end and turn rounded">Round tip</button>
         <button id="tipSquare" aria-pressed="false" title="Lines end square and turn with sharp corners, like a marker">Square tip</button>
@@ -516,6 +528,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="fillOn" aria-pressed="true" title="The shape filled with the colour">Filled</button>
         <button id="fillOff" aria-pressed="false" title="An outline in the colour round the words, white inside (a yellow one with dark words; a white one dark inside)">Outline</button>
       </div>
+      <div class="seg" role="group" aria-label="End of the line">
+        <button id="endDot" aria-pressed="true" title="The line ends in a dot on the spot">Dot end</button>
+        <button id="endArrow" aria-pressed="false" title="The line ends in an arrowhead pointing at the spot">Arrow end</button>
+      </div>
       <label for="noteSize" class="slider"><span class="head">Text size <span class="val" id="noteSizeVal"></span></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
       </label>
@@ -531,6 +547,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
           <option value="verdana">Verdana</option>
           <option value="opensans">Open Sans</option>
           <option value="menlo">Menlo</option>
+          <option value="isocpeur">ISOCPEUR</option>
         </select>
       </label>
       <div class="textstyle">
@@ -589,7 +606,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     narrow:  { family: '"Arial Narrow", "IBM Plex Sans Condensed", Arial, sans-serif' },
     verdana: { family: 'Verdana, "DejaVu Sans", Geneva, sans-serif' },
     opensans: { family: '"Open Sans", Arial, sans-serif' },
-    menlo:   { family: 'Menlo, Consolas, "DejaVu Sans Mono", "IBM Plex Mono", monospace' }
+    menlo:   { family: 'Menlo, Consolas, "DejaVu Sans Mono", "IBM Plex Mono", monospace' },
+    // the ISO 3098 lettering of CAD drawings: AutoCAD's own where it is installed, otherwise osifont, served
+    // with the page (fonts/README.md)
+    isocpeur: { family: 'ISOCPEUR, isocpeur, osifont, "Arial Narrow", sans-serif' }
   };
   // the typefaces offered before, and what each is now
   var OLD_FONTS = { arialBold: ["arial", true], cond: ["narrow", false], condBold: ["narrow", true], mono: ["menlo", false],
@@ -834,8 +854,51 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // The eraser has the tip the pen has: a circle, or an upright square of the same width.
   function eraserSquare() { return state.eraserTip === "square"; }
   // A stroke as the dense run of points it is actually drawn through (the pen smooths between its raw points).
+  // What the Draw tool draws: a line (freehand), or a shape between where the button went down and where it is let go.
+  var SHAPE_KINDS = ["", "arrow", "rect", "round", "pill", "ellipse"];
+  // the corner radius of a rounded rectangle or a pill w by h
+  function shapeRadius(s, w, h) { return s.shape === "pill" ? Math.min(w, h) / 2 : s.shape === "round" ? Math.min(w, h) * 0.2 : 0; }
+  // The outline of a shape drawn between two corners (closed), or an arrow's shaft, in steps of about a screen pixel.
+  function shapeOutline(s) {
+    var a = s.points[0], b = s.points[1], x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1]);
+    var gap = Math.max(1, 1.5 / view.s), out = [], i, n;
+    if (s.shape === "arrow") {
+      n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / gap));
+      for (i = 0; i <= n; i++) out.push([a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]);
+      return out;
+    }
+    if (s.shape === "round" || s.shape === "pill") {
+      // the straight sides, and a quarter circle at each corner
+      var r = shapeRadius(s, x1 - x0, y1 - y0), corners = [[x1 - r, y0 + r, -Math.PI / 2], [x1 - r, y1 - r, 0], [x0 + r, y1 - r, Math.PI / 2], [x0 + r, y0 + r, Math.PI]];
+      var arcN = Math.max(4, Math.ceil(Math.PI / 2 * r / gap));
+      out.push([x0 + r, y0]);
+      corners.forEach(function (cn) {
+        var from = out[out.length - 1], to = [cn[0] + Math.cos(cn[2]) * r, cn[1] + Math.sin(cn[2]) * r];
+        var m = Math.max(1, Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]) / gap));
+        for (var j = 1; j <= m; j++) out.push([from[0] + (to[0] - from[0]) * j / m, from[1] + (to[1] - from[1]) * j / m]);
+        for (j = 1; j <= arcN; j++) { var t = cn[2] + j / arcN * Math.PI / 2; out.push([cn[0] + Math.cos(t) * r, cn[1] + Math.sin(t) * r]); }
+      });
+      var end = out[out.length - 1], first = out[0], q = Math.max(1, Math.ceil(Math.hypot(first[0] - end[0], first[1] - end[1]) / gap));
+      for (i = 1; i <= q; i++) out.push([end[0] + (first[0] - end[0]) * i / q, end[1] + (first[1] - end[1]) * i / q]);
+      return out;
+    }
+    if (s.shape === "rect") {
+      var cs = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+      out.push(cs[0]);
+      for (var k = 1; k < cs.length; k++) {
+        n = Math.max(1, Math.ceil(Math.hypot(cs[k][0] - cs[k - 1][0], cs[k][1] - cs[k - 1][1]) / gap));
+        for (i = 1; i <= n; i++) out.push([cs[k - 1][0] + (cs[k][0] - cs[k - 1][0]) * i / n, cs[k - 1][1] + (cs[k][1] - cs[k - 1][1]) * i / n]);
+      }
+      return out;
+    }
+    var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+    n = Math.max(24, Math.ceil(Math.PI * (rx + ry) / gap));
+    for (i = 0; i <= n; i++) { var t = -Math.PI / 2 + i / n * Math.PI * 2; out.push([cx + Math.cos(t) * rx, cy + Math.sin(t) * ry]); }
+    return out;
+  }
   function flatten(s) {
     var pts = s.points;
+    if (s.shape && pts.length === 2) return shapeOutline(s);
     if (s.flat || pts.length < 2) return pts;
     var out = [[pts[0][0], pts[0][1]]], gap = Math.max(1, 1.5 / view.s);
     function line(a, b) {
@@ -934,7 +997,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       if (!covered) { out.push(s); return; }
       if (run.length > 1) pieces.push(run);
       changed = true;
-      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, tip: s.tip, dash: s.dash, points: pp, flat: true }); });
+      pieces.forEach(function (pp) { out.push({ color: s.color, width: s.width, hi: s.hi, tip: s.tip, dash: s.dash, points: pp, flat: true }); });   // a shape's pieces are lines
     });
     if (changed) state.strokes = out;
     return touched || changed;
@@ -966,7 +1029,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // twelve widths of the line across (and never smaller than a thirtieth of the image's short side, so a
   // thin line still makes a cloud that reads). A line that comes back near where it began closes into a loop.
   function cloudPath(c, s, lw) {
-    var pts = s.points.length > 2 ? flatten(s) : s.points, chord = Math.max(lw * 12, Math.min(state.w, state.h) / 30), len = 0, i;
+    var pts = s.points.length > 2 || s.shape ? flatten(s) : s.points, chord = Math.max(lw * 12, Math.min(state.w, state.h) / 30), len = 0, i;
     for (i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     if (len < chord * 0.5) return false;
     var first = pts[0], last = pts[pts.length - 1];
@@ -1000,9 +1063,36 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     c.save();
     if (s.hi) c.globalAlpha = HI_ALPHA;      // a highlighter stroke lets the image show through, evenly along its length
     c.strokeStyle = c.fillStyle = col;
-    if (s.dash === "cloud" && pts.length > 1) {
+    if (s.dash === "cloud" && pts.length > 1 && s.shape !== "arrow") {
       c.lineWidth = lw; c.lineCap = "round"; c.lineJoin = "round";
       if (cloudPath(c, s, lw)) { c.stroke(); c.restore(); return; }
+    }
+    if (s.shape === "arrow" && pts.length === 2) {
+      // an arrow: the shaft in the line's style, a solid head at its point, the head growing with the line
+      var A = pts[0], B = pts[1], adx = B[0] - A[0], ady = B[1] - A[1], alen = Math.hypot(adx, ady);
+      if (alen > 0.5) {
+        var hl = Math.min(alen, Math.max(lw * 5, Math.min(state.w, state.h) / 45)), hw = hl * 0.5, ux = adx / alen, uy = ady / alen, bx = B[0] - ux * hl, by = B[1] - uy * hl;
+        c.lineWidth = lw; c.lineCap = s.tip === "square" ? "butt" : "round"; c.lineJoin = "round";
+        if (dash) c.setLineDash(dash);
+        c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(bx + ux * hl * 0.3, by + uy * hl * 0.3); c.stroke();
+        c.setLineDash([]);
+        c.beginPath(); c.moveTo(B[0], B[1]); c.lineTo(bx - uy * hw, by + ux * hw); c.lineTo(bx + uy * hw, by - ux * hw); c.closePath(); c.fill();
+        c.restore(); return;
+      }
+    }
+    if (s.shape && s.shape !== "arrow" && pts.length === 2) {
+      // a shape, in the line's style: sharp corners with the square tip, rounded with the round one
+      var a0 = pts[0], b0 = pts[1], rx0 = Math.min(a0[0], b0[0]), ry0 = Math.min(a0[1], b0[1]), rw = Math.abs(b0[0] - a0[0]), rh = Math.abs(b0[1] - a0[1]);
+      c.lineWidth = lw; c.lineJoin = s.tip === "square" ? "miter" : "round"; c.lineCap = s.tip === "square" ? "butt" : "round";
+      if (dash) c.setLineDash(dash);
+      c.beginPath();
+      if (s.shape === "rect") c.rect(rx0, ry0, rw, rh);
+      else if (s.shape === "round" || s.shape === "pill") {
+        var rr = shapeRadius(s, rw, rh);
+        if (c.roundRect) c.roundRect(rx0, ry0, rw, rh, rr); else c.rect(rx0, ry0, rw, rh);
+      }
+      else c.ellipse(rx0 + rw / 2, ry0 + rh / 2, rw / 2, rh / 2, 0, -Math.PI / 2, Math.PI * 1.5);
+      c.stroke(); c.restore(); return;
     }
     if (s.tip === "square" && dash && pts.length > 1) {
       // a square tip in a line style: the line stroked with square ends, in dashes and dots of its width
@@ -1051,16 +1141,24 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var start = leaderStart(n, L);
     if (start) {
       var lw = Math.max(1.2, L.fs * 0.1), dot = Math.max(2, L.fs * 0.3);
-      c.lineCap = "round";
+      c.lineCap = "round"; c.lineJoin = "round";
+      // the end at the spot: a dot, or an arrowhead pointing at it
+      var lx = n.tx - start.x, ly = n.ty - start.y, ll = Math.hypot(lx, ly) || 1, ux = lx / ll, uy = ly / ll;
+      var hl = Math.min(ll, Math.max(dot * 3.2, lw * 5)), hw = hl * 0.45, bx = n.tx - ux * hl, by = n.ty - uy * hl;
+      var arrow = n.end === "arrow";
+      var head = function () { c.beginPath(); c.moveTo(n.tx, n.ty); c.lineTo(bx - uy * hw, by + ux * hw); c.lineTo(bx + uy * hw, by - ux * hw); c.closePath(); };
+      var stop = arrow ? [bx + ux * hl * 0.3, by + uy * hl * 0.3] : [n.tx, n.ty];
       // faint halo so the leader reads over busy foliage, then the line itself
       c.strokeStyle = c.fillStyle = col.halo;
       c.lineWidth = lw * 2.6;
-      c.beginPath(); c.moveTo(start.x, start.y); c.lineTo(n.tx, n.ty); c.stroke();
-      c.beginPath(); c.arc(n.tx, n.ty, dot + lw * 0.8, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.moveTo(start.x, start.y); c.lineTo(stop[0], stop[1]); c.stroke();
+      if (arrow) { head(); c.lineWidth = lw * 1.6; c.stroke(); c.fill(); }
+      else { c.beginPath(); c.arc(n.tx, n.ty, dot + lw * 0.8, 0, Math.PI * 2); c.fill(); }
       c.strokeStyle = c.fillStyle = col.fill;
       c.lineWidth = lw;
-      c.beginPath(); c.moveTo(start.x, start.y); c.lineTo(n.tx, n.ty); c.stroke();
-      c.beginPath(); c.arc(n.tx, n.ty, dot, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.moveTo(start.x, start.y); c.lineTo(stop[0], stop[1]); c.stroke();
+      if (arrow) { head(); c.fill(); }
+      else { c.beginPath(); c.arc(n.tx, n.ty, dot, 0, Math.PI * 2); c.fill(); }
     }
     c.save();
     c.translate(n.px, n.py); c.rotate(L.ang);
@@ -1429,7 +1527,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     // Show length: while a line is drawn with Shift its length shows along it, in the scale and units set under
     // Measure. It is only a read-out: it goes when the button is let go and is never part of the image.
-    var ls = drag && drag.part === "stroke" && state.showLen && drag.stroke.straight ? drag.stroke : null;
+    var ls = drag && drag.part === "stroke" && state.showLen && (drag.stroke.straight || drag.stroke.shape === "arrow") && (!drag.stroke.shape || drag.stroke.shape === "arrow") ? drag.stroke : null;
     if (ls && ls.points.length === 2) writeLength(ctx, ls.points[0], ls.points[1], PEN_COLORS[ls.color] || PEN_COLORS.red, 15 / view.s, penPx(ls) / 2 + 6 / view.s);
     placeHud(hud, r);
   }
@@ -1538,12 +1636,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // A note's look: everything about it but its text and where it is. state.style is the look the next note gets:
   // that of the note selected last, or what was picked under New note in the panel. Red pills to begin with.
   function lookOf(n) {
-    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size, outline: !!n.outline };
+    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size, outline: !!n.outline, end: n.end === "arrow" ? "arrow" : "" };
   }
   function nextLook() {
     var l = state.style || {};
     return { vertical: !!l.vertical, color: COLORS[l.color] ? l.color : "red", shape: SHAPES[l.shape] ? l.shape : "pill",
-             size: typeof l.size === "number" ? l.size : 1, outline: !!l.outline };
+             size: typeof l.size === "number" ? l.size : 1, outline: !!l.outline, end: l.end === "arrow" ? "arrow" : "" };
   }
   // change the look of the next note (nothing on the image changes)
   function setLook(fn) { var l = nextLook(); fn(l); state.style = l; sync(); }
@@ -1555,7 +1653,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
-      vertical: look.vertical, color: look.color, shape: look.shape, size: look.size, outline: look.outline
+      vertical: look.vertical, color: look.color, shape: look.shape, size: look.size, outline: look.outline, end: look.end
     };
     return n;
   }
@@ -1697,6 +1795,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
     });
     $("fillOff").setAttribute("aria-pressed", String(!!look.outline));
+    $("endArrow").setAttribute("aria-pressed", String(look.end === "arrow"));
+    $("endDot").setAttribute("aria-pressed", String(look.end !== "arrow"));
     $("fillOn").setAttribute("aria-pressed", String(!look.outline));
     $("oriV").setAttribute("aria-pressed", String(look.vertical));
     $("oriH").setAttribute("aria-pressed", String(!look.vertical));
@@ -1714,6 +1814,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     $("tipRound").setAttribute("aria-pressed", String(state.pen.tip !== "square"));
     $("tipSquare").setAttribute("aria-pressed", String(state.pen.tip === "square"));
     Array.prototype.forEach.call($("penDash").children, function (b) { b.setAttribute("aria-pressed", String((state.pen.dash || "") === b.getAttribute("data-dash"))); });
+    Array.prototype.forEach.call($("penShape").children, function (b) { b.setAttribute("aria-pressed", String((state.pen.shape || "") === b.getAttribute("data-shape"))); });
     $("eraseRound").setAttribute("aria-pressed", String(!eraserSquare()));
     $("eraseSquare").setAttribute("aria-pressed", String(eraserSquare()));
     $("penWidthVal").textContent = penLabel(state.pen.width);
@@ -1796,6 +1897,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   setter("oriH", function (n) { n.vertical = false; }, function (l) { l.vertical = false; });
   setter("fillOff", function (n) { n.outline = true; }, function (l) { l.outline = true; });
   setter("fillOn", function (n) { delete n.outline; }, function (l) { l.outline = false; });
+  setter("endArrow", function (n) { n.end = "arrow"; }, function (l) { l.end = "arrow"; });
+  setter("endDot", function (n) { delete n.end; }, function (l) { l.end = ""; });
   var sizeByMouse = false;
   $("noteSize").addEventListener("pointerdown", function (e) { sizeByMouse = e.pointerType === "mouse"; if (state.picks.length) snapshot(); });
   $("noteSize").addEventListener("keydown", function () { sizeByMouse = false; if (state.picks.length) snapshot(); });
@@ -1853,9 +1956,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // Pen or Highlighter: each keeps the colour and width it was last used with
   function setInk(hi) {
     if (!!state.pen.hi === hi) return;
-    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "" };
+    state.inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", shape: state.pen.shape || "" };
     var next = state.inks[hi ? "hi" : "pen"];
-    state.pen = { color: next.color, width: next.width, hi: hi, tip: next.tip || "round", dash: next.dash || "" };
+    state.pen = { color: next.color, width: next.width, hi: hi, tip: next.tip || "round", dash: next.dash || "", shape: next.shape || "" };
     sync();
     status(hi ? "Highlighter: a wide see-through line. Draw (D) goes back to the pen." : "Pen.");
   }
@@ -1863,6 +1966,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   $("tipSquare").addEventListener("click", function () { state.pen.tip = "square"; sync(); });
   Array.prototype.forEach.call($("penDash").children, function (b) {
     b.addEventListener("click", function () { state.pen.dash = b.getAttribute("data-dash"); sync(); });
+  });
+  Array.prototype.forEach.call($("penShape").children, function (b) {
+    b.addEventListener("click", function () { state.pen.shape = b.getAttribute("data-shape"); sync(); });
   });
   $("eraseRound").addEventListener("click", function () { state.eraserTip = "round"; sync(); render(); });
   $("eraseSquare").addEventListener("click", function () { state.eraserTip = "square"; sync(); render(); });
@@ -1986,6 +2092,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       snapshot();
       var s = { color: state.pen.color, width: state.pen.width, hi: state.pen.hi, tip: state.pen.tip, points: [[p.x, p.y]], straight: o.shift };
       if (state.pen.dash) s.dash = state.pen.dash;
+      if (state.pen.shape) s.shape = state.pen.shape;
       state.strokes.push(s);
       drag = { part: "stroke", stroke: s };
       showPanel("draw");
@@ -2303,6 +2410,19 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     if (drag.part === "stroke") {
       var s = drag.stroke;
+      if (s.shape === "arrow") {
+        s.points = [s.points[0], e.shiftKey ? snapLine(s.points[0], { x: x, y: y }) : [x, y]];
+        render();
+        return;
+      }
+      if (s.shape) {
+        // a shape, from the corner where the button went down; with Shift a square or a true circle
+        var o0 = s.points[0], ex = x - o0[0], ey = y - o0[1];
+        if (e.shiftKey) { var m = Math.max(Math.abs(ex), Math.abs(ey)); ex = (ex < 0 ? -1 : 1) * m; ey = (ey < 0 ? -1 : 1) * m; }
+        s.points = [o0, [o0[0] + ex, o0[1] + ey]];
+        render();
+        return;
+      }
       if (e.shiftKey || s.straight) {
         s.straight = true;
         s.points = [s.points[0], snapLine(s.points[0], { x: x, y: y })];
@@ -2633,6 +2753,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(sh);
       add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
+      }));
+      if (!bare(n)) add(menuItem(n.end === "arrow" ? "Dot end" : "Arrow end", "", function () {
+        var ar = n.end !== "arrow"; snapshot(); picked().forEach(function (x) { if (ar) x.end = "arrow"; else delete x.end; }); sync(); render();
       }));
       add(menuItem(n.outline ? "Make filled" : "Make outline", "", function () {
         var o = !n.outline; snapshot(); picked().forEach(function (x) { if (o) x.outline = true; else delete x.outline; }); sync(); render();
@@ -3162,7 +3285,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         ["Wheel button", we ? "Erase" : "A click opens the tool wheel round the pointer"]
       ].concat(we ? [["Right button, dragged", "Add a note, its pill where you let go"]] : []).concat([
         ["Right-click", "The menu"],
-        [k("Shift") + " + drag", "Keep it straight: a line, a dimension, a note's leader" + (we ? ", the eraser" : "")],
+        [k("Shift") + " + drag", "Keep it straight: a line, a dimension, a note's leader" + (we ? ", the eraser" : "") + "; a square or a true circle"],
         [k("Ctrl") + " + drag", "Change the size of what that button does"],
         [k("Space") + " + drag", "Move the image, when zoomed in"],
         [k("Ctrl/Cmd") + " + wheel, or pinch", "Zoom at the pointer"],
@@ -3359,7 +3482,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
-    inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "" };
+    inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", shape: state.pen.shape || "" };
     var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase });
@@ -3375,16 +3498,16 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var ink = function (o, dflt) {
       o = o && typeof o === "object" ? o : {};
       return { color: COLORS[o.color] ? o.color : dflt.color, width: num(o.width, PEN_MIN, PEN_MAX, dflt.width),
-               tip: o.tip === "square" ? "square" : "round", dash: DASHES[o.dash] || o.dash === "cloud" ? o.dash : "" };
+               tip: o.tip === "square" ? "square" : "round", dash: DASHES[o.dash] || o.dash === "cloud" ? o.dash : "", shape: SHAPE_KINDS.indexOf(o.shape) > 0 ? o.shape : "" };
     };
     var inks = d.inks && typeof d.inks === "object" ? d.inks : {};
     state.inks = { pen: ink(inks.pen, state.inks.pen), hi: ink(inks.hi, state.inks.hi) };
     var hi = d.ink === "hi", now = state.inks[hi ? "hi" : "pen"];
-    state.pen = { color: now.color, width: now.width, hi: hi, tip: now.tip, dash: now.dash };
+    state.pen = { color: now.color, width: now.width, hi: hi, tip: now.tip, dash: now.dash, shape: now.shape };
     state.eraser = num(d.eraser, 3, 100, state.eraser);
     var st = d.style;
     if (st && typeof st === "object" && COLORS[st.color]) {
-      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true };
+      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
     }
     // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
     if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
