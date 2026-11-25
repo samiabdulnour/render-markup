@@ -504,6 +504,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         <button id="oriH" aria-pressed="true">Horizontal</button>
         <button id="oriV" aria-pressed="false">Vertical</button>
       </div>
+      <div class="seg" role="group" aria-label="Fill">
+        <button id="fillOn" aria-pressed="true" title="The shape filled with the colour">Filled</button>
+        <button id="fillOff" aria-pressed="false" title="An outline in the colour round the words, white inside (dark inside a white or yellow note)">Outline</button>
+      </div>
       <label for="noteSize" class="slider"><span class="head">Text size <span class="val" id="noteSizeVal"></span></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
       </label>
@@ -994,12 +998,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     }
     c.save();
     c.translate(n.px, n.py); c.rotate(L.ang);
-    c.fillStyle = col.fill;
+    // Filled: the shape in the colour, the words in its ink. Outline: the other way round, a border in the
+    // colour round the words in the colour, on the ink (white inside a red note; dark inside a white or yellow
+    // one, so the words still read).
+    var ow = n.outline ? Math.max(1.5, L.fs * 0.12) : 0;
+    c.fillStyle = n.outline ? col.ink : col.fill;
     c.beginPath();
-    if (c.roundRect) c.roundRect(-L.w / 2, -L.h / 2, L.w, L.h, L.cr);
-    else { var x = -L.w / 2, y = -L.h / 2, r = L.cr; c.moveTo(x + r, y); c.arcTo(x + L.w, y, x + L.w, y + L.h, r); c.arcTo(x + L.w, y + L.h, x, y + L.h, r); c.arcTo(x, y + L.h, x, y, r); c.arcTo(x, y, x + L.w, y, r); c.closePath(); }
+    var bw = L.w - ow, bh = L.h - ow, br = Math.max(0, L.cr - ow / 2);
+    if (c.roundRect) c.roundRect(-bw / 2, -bh / 2, bw, bh, br);
+    else { var x = -bw / 2, y = -bh / 2, r = br; c.moveTo(x + r, y); c.arcTo(x + bw, y, x + bw, y + bh, r); c.arcTo(x + bw, y + bh, x, y + bh, r); c.arcTo(x, y + bh, x, y, r); c.arcTo(x, y, x + bw, y, r); c.closePath(); }
     c.fill();
-    c.fillStyle = col.ink;
+    if (n.outline) { c.strokeStyle = col.fill; c.lineWidth = ow; c.stroke(); }
+    c.fillStyle = n.outline ? col.fill : col.ink;
     c.font = fontStr(L.fs);
     c.textBaseline = "middle"; c.textAlign = L.centre ? "center" : "left";
     // the text block sits in the middle of the shape; its lines are left-aligned, or centred in a circle
@@ -1457,12 +1467,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // A note's look: everything about it but its text and where it is. state.style is the look the next note gets:
   // that of the note selected last, or what was picked under New note in the panel. Red pills to begin with.
   function lookOf(n) {
-    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size };
+    return { vertical: !!n.vertical, color: n.color || (n.dark === false ? "white" : "black"), shape: shapeOf(n), size: n.size, outline: !!n.outline };
   }
   function nextLook() {
     var l = state.style || {};
     return { vertical: !!l.vertical, color: COLORS[l.color] ? l.color : "red", shape: SHAPES[l.shape] ? l.shape : "pill",
-             size: typeof l.size === "number" ? l.size : 1 };
+             size: typeof l.size === "number" ? l.size : 1, outline: !!l.outline };
   }
   // change the look of the next note (nothing on the image changes)
   function setLook(fn) { var l = nextLook(); fn(l); state.style = l; sync(); }
@@ -1474,7 +1484,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
-      vertical: look.vertical, color: look.color, shape: look.shape, size: look.size
+      vertical: look.vertical, color: look.color, shape: look.shape, size: look.size, outline: look.outline
     };
     return n;
   }
@@ -1566,7 +1576,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       b.setAttribute("aria-pressed", state.picks.indexOf(i) >= 0 ? "true" : "false");
       var col = colorOf(n);
       var num = document.createElement("span"); num.className = "num"; num.textContent = String(i + 1);
-      num.style.background = col.fill; num.style.color = col.ink;
+      num.style.background = n.outline ? col.ink : col.fill; num.style.color = n.outline ? col.fill : col.ink;
+      if (n.outline) num.style.borderColor = col.fill;
       var t = document.createElement("span"); t.className = "txt"; t.textContent = (n.text || "").split("\n")[0] || "(empty)";
       b.appendChild(num); b.appendChild(t);
       b.addEventListener("click", function (e) { pickFromList(i, e); sync(); render(); });
@@ -1613,6 +1624,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       var ps = picked(); if (!ps.length) { setLook(function (l) { l.shape = k; }); return; }
       snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
     });
+    $("fillOff").setAttribute("aria-pressed", String(!!look.outline));
+    $("fillOn").setAttribute("aria-pressed", String(!look.outline));
     $("oriV").setAttribute("aria-pressed", String(look.vertical));
     $("oriH").setAttribute("aria-pressed", String(!look.vertical));
     if (document.activeElement !== $("noteSize")) $("noteSize").value = look.size;
@@ -1708,6 +1721,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }
   setter("oriV", function (n) { n.vertical = true; }, function (l) { l.vertical = true; });
   setter("oriH", function (n) { n.vertical = false; }, function (l) { l.vertical = false; });
+  setter("fillOff", function (n) { n.outline = true; }, function (l) { l.outline = true; });
+  setter("fillOn", function (n) { delete n.outline; }, function (l) { l.outline = false; });
   var sizeByMouse = false;
   $("noteSize").addEventListener("pointerdown", function (e) { sizeByMouse = e.pointerType === "mouse"; if (state.picks.length) snapshot(); });
   $("noteSize").addEventListener("keydown", function () { sizeByMouse = false; if (state.picks.length) snapshot(); });
@@ -2542,6 +2557,9 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
       }));
+      add(menuItem(n.outline ? "Make filled" : "Make outline", "", function () {
+        var o = !n.outline; snapshot(); picked().forEach(function (x) { if (o) x.outline = true; else delete x.outline; }); sync(); render();
+      }));
       // notes keep their arrows; one whose dot was dragged under it can have it back
       if (bare(n)) add(menuItem("Add arrow", "", function () { snapshot(); picked().forEach(giveArrow); sync(); render(); }));
       rule();
@@ -3289,7 +3307,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     state.eraser = num(d.eraser, 3, 100, state.eraser);
     var st = d.style;
     if (st && typeof st === "object" && COLORS[st.color]) {
-      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1) };
+      state.style = { vertical: st.vertical === true, color: st.color, shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true };
     }
     // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
     if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
