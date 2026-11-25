@@ -277,9 +277,13 @@ input.entry, .scalebox input {
 .optwrap { max-width: 520px; display: flex; flex-direction: column; gap: 6px; }
 .modal .box h4.optsub { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 10px 0 -8px; padding-top: 14px; border-top: 1px solid var(--divider); }
 .modal .box.pdfbox { width: min(640px, 100%); }
-#cropBar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 6px 6px 6px 14px; max-width: calc(100% - 140px); }
-#cropBar span { flex: 1 1 auto; min-width: 0; }
-#cropBar[hidden], .exppages[hidden] { display: none; }
+#cropBar, .floatbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--divider); border-radius: 12px; padding: 6px 6px 6px 14px; max-width: calc(100% - 140px); }
+#cropBar span, .floatbar span { flex: 1 1 auto; min-width: 0; }
+#cropBar[hidden], .floatbar[hidden], .exppages[hidden] { display: none; }
+.modal .box.formbox { width: min(560px, 100%); }
+.formfields { display: flex; flex-direction: column; gap: 10px; }
+.formfields h4 { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 6px 0 0; padding-top: 10px; border-top: 1px solid var(--divider); }
+.formfields h4:first-child { border-top: 0; padding-top: 0; }
 .exppages { display: flex; flex-direction: column; gap: 8px; }
 .pdfchoices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 760px) { .pdfchoices { grid-template-columns: 1fr; } }
@@ -426,6 +430,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   <input type="file" id="file" accept="image/*,application/pdf,.pdf" multiple>
   <input type="file" id="addFile" accept="image/*,application/pdf,.pdf">
   <input type="file" id="pagesFile" accept="image/*,application/pdf,.pdf" multiple hidden>
+  <input type="file" id="cmpFile" accept="image/*,application/pdf,.pdf" hidden>
   <button id="grammarTop" title="Proofread every note with LanguageTool (only the note text is sent); you review each fix before it applies">Check grammar</button>
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
   <button id="export" class="primary" title="Save as PNG, JPG or PDF (Ctrl/Cmd+S)">Export</button>
@@ -449,6 +454,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="setBtn" aria-label="Options" title="Options: how the mouse works, and the shortcuts (?)"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
     <div id="cropBar" role="group" aria-label="Crop page" hidden><span>Crop page: drag a frame over what to keep</span><button id="cropApply" class="primary">Apply</button><button id="cropCancel">Cancel</button></div>
+    <div id="redactBar" class="floatbar" role="group" aria-label="Redact" hidden><span>Redact: drag boxes over what to remove · click one to take it off</span><button id="redactApply" class="primary">Apply</button><button id="redactCancel">Cancel</button></div>
+    <div id="cmpBar" class="floatbar" role="group" aria-label="Compare" hidden><span id="cmpText"></span><button id="cmpOther" aria-pressed="false" title="Show the other file's page in place of this one, to see what changed">Show other</button><button id="cmpClouds" title="Put a red revision cloud round every change, on every page">Mark with clouds</button><button id="cmpClose">Close</button></div>
     <div id="wheel" role="menu" aria-label="Tool wheel" hidden><div class="disc"></div><div class="hub"></div><div class="label" id="wheelLabel"></div></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad, or press + and -. It goes in to 800% and out to a tenth of the fitted size. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the file to open it</div>
@@ -652,6 +659,14 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       <button id="pdfSmall" class="choice"><span class="ttl">PDF, smaller file</span><span class="note" id="pdfSmallNote"></span></button>
     </div>
     <div class="actions"><button id="pdfCancel">Cancel</button></div>
+  </div>
+</div>
+<div class="modal" id="formModal" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+  <div class="box formbox">
+    <h3 id="formTitle">Fill in form</h3>
+    <p class="note">What you fill in shows on the page as you go, and goes into the PDF you export.</p>
+    <div class="formfields" id="formFields"></div>
+    <div class="actions"><button id="formClose">Done</button></div>
   </div>
 </div>
 <div class="modal" id="fixModal" role="dialog" aria-modal="true" aria-labelledby="fixTitle">
@@ -1596,6 +1611,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var spic = selectedPic();
     if (spic) drawPicSelection(ctx, spic);
     if (cropping && doc && cropping.pg === doc.pages[doc.cur]) drawCrop(ctx);
+    if (redacting && doc && redacting.pg === doc.pages[doc.cur]) drawRedacting(ctx);
+    if (comparing && doc) drawCompare(ctx);
     // Previews while a size is being changed, by Ctrl + drag or by a slider. Text and eraser sizes get a label
     // with the number; the pen tip is shown at its real size and needs none.
     var sizing = drag && drag.part === "size" ? drag.what : null, hud = null;
@@ -2955,12 +2972,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       add(menuItem(doc ? "Save this page as an image" : "Save image", "", savePng, { disabled: !state.img }));
       add(menuItem("Copy to clipboard", "Ctrl+C", copyImage, { disabled: !state.img }));
       rule();
-      var cpg = doc ? doc.pages[doc.cur] : null;
-      add(menuItem("Add pages…", "", function () { pickPages(doc ? doc.cur : null); }, { disabled: !state.img }));
-      add(menuItem("Duplicate page", "", function () { duplicatePage(null); }, { disabled: !state.img }));
-      add(menuItem("Rotate page", "", function () { turnPage(null, 1); }, { disabled: !state.img }));
-      add(menuItem(cpg && cpg.crop ? "Crop again…" : "Crop page…", "", startCrop, { disabled: !state.img }));
-      if (cpg && cpg.crop) add(menuItem("Remove crop", "", function () { uncrop(null); }));
+      // the page tools are the page's own menu, as in the page strip
+      add(menuItem("Page", "▸", function () { openPageMenu(doc ? doc.cur : null, cx, cy); }, { disabled: !state.img }));
+      add(menuItem("Compare with…", "", startCompare, { disabled: !state.img }));
+      if (doc && doc.sources.some(function (src) { return src.fields; })) add(menuItem("Fill in form…", "", openForm));
     }
     showMenuAt(cx, cy);
   }
@@ -2999,6 +3014,13 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (cropping && !document.querySelector(".modal.open") && (e.key === "Enter" || e.key === "Escape")) {
       e.preventDefault();
       if (e.key === "Enter") applyCrop(); else { endCrop(); status("Not cropped."); }
+      return;
+    }
+    if (redacting && !document.querySelector(".modal.open") && (e.key === "Enter" || e.key === "Escape" || e.key === "Backspace" || e.key === "Delete")) {
+      e.preventDefault();
+      if (e.key === "Enter") applyRedact();
+      else if (e.key === "Escape") { endRedact(); status("Nothing redacted."); }
+      else { redacting.boxes.pop(); render(); }
       return;
     }
     var openBox = document.querySelector(".modal.open");
@@ -3077,11 +3099,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   var doc = null, loadToken = 0;
   var VENDOR = new URL("vendor/", document.baseURI).href;
   var PAGE_LONG = 4000, PAGE_MAX_PX = 16e6, PAGE_MAX_SCALE = 3, PAGE_KEEP = 3, THUMB_PX = 192;
-  var pdfjsReady = null, pdfLibReady = null, useClock = 0, whiteCanvas = null;
+  var pdfjsReady = null, pdfjsLib = null, pdfLibReady = null, useClock = 0, whiteCanvas = null;
   // Both libraries are part of this site (see vendor/) and are only fetched when a PDF is opened or exported.
   function pdfjs() {
     if (!pdfjsReady) {
       pdfjsReady = import(VENDOR + "pdfjs/pdf.min.mjs").then(function (lib) {
+        pdfjsLib = lib;
         lib.GlobalWorkerOptions.workerSrc = VENDOR + "pdfjs/pdf.worker.min.mjs";
         return lib;
       });
@@ -3152,7 +3175,10 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (pg.source.kind === "pdf") {
       var t = turnedCrop(pg);
       var vp = pg.proxy.getViewport({ scale: k, rotation: ((pg.proxy.rotate || 0) + pg.rot) % 360, offsetX: -t.x * k, offsetY: -t.y * k });
-      return pg.proxy.render({ canvas: c, viewport: vp, background: "#ffffff" }).promise;
+      // form fields drawn with what has been filled in (Fill in form), redactions on top
+      var opts = { canvas: c, viewport: vp, background: "#ffffff" };
+      if (pdfjsLib && pdfjsLib.AnnotationMode) opts.annotationMode = pdfjsLib.AnnotationMode.ENABLE_STORAGE;
+      return pg.proxy.render(opts).promise.then(function () { paintRedactions(pg, c, k); });
     }
     var g = c.getContext("2d");
     g.setTransform(1, 0, 0, 1, 0, 0);
@@ -3164,7 +3190,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       g.drawImage(pg.source.img, 0, 0, pg.bw, pg.bh);
       g.setTransform(1, 0, 0, 1, 0, 0);
     }
+    paintRedactions(pg, c, k);
     return Promise.resolve();
+  }
+  // Redacted areas: solid black, part of the page itself (in its base points, so they turn and crop with it)
+  function paintRedactions(pg, c, k) {
+    if (!pg.redact || !pg.redact.length) return;
+    var g = c.getContext("2d"), m = baseMatrix(pg, k);
+    g.save();
+    g.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+    g.fillStyle = "#000000";
+    pg.redact.forEach(function (r) { g.fillRect(r.x, r.y, r.w, r.h); });
+    g.restore();
   }
   // A page whose look changed (turned or cropped): its bitmaps are drawn again
   function redrawPage(pg) { pg.gen++; pg.img = null; pg.rendering = null; pg.thumbDone = false; }
@@ -3183,7 +3220,12 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
         var jobs = [];
         for (var i = 1; i <= pdf.numPages; i++) jobs.push(pdf.getPage(i));
         return Promise.all(jobs).then(function (proxies) {
-          var source = { kind: "pdf", bytes: bytes, pdf: pdf, label: file.name || "document.pdf", count: proxies.length };
+          // its form fields, if it has any: from each page's annotations
+          return Promise.all(proxies.map(function (p) { return p.getAnnotations().catch(function () { return []; }); })).then(function (annots) { return { proxies: proxies, annots: annots }; });
+        }).then(function (r) {
+          var proxies = r.proxies, fobj = r.annots;
+          var source = { kind: "pdf", bytes: bytes, pdf: pdf, label: file.name || "document.pdf", count: proxies.length, fields: null, values: {} };
+          source.fields = formFields(fobj);
           return { source: source, pages: proxies.map(function (proxy, i) {
             var vp = proxy.getViewport({ scale: 1 });
             // bitmap size: about 4000 px on the long side, never more than 3x the page's own size or 16 megapixels
@@ -3230,7 +3272,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       doc = { name: (files[0].name || "document").replace(/\.[^.]+$/, ""), label: label, sources: parts.map(function (p) { return p.source; }), cur: 0, pages: pages };
       state.name = doc.name; state.blank = false; stage.classList.add("has-image");
       buildPageList();
-      showPage(0, true);
+      showPage(0, true, doc.sources.some(function (src) { return src.fields; }) ? "This PDF has a form: right-click and choose Fill in form… to fill it in." : null);
     }).catch(function (err) {
       if (token !== loadToken) return;
       status(err && err.name === "PasswordException" ? "That PDF is password-protected, so it cannot be opened here."
@@ -3270,6 +3312,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function closeDoc() {
     if (!doc) return;
     if (cropping) endCrop();
+    if (redacting) endRedact();
+    if (comparing) endCompare();
     var old = doc; doc = null;
     old.sources.forEach(function (src) { if (src.pdf) { try { src.pdf.destroy(); } catch (e) { /* already gone */ } } });
     thumbQueue = [];
@@ -3309,6 +3353,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function showPage(i, first, said) {
     if (!doc || i < 0 || i >= doc.pages.length || (!first && i === doc.cur)) return;
     if (cropping && cropping.pg !== doc.pages[i]) endCrop();
+    if (redacting && redacting.pg !== doc.pages[i]) endRedact();
+    if (comparing) comparing.show = false;
     $("noteText").blur();
     if (drag) endDrag(true);
     closeMenu();
@@ -3322,6 +3368,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     state.w = pg.w; state.h = pg.h; state.refW = pg.refW; state.refH = pg.refH; state.img = pg.img || whitePage();
     view.zoom = 1; view.cx = state.w / 2; view.cy = state.h / 2;
     pageLabel();
+    cmpText();
     sync(); render();
     doc.pages.forEach(function (q, k) { markPage(k); });
     if (pg.el) pg.el.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -3362,20 +3409,24 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     showPage(cur === pg ? Math.min(i, doc.pages.length - 1) : doc.pages.indexOf(cur), true);
     status("Page " + (i + 1) + " deleted: the export leaves it out.");
   }
+  // A page's menu: from its thumbnail in the strip, or Page in the menu on the page itself (i null: an image or the
+  // blank canvas, which becomes the first page of a document if a page tool is used on it).
   function openPageMenu(i, cx, cy) {
-    var m = $("menu"), pg = doc.pages[i];
+    var m = $("menu"), pg = doc && i != null ? doc.pages[i] : null, n = doc ? doc.pages.length : 1, at = i == null ? 0 : i;
     m.innerHTML = "";
     m.appendChild(menuItem("Rotate right", "", function () { turnPage(i, 1); }));
     m.appendChild(menuItem("Rotate left", "", function () { turnPage(i, -1); }));
-    m.appendChild(menuItem(pg.crop ? "Crop again…" : "Crop page…", "", function () { showPage(i); startCrop(); }));
-    if (pg.crop) m.appendChild(menuItem("Remove crop", "", function () { uncrop(i); }));
+    m.appendChild(menuItem(pg && pg.crop ? "Crop again…" : "Crop page…", "", function () { if (doc && i != null) showPage(i); startCrop(); }));
+    if (pg && pg.crop) m.appendChild(menuItem("Remove crop", "", function () { uncrop(i); }));
+    m.appendChild(menuItem("Redact…", "", function () { if (doc && i != null) showPage(i); startRedact(); }));
+    if (pg && pg.redact && pg.redact.length) m.appendChild(menuItem("Remove redactions", "", function () { unredact(i); }));
     m.appendChild(document.createElement("hr"));
     m.appendChild(menuItem("Add pages after this…", "", function () { pickPages(i); }));
     m.appendChild(menuItem("Duplicate page", "", function () { duplicatePage(i); }));
-    m.appendChild(menuItem("Move up", "", function () { movePage(i, i - 1); }, { disabled: i === 0 }));
-    m.appendChild(menuItem("Move down", "", function () { movePage(i, i + 1); }, { disabled: i === doc.pages.length - 1 }));
+    m.appendChild(menuItem("Move up", "", function () { movePage(at, at - 1); }, { disabled: at === 0 }));
+    m.appendChild(menuItem("Move down", "", function () { movePage(at, at + 1); }, { disabled: at >= n - 1 }));
     m.appendChild(document.createElement("hr"));
-    m.appendChild(menuItem("Delete page", "", function () { deletePage(i); }, { danger: true, disabled: doc.pages.length < 2 }));
+    m.appendChild(menuItem("Delete page", "", function () { deletePage(at); }, { danger: true, disabled: n < 2 }));
     showMenuAt(cx, cy);
   }
   // A copy of a page, turned and cropped as it is, with a copy of its markup, put in after it.
@@ -3386,6 +3437,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     var pg = doc.pages[i], cp = newPage(pg.source, pg.n, pg.proxy, pg.bw, pg.bh, pg.k);
     cp.rot = pg.rot; cp.crop = pg.crop ? { x: pg.crop.x, y: pg.crop.y, w: pg.crop.w, h: pg.crop.h } : null;
     sizePage(cp); cp.refW = pg.refW; cp.refH = pg.refH; cp.pageRatio = pg.pageRatio;
+    if (pg.redact) cp.redact = pg.redact.map(function (r) { return { x: r.x, y: r.y, w: r.w, h: r.h }; });
     var m = JSON.parse(JSON.stringify({ notes: pg.notes, strokes: pg.strokes, pics: pg.pics || [] }));
     m.notes.forEach(function (n) { n.id = state.nextId++; });
     m.pics.forEach(function (q) {   // the copy's pictures are pictures of their own, showing the same image
@@ -3439,6 +3491,8 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     ensureDoc();
     closeMenu();
     if (drag) endDrag(true);
+    if (redacting) endRedact();
+    if (comparing) endCompare();
     var pg = doc.pages[doc.cur];
     cropping = { pg: pg, r: null, act: null };     // no frame until one is dragged out
     $("cropBar").hidden = false;
@@ -3455,15 +3509,18 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     if (x1 - x0 < 8 || y1 - y0 < 8) { status("That is too small to crop to: drag a larger frame."); return; }
     endCrop();
     stashPage();
-    // the frame in points as shown, then where that lies on the page before it was turned
+    pg.crop = shownToBase(pg, x0, y0, x1, y1);
+    mapPage(pg, function (x, y) { return [x - x0, y - y0]; }, 0);
+    pageChanged(pg, "Page " + (doc.pages.indexOf(pg) + 1) + " cropped. Markup outside it is kept out of sight; Remove crop, in the page's menu, brings it all back.");
+  }
+  // A rectangle on the page as shown (pixels) → where it lies on the page before it was turned or cropped (points)
+  function shownToBase(pg, x0, y0, x1, y1) {
     var k = pg.k, dx = x0 / k, dy = y0 / k, dw = (x1 - x0) / k, dh = (y1 - y0) / k, cur = cropOf(pg), cw = cur.w, ch = cur.h, b;
     if (pg.rot === 90) b = { x: dy, y: ch - dx - dw, w: dh, h: dw };
     else if (pg.rot === 180) b = { x: cw - dx - dw, y: ch - dy - dh, w: dw, h: dh };
     else if (pg.rot === 270) b = { x: cw - dy - dh, y: dx, w: dh, h: dw };
     else b = { x: dx, y: dy, w: dw, h: dh };
-    pg.crop = { x: cur.x + b.x, y: cur.y + b.y, w: b.w, h: b.h };
-    mapPage(pg, function (x, y) { return [x - x0, y - y0]; }, 0);
-    pageChanged(pg, "Page " + (doc.pages.indexOf(pg) + 1) + " cropped. Markup outside it is kept out of sight; Remove crop, in the page's menu, brings it all back.");
+    return { x: cur.x + b.x, y: cur.y + b.y, w: b.w, h: b.h };
   }
   function uncrop(i) {
     if (!doc) return;
@@ -3550,6 +3607,372 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   }, true);
   $("cropApply").addEventListener("click", applyCrop);
   $("cropCancel").addEventListener("click", function () { endCrop(); status("Not cropped."); });
+  // Redact: boxes dragged over the page, shown outlined while chosen; Apply blacks them out. On the page they are
+  // black at once; in the export the page is saved as a picture, so what was under them is gone from the file.
+  var redacting = null;
+  function startRedact() {
+    ensureDoc();
+    closeMenu();
+    if (drag) endDrag(true);
+    if (cropping) endCrop();
+    if (comparing) endCompare();
+    redacting = { pg: doc.pages[doc.cur], boxes: [], act: null };
+    $("redactBar").hidden = false;
+    render();
+    status("Redact: drag a box over each thing to remove (click a box to take it off, Backspace takes off the last). Enter applies, Esc cancels.");
+  }
+  function endRedact() { redacting = null; $("redactBar").hidden = true; canvas.style.cursor = ""; render(); }
+  function applyRedact() {
+    if (!redacting) return;
+    var pg = redacting.pg, boxes = redacting.boxes.filter(function (b) { return b[2] - b[0] >= 2 && b[3] - b[1] >= 2; });
+    endRedact();
+    if (!boxes.length) { status("Nothing redacted."); return; }
+    stashPage();
+    pg.redact = (pg.redact || []).concat(boxes.map(function (b) { return shownToBase(pg, b[0], b[1], b[2], b[3]); }));
+    pageChanged(pg, (boxes.length === 1 ? "One area" : boxes.length + " areas") + " redacted on page " + (doc.pages.indexOf(pg) + 1) + ": black on the page, and in the export the page is a picture, so what was under them is gone. Remove redactions, in the menu, takes them off before then.");
+  }
+  function unredact(i) {
+    if (!doc) return;
+    if (i == null) i = doc.cur;
+    var pg = doc.pages[i];
+    if (!pg.redact || !pg.redact.length) return;
+    stashPage();
+    pg.redact = null;
+    pageChanged(pg, "Redactions taken off page " + (i + 1) + ".");
+  }
+  function drawRedacting(c) {
+    var u = 1 / view.s;
+    c.save();
+    redacting.boxes.forEach(function (b) {
+      var x = Math.min(b[0], b[2]), y = Math.min(b[1], b[3]), w = Math.abs(b[2] - b[0]), h = Math.abs(b[3] - b[1]);
+      c.fillStyle = "rgba(0,0,0,0.55)"; c.fillRect(x, y, w, h);
+      c.lineWidth = 2 * u; c.strokeStyle = "#d6301f"; c.setLineDash([6 * u, 4 * u]); c.strokeRect(x, y, w, h); c.setLineDash([]);
+    });
+    c.restore();
+  }
+  function boxAt(p) {
+    for (var i = redacting.boxes.length - 1; i >= 0; i--) {
+      var b = redacting.boxes[i];
+      if (p.x >= Math.min(b[0], b[2]) && p.x <= Math.max(b[0], b[2]) && p.y >= Math.min(b[1], b[3]) && p.y <= Math.max(b[1], b[3])) return i;
+    }
+    return -1;
+  }
+  stage.addEventListener("pointerdown", function (e) {
+    if (!redacting || e.target !== canvas) return;
+    e.stopPropagation(); e.preventDefault();
+    if (e.button !== 0) return;
+    var p = toImg(e), x = clamp(p.x, 0, state.w), y = clamp(p.y, 0, state.h);
+    redacting.act = { from: [x, y], box: [x, y, x, y], on: boxAt(p) };
+    redacting.boxes.push(redacting.act.box);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
+    render();
+  }, true);
+  stage.addEventListener("pointermove", function (e) {
+    if (!redacting) return;
+    if (e.target !== canvas && !redacting.act) return;
+    e.stopPropagation();
+    canvas.style.cursor = "crosshair";
+    if (!redacting.act) return;
+    var p = toImg(e), b = redacting.act.box;
+    b[2] = clamp(p.x, 0, state.w); b[3] = clamp(p.y, 0, state.h);
+    render();
+  }, true);
+  stage.addEventListener("pointerup", function (e) {
+    if (!redacting || !redacting.act) return;
+    e.stopPropagation();
+    var a = redacting.act, b = a.box;
+    redacting.act = null;
+    if (Math.abs(b[2] - b[0]) < 3 / view.s && Math.abs(b[3] - b[1]) < 3 / view.s) {
+      // a click: no box, and a click on a box takes it off
+      redacting.boxes.pop();
+      if (a.on >= 0) redacting.boxes.splice(a.on, 1);
+    } else redacting.boxes[redacting.boxes.length - 1] = [Math.min(b[0], b[2]), Math.min(b[1], b[3]), Math.max(b[0], b[2]), Math.max(b[1], b[3])];
+    render();
+  }, true);
+  $("redactApply").addEventListener("click", applyRedact);
+  $("redactCancel").addEventListener("click", function () { endRedact(); status("Nothing redacted."); });
+  // ----- Fill in form: the fields of a PDF form, filled in here; they show on the page and go into the export -----
+  // The fields a PDF has, from the widgets on its pages, kept to those that can be filled in: in page order,
+  // one entry a field (a radio group's buttons together), with what it needs to be shown and set.
+  function formFields(perPage) {
+    var byName = {}, out = [];
+    (perPage || []).forEach(function (annots, page) {
+      (annots || []).forEach(function (a) {
+        if (a.annotationType !== 20 || !a.fieldName || a.hidden) return;       // widgets only
+        var type = a.fieldType === "Tx" ? "text" : a.fieldType === "Ch" ? "choice" : a.fieldType === "Btn" ? (a.checkBox ? "checkbox" : a.radioButton ? "radio" : "") : "";
+        if (!type) return;                                                     // push buttons, signatures
+        var f = byName[a.fieldName];
+        if (!f) {
+          f = byName[a.fieldName] = { name: a.fieldName, type: type, widgets: [], page: page, y: -(a.rect ? a.rect[3] : 0), x: a.rect ? a.rect[0] : 0,
+                                      readOnly: !!a.readOnly, multiline: !!a.multiLine, items: a.options || null, label: fieldLabel(a.alternativeText || a.fieldName) };
+          f.value = type === "checkbox" ? (a.fieldValue && a.fieldValue !== "Off") : type === "choice" ? (Array.isArray(a.fieldValue) ? a.fieldValue[0] || "" : a.fieldValue || "") : type === "radio" ? (a.fieldValue && a.fieldValue !== "Off" ? a.fieldValue : "") : a.fieldValue || "";
+          out.push(f);
+        }
+        f.widgets.push({ id: a.id, page: page, on: type === "checkbox" ? a.exportValue : type === "radio" ? a.buttonValue : null });
+      });
+    });
+    if (!out.length) return null;
+    out.sort(function (a, b) { return a.page - b.page || a.y - b.y || a.x - b.x; });
+    return out;
+  }
+  function fieldLabel(name) {
+    var last = String(name).split(".").pop().replace(/\[\d+\]/g, "").replace(/[_]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+    return last ? last.charAt(0).toUpperCase() + last.slice(1) : name;
+  }
+  function fieldValue(src, f) { return Object.prototype.hasOwnProperty.call(src.values, f.name) ? src.values[f.name] : f.type === "checkbox" ? !!f.value : f.value || ""; }
+  // Put a value where PDF.js draws fields from, and redraw the pages it is on
+  var formRedraw = null;
+  function setField(src, f, v) {
+    src.values[f.name] = v;
+    var store = src.pdf.annotationStorage;
+    f.widgets.forEach(function (w) {
+      if (f.type === "text") store.setValue(w.id, { value: String(v) });
+      else if (f.type === "checkbox") store.setValue(w.id, { value: !!v });
+      else if (f.type === "radio") store.setValue(w.id, { value: v !== "" && w.on === v });
+      else store.setValue(w.id, { value: v === "" ? [] : [v] });
+    });
+    clearTimeout(formRedraw);
+    formRedraw = setTimeout(function () {
+      if (!doc) return;
+      var pages = {};
+      f.widgets.forEach(function (w) { pages[w.page] = true; });
+      doc.pages.forEach(function (pg) {
+        if (pg.source !== src || !pages[pg.n - 1]) return;
+        redrawPage(pg);
+        if (pg.thumb) { thumbQueue.push(pg); pumpThumbs(); }
+        if (pg === doc.pages[doc.cur]) renderPage(pg).then(function (c) { if (doc && doc.pages[doc.cur] === pg) { state.img = c; render(); } });
+      });
+    }, 200);
+  }
+  function openForm() {
+    if (!doc) return;
+    closeMenu();
+    var box = $("formFields");
+    box.innerHTML = "";
+    doc.sources.forEach(function (src) {
+      if (!src.fields) return;
+      var lastPage = -1;
+      src.fields.forEach(function (f) {
+        // where this field's page is in the document now (it may have moved, or been deleted)
+        var at = -1;
+        doc.pages.forEach(function (pg, k) { if (at < 0 && pg.source === src && pg.n - 1 === f.page) at = k; });
+        if (at < 0) return;
+        if (f.page !== lastPage) {
+          var h = document.createElement("h4"); h.textContent = "Page " + (at + 1) + (doc.sources.length > 1 ? " · " + src.label : "");
+          box.appendChild(h); lastPage = f.page;
+        }
+        var v = fieldValue(src, f), el;
+        if (f.type === "checkbox") {
+          var lab = document.createElement("label"); lab.className = "check";
+          lab.appendChild(document.createTextNode(f.label));
+          el = document.createElement("input"); el.type = "checkbox"; el.setAttribute("role", "switch"); el.checked = !!v;
+          el.addEventListener("change", function () { setField(src, f, el.checked); });
+          lab.appendChild(el); box.appendChild(lab);
+        } else {
+          var lab2 = document.createElement("label");
+          lab2.appendChild(document.createTextNode(f.label));
+          if (f.type === "text") {
+            el = document.createElement(f.multiline ? "textarea" : "input");
+            if (!f.multiline) el.type = "text";
+            el.className = "entry"; el.value = v;
+            el.addEventListener("input", function () { setField(src, f, el.value); });
+          } else {
+            el = document.createElement("select");
+            var opts = f.type === "radio" ? f.widgets.map(function (w) { return { exportValue: w.on, displayValue: w.on }; }) : (f.items || []);
+            [{ exportValue: "", displayValue: "—" }].concat(opts).forEach(function (o) {
+              var op = document.createElement("option"); op.value = o.exportValue; op.textContent = o.displayValue || o.exportValue; el.appendChild(op);
+            });
+            el.value = Array.isArray(v) ? v[0] || "" : v;
+            el.addEventListener("change", function () { setField(src, f, el.value); });
+          }
+          lab2.appendChild(el); box.appendChild(lab2);
+        }
+        el.dataset.field = f.name;
+        if (f.readOnly) el.disabled = true;
+      });
+    });
+    if (!box.children.length) { status("This document has no form fields to fill in."); return; }
+    openModal("formModal");
+    var first = box.querySelector("input:not([disabled]), select:not([disabled]), textarea:not([disabled])");
+    if (first) first.focus();
+  }
+  $("formClose").addEventListener("click", function () { closeModal("formModal"); });
+  // The values filled in, set in the PDF being written (pdf-lib); the fields' looks are made again to match.
+  function fillForm(L, pdfDoc, src) {
+    var vals = src && src.values, names = vals ? Object.keys(vals) : [];
+    if (!names.length) return;
+    var form;
+    try { form = pdfDoc.getForm(); } catch (e) { return; }
+    names.forEach(function (name) {
+      try {
+        var f = form.getField(name), v = vals[name];
+        if (f instanceof L.PDFTextField) f.setText(String(v));
+        else if (f instanceof L.PDFCheckBox) { if (v) f.check(); else f.uncheck(); }
+        else if (f instanceof L.PDFRadioGroup) { if (v) f.select(v); else f.clear(); }
+        else if (f instanceof L.PDFDropdown || f instanceof L.PDFOptionList) { if (v) f.select(v); else f.clear(); }
+      } catch (e) { /* a field that cannot take the value is left as it was */ }
+    });
+    try { form.updateFieldAppearances(); } catch (e) { /* the old looks stay */ }
+  }
+
+  // ----- Compare: this document against another version of it, page by page -----
+  // Both pages are drawn at about 1400 px and compared; the areas that differ are ringed in magenta. Show other
+  // puts the other file's page in place of this one; Mark with clouds puts a red revision cloud round each change.
+  var comparing = null;
+  function startCompare() { ensureDoc(); closeMenu(); $("cmpFile").click(); }
+  $("cmpFile").addEventListener("change", function (e) {
+    var f = e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    if (!isPageFile(f)) { status("Compare takes a PDF or an image."); return; }
+    runCompare(f);
+  });
+  function runCompare(file) {
+    if (cropping) endCrop();
+    if (redacting) endRedact();
+    if (comparing) endCompare();
+    stashPage();
+    status("Comparing with " + (file.name || "the other file") + "…");
+    return readPart(file).then(function (part) {
+      if (!doc) return;
+      var c = comparing = { label: file.name || "the other file", part: part, boxes: new Map(), other: new Map(), img: new Map(), show: false };
+      var n = Math.min(doc.pages.length, part.pages.length), chain = Promise.resolve();
+      doc.pages.slice(0, n).forEach(function (pg, i) {
+        c.other.set(pg, part.pages[i]);
+        chain = chain.then(function () {
+          if (comparing !== c) return;
+          status("Comparing page " + (i + 1) + " of " + n + "…");
+          return diffPages(pg, part.pages[i]).then(function (b) { c.boxes.set(pg, b); });
+        });
+      });
+      return chain.then(function () {
+        if (comparing !== c || !doc) return;
+        $("cmpBar").hidden = false;
+        cmpText(); render();
+        var changed = [], total = 0;
+        doc.pages.forEach(function (pg, i) { var b = c.boxes.get(pg); if (b && b.length) { changed.push(i + 1); total += b.length; } });
+        var extra = (doc.pages.length > n ? " Page" + (doc.pages.length - n > 1 ? "s " + (n + 1) + "–" + doc.pages.length + " are" : " " + doc.pages.length + " is") + " not in " + c.label + "." : "") +
+                    (part.pages.length > n ? " " + c.label + " has " + (part.pages.length - n) + " more page" + (part.pages.length - n > 1 ? "s" : "") + "." : "");
+        status((changed.length ? "Compared with " + c.label + ": " + total + (total === 1 ? " change" : " changes") + " on page" + (changed.length > 1 ? "s " : " ") + changed.join(", ") + ", ringed in magenta."
+                               : "Compared with " + c.label + ": no changes found on the " + n + (n === 1 ? " page" : " pages") + " compared.") + extra);
+      });
+    }).catch(function (err) {
+      status(err && err.name === "PasswordException" ? "That PDF is password-protected, so it cannot be compared." : "That file could not be compared: it may be damaged.");
+    });
+  }
+  function diffPages(a, b) {
+    var S = Math.min(a.k, 1400 / Math.max(a.wPt, a.hPt)), W = Math.max(1, Math.round(a.wPt * S)), H = Math.max(1, Math.round(a.hPt * S));
+    var ca = document.createElement("canvas"); ca.width = W; ca.height = H;
+    var Sb = W / b.wPt, tb = document.createElement("canvas"); tb.width = W; tb.height = Math.max(1, Math.round(b.hPt * Sb));
+    return Promise.all([paintPage(a, ca, S), paintPage(b, tb, Sb)]).then(function () {
+      var cb = document.createElement("canvas"); cb.width = W; cb.height = H;
+      cb.getContext("2d").drawImage(tb, 0, 0, W, H);             // the other page fitted to this one
+      var da = ca.getContext("2d").getImageData(0, 0, W, H).data, db = cb.getContext("2d").getImageData(0, 0, W, H).data;
+      // cells of 8 px; a cell with a few pixels that clearly differ is a changed cell
+      var C = 8, gw = Math.ceil(W / C), gh = Math.ceil(H / C), cnt = new Uint16Array(gw * gh), x, y;
+      for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+        var i = (y * W + x) * 4;
+        var la = da[i] * 0.299 + da[i + 1] * 0.587 + da[i + 2] * 0.114, lb = db[i] * 0.299 + db[i + 1] * 0.587 + db[i + 2] * 0.114;
+        if (Math.abs(la - lb) > 64) cnt[(y / C | 0) * gw + (x / C | 0)]++;
+      }
+      // changed cells near each other (within two cells) make one area
+      var seen = new Uint8Array(gw * gh), boxes = [], k;
+      for (k = 0; k < gw * gh; k++) {
+        if (cnt[k] < 4 || seen[k]) continue;
+        var q = [k], x0 = gw, y0 = gh, x1 = -1, y1 = -1;
+        seen[k] = 1;
+        while (q.length) {
+          var c = q.pop(), cx = c % gw, cy = (c / gw) | 0;
+          if (cx < x0) x0 = cx; if (cx > x1) x1 = cx; if (cy < y0) y0 = cy; if (cy > y1) y1 = cy;
+          for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) {
+            var nx = cx + dx, ny = cy + dy, nk = ny * gw + nx;
+            if (nx < 0 || ny < 0 || nx >= gw || ny >= gh || seen[nk] || cnt[nk] < 4) continue;
+            seen[nk] = 1; q.push(nk);
+          }
+        }
+        boxes.push([x0 * C, y0 * C, (x1 + 1) * C, (y1 + 1) * C]);
+      }
+      // in the page's own pixels, with room round each, and those that then overlap made one
+      var f = a.w / W, pad = Math.max(10, Math.min(a.w, a.h) * 0.015);
+      boxes = boxes.map(function (bx) { return [Math.max(0, bx[0] * f - pad), Math.max(0, bx[1] * f - pad), Math.min(a.w, bx[2] * f + pad), Math.min(a.h, bx[3] * f + pad)]; });
+      for (var merged = true; merged;) {
+        merged = false;
+        for (var m = 0; m < boxes.length && !merged; m++) for (var n2 = m + 1; n2 < boxes.length; n2++) {
+          var p1 = boxes[m], p2 = boxes[n2];
+          if (p1[0] <= p2[2] && p2[0] <= p1[2] && p1[1] <= p2[3] && p2[1] <= p1[3]) {
+            boxes[m] = [Math.min(p1[0], p2[0]), Math.min(p1[1], p2[1]), Math.max(p1[2], p2[2]), Math.max(p1[3], p2[3])];
+            boxes.splice(n2, 1); merged = true; break;
+          }
+        }
+      }
+      return boxes;
+    });
+  }
+  function cmpText() {
+    if (!comparing || !doc) return;
+    var pg = doc.pages[doc.cur], b = comparing.boxes.get(pg);
+    $("cmpText").textContent = "Compared with " + comparing.label + " · " + (!comparing.other.has(pg) ? "this page is not in it" : !b || !b.length ? "no changes on this page" : b.length + (b.length === 1 ? " change" : " changes") + " on this page");
+    $("cmpOther").disabled = !comparing.other.has(pg);
+    $("cmpOther").setAttribute("aria-pressed", String(!!comparing.show));
+  }
+  function drawCompare(c) {
+    var pg = doc.pages[doc.cur], b = comparing.boxes.get(pg), u = 1 / view.s;
+    if (!b || !b.length) return;
+    c.save();
+    b.forEach(function (r) {
+      c.fillStyle = "rgba(212,20,140,0.08)"; c.fillRect(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+      c.lineWidth = 2.5 * u; c.strokeStyle = "#d4148c"; c.strokeRect(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+    });
+    c.restore();
+  }
+  // the other file's page, drawn to this page's size, for Show other
+  function otherImage(pg) {
+    var o = comparing.other.get(pg);
+    if (!o) return Promise.resolve(null);
+    if (comparing.img.has(pg)) return Promise.resolve(comparing.img.get(pg));
+    var k = pg.w / o.wPt, t = document.createElement("canvas"); t.width = pg.w; t.height = Math.max(1, Math.round(o.hPt * k));
+    return paintPage(o, t, k).then(function () {
+      var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
+      c.getContext("2d").drawImage(t, 0, 0, pg.w, pg.h);
+      comparing.img.set(pg, c);
+      return c;
+    });
+  }
+  function endCompare() {
+    if (!comparing) return;
+    var c = comparing; comparing = null;
+    $("cmpBar").hidden = true;
+    if (c.part.source.pdf) { try { c.part.source.pdf.destroy(); } catch (e) { /* gone */ } }
+    if (doc) state.img = doc.pages[doc.cur].img || state.img;
+    render();
+  }
+  $("cmpOther").addEventListener("click", function () {
+    if (!comparing || !doc) return;
+    var pg = doc.pages[doc.cur], c = comparing;
+    c.show = !c.show;
+    if (!c.show) { state.img = pg.img || state.img; cmpText(); render(); status("This file's page again."); return; }
+    otherImage(pg).then(function (img) {
+      if (comparing !== c || !c.show || doc.pages[doc.cur] !== pg || !img) return;
+      state.img = img; cmpText(); render();
+      status("Showing " + c.label + "'s page " + (doc.pages.indexOf(pg) + 1) + ". Show other again goes back.");
+    });
+  });
+  $("cmpClouds").addEventListener("click", function () {
+    if (!comparing || !doc) return;
+    stashPage();
+    var n = 0, pagesMarked = [], w = Math.max(0.5, (state.inks.pen && state.inks.pen.width) || 1);
+    doc.pages.forEach(function (pg, i) {
+      var b = comparing.boxes.get(pg);
+      if (!b || !b.length) return;
+      // one step to undo on each page
+      pg.history.push(JSON.stringify({ notes: pg.notes, strokes: pg.strokes, pics: pg.pics || [], sel: pg.sel, picks: pg.picks, dpi: state.dpi }));
+      pg.future = [];
+      b.forEach(function (r) { pg.strokes.push({ color: "red", width: w, hi: false, tip: "round", dash: "cloud", shape: "rect", points: [[r[0], r[1]], [r[2], r[3]]] }); n++; });
+      pagesMarked.push(i + 1);
+    });
+    showPage(doc.cur, true, n ? n + (n === 1 ? " cloud" : " clouds") + " drawn round the changes, on page" + (pagesMarked.length > 1 ? "s " : " ") + pagesMarked.join(", ") + ". Undo on a page takes them off it." : "No changes to mark.");
+    endCompare();
+  });
+  $("cmpClose").addEventListener("click", function () { endCompare(); status("Comparison closed."); });
   // Add pages: a file picker for PDFs and images, its pages going in after page `after`
   var pagesAfter = null;
   function pickPages(after) { pagesAfter = after; $("pagesFile").click(); }
@@ -3787,23 +4210,26 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   // The full-quality PDF of some pages of the document: each PDF page as it is (still sharp, its text still text),
   // an image as a page of its own size, a blank page white; turned and cropped as shown, the markup on top.
   // One whole PDF, untouched apart from that, is kept as it is (its links, outline and form fields with it).
+  function redacted(pg) { return !!(pg.redact && pg.redact.length); }
   function fullPdf(L, d, pages) {
-    var src0 = d.sources[0];
-    var whole = d.sources.length === 1 && src0.kind === "pdf" && pages.length === src0.count && pages.every(function (pg, k) { return pg.n === k + 1; });
+    var src0 = d.sources[0], flat = new Set(pages.filter(redacted));   // redacted pages go in as pictures
+    var whole = d.sources.length === 1 && src0.kind === "pdf" && pages.length === src0.count && !flat.size && pages.every(function (pg, k) { return pg.n === k + 1; });
     var base;
     if (whole) base = L.PDFDocument.load(src0.bytes).then(function (src) {
       if (src.getPageCount() !== src0.count) throw new Error("page count differs");
+      fillForm(L, src, src0);
       return { out: src, pages: src.getPages() };
     });
     else base = L.PDFDocument.create().then(function (out) {
       // the pages wanted from each PDF are copied in one go, so what they share (fonts and the like) is copied once
       var wanted = [];
-      pages.forEach(function (pg) { if (pg.source.kind === "pdf" && wanted.indexOf(pg.source) < 0) wanted.push(pg.source); });
+      pages.forEach(function (pg) { if (pg.source.kind === "pdf" && !flat.has(pg) && wanted.indexOf(pg.source) < 0) wanted.push(pg.source); });
       var copied = new Map();
       var chain = Promise.resolve();
       wanted.forEach(function (src) {
         chain = chain.then(function () { return L.PDFDocument.load(src.bytes); }).then(function (sd) {
-          var mine = pages.filter(function (pg) { return pg.source === src; }), rounds = [];
+          fillForm(L, sd, src);
+          var mine = pages.filter(function (pg) { return pg.source === src && !flat.has(pg); }), rounds = [];
           // a page wanted twice (duplicated) is copied again in a later round: each copy can go in only once
           mine.forEach(function (pg) {
             var r = 0;
@@ -3823,6 +4249,17 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
       pages.forEach(function (pg) {
         chain = chain.then(function () {
           if (copied.has(pg)) { list.push(out.addPage(copied.get(pg))); return; }
+          if (flat.has(pg)) {
+            // the page as shown (turned, cropped, blacked out), as a picture: nothing under the black is left
+            var fp = out.addPage([pg.wPt, pg.hPt]);
+            list.push(fp);
+            status("Redacting page " + (d.pages.indexOf(pg) + 1) + "…");
+            return renderPage(pg).then(function (img) {
+              var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
+              var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, pg.w, pg.h); g.drawImage(img, 0, 0);
+              return canvasBytes(c, "image/jpeg", 0.92);
+            }).then(function (bytes) { return out.embedJpg(bytes); }).then(function (jpg) { fp.drawImage(jpg, { x: 0, y: 0, width: pg.wPt, height: pg.hPt }); });
+          }
           var page = out.addPage([pg.bw, pg.bh]);
           list.push(page);
           if (pg.source.kind !== "img") return;           // a blank page stays white
@@ -3833,7 +4270,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
     });
     return base.then(function (b) {
       var marked = pages.filter(hasMarkup), chain = Promise.resolve();
-      pages.forEach(function (pg, i) { shapePdfPage(L, b.pages[i], pg); });
+      pages.forEach(function (pg, i) { if (!flat.has(pg)) shapePdfPage(L, b.pages[i], pg); });
       marked.forEach(function (pg, k) {
         chain = chain.then(function () {
           status("Adding markup to page " + (d.pages.indexOf(pg) + 1) + " (" + (k + 1) + " of " + marked.length + ")…");
@@ -4083,7 +4520,7 @@ body.has-pages main { grid-template-columns: 132px 1fr 300px; }
   function openKeys() { writeKeys(); openModal("setModal", "wheelErase"); }
   function openModal(id, focus) { $(id).classList.add("open"); if (focus) $(focus).focus(); }
   function closeModal(id) { if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); } }
-  ["setModal", "pdfModal"].forEach(function (id) {
+  ["setModal", "pdfModal", "formModal"].forEach(function (id) {
     $(id).addEventListener("click", function (e) { if (e.target === $(id)) closeModal(id); });
     $(id).addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeModal(id); } });
   });
