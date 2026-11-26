@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans+Condensed:wght@400;700&family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
 <style>
 /* osifont: the free ISO 3098 lettering that stands in for ISOCPEUR where AutoCAD's is not installed */
 @font-face { font-family: "osifont"; src: url("fonts/osifont-lgpl3fe.ttf") format("truetype"); font-display: swap; }
@@ -323,14 +323,14 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
    as a card like the menu, the chosen face lemon; elsewhere it is the system's list, the closed field still
    showing the chosen face in itself. */
 @supports (appearance: base-select) {
-  #font, #font::picker(select) { appearance: base-select; }
-  #font { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
-  #font::picker(select) { border: 1px solid var(--divider); border-radius: 12px; background: var(--card); padding: 4px;
+  #font, #font::picker(select), #txtFont, #txtFont::picker(select) { appearance: base-select; }
+  #font, #txtFont { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+  #font::picker(select), #txtFont::picker(select) { border: 1px solid var(--divider); border-radius: 12px; background: var(--card); padding: 4px;
     margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.14); }
-  #font option { padding: 7px 10px; border-radius: 8px; font-size: var(--fs); }
-  #font option:hover, #font option:focus-visible { background: var(--chosen-tint); outline: none; }
-  #font option:checked { background: var(--chosen); color: var(--on-chosen); }
-  #font option::checkmark { display: none; }
+  #font option, #txtFont option { padding: 7px 10px; border-radius: 8px; font-size: var(--fs); }
+  #font option:hover, #font option:focus-visible, #txtFont option:hover, #txtFont option:focus-visible { background: var(--chosen-tint); outline: none; }
+  #font option:checked, #txtFont option:checked { background: var(--chosen); color: var(--on-chosen); }
+  #font option::checkmark, #txtFont option::checkmark { display: none; }
 }
 /* Bold and the case of every note, under the typeface */
 .textstyle { display: flex; gap: 8px; }
@@ -338,6 +338,20 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 #boldBtn { width: 44px; flex: none; justify-content: center; font-weight: 700; text-transform: none; }
 #boldBtn[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 .seg.case button { text-transform: none; letter-spacing: normal; }
+/* A text's own type, as in InDesign: face, style, case, alignment, list, colour, background, leading, tracking */
+#textType { display: flex; flex-direction: column; gap: 8px; }
+#textType[hidden], #txtSpacing[hidden], #txtBgWrap[hidden], #colorHead[hidden], #txtPtWrap[hidden],
+#noteShapes[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden] { display: none; }
+#textType .seg button { text-transform: none; letter-spacing: normal; padding: 6px 4px; }
+#textType .seg button svg { display: block; }
+#txtB { font-weight: 700; } #txtI { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
+#txtU { text-decoration: underline; } #txtS { text-decoration: line-through; }
+.sub { font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); margin-bottom: -4px; }
+#txtSpacing { display: flex; flex-direction: column; gap: 8px; }
+#txtPtWrap { display: inline-flex; align-items: baseline; gap: 4px; }
+#txtPt { width: 5.5em; text-align: right; padding: 2px 6px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.swatches.colours .chip.none { background: linear-gradient(135deg, transparent 45%, var(--accent, #d9442e) 45%, var(--accent, #d9442e) 55%, transparent 55%), var(--card); box-shadow: inset 0 0 0 1px var(--field-edge); }
+#txtBg.colours button { width: 27px; }
 /* choices shown as pictograms (their names in the tooltip and for a screen reader); a row of such groups */
 .seg button svg.shape { flex: none; display: block; }
 .seg button:has(svg.shape) { padding: 6px 4px; }
@@ -603,28 +617,68 @@ body.has-pages #stripGrip { display: block; }
       <label for="noteText" id="noteTextWrap">Text
         <textarea id="noteText" spellcheck="true"></textarea>
       </label>
+      <div id="textType" hidden>
+        <select id="txtFont" aria-label="Typeface"></select>
+        <div class="segrow">
+          <div class="seg" role="group" aria-label="Style">
+            <button id="txtB" aria-pressed="false" title="Bold (Ctrl+B)">B</button>
+            <button id="txtI" aria-pressed="false" title="Italic (Ctrl+I)">I</button>
+            <button id="txtU" aria-pressed="false" title="Underline (Ctrl+U)">U</button>
+            <button id="txtS" aria-pressed="false" title="Strikethrough">S</button>
+          </div>
+          <div class="seg" role="group" aria-label="Case">
+            <button id="txtAs" aria-pressed="true" title="As typed">Aa</button>
+            <button id="txtUp" aria-pressed="false" title="All capitals">AA</button>
+            <button id="txtLow" aria-pressed="false" title="All lower case">aa</button>
+          </div>
+        </div>
+        <div class="segrow">
+          <div class="seg" role="group" aria-label="Align">
+            <button id="alignL" aria-pressed="true" title="Align left"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="16" height="1.8"/><rect x="1" y="4.4" width="10" height="1.8"/><rect x="1" y="7.8" width="16" height="1.8"/><rect x="1" y="11.2" width="10" height="1.8"/></svg><span class="unseen">Left</span></button>
+            <button id="alignC" aria-pressed="false" title="Align centre"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="16" height="1.8"/><rect x="4" y="4.4" width="10" height="1.8"/><rect x="1" y="7.8" width="16" height="1.8"/><rect x="4" y="11.2" width="10" height="1.8"/></svg><span class="unseen">Centre</span></button>
+            <button id="alignR" aria-pressed="false" title="Align right"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="16" height="1.8"/><rect x="7" y="4.4" width="10" height="1.8"/><rect x="1" y="7.8" width="16" height="1.8"/><rect x="7" y="11.2" width="10" height="1.8"/></svg><span class="unseen">Right</span></button>
+          </div>
+          <div class="seg" role="group" aria-label="List">
+            <button id="listBul" aria-pressed="false" title="Bullets: a bullet before each line you start with Enter"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><circle cx="2.4" cy="2.4" r="1.4"/><rect x="6" y="1.5" width="11" height="1.8"/><circle cx="2.4" cy="7" r="1.4"/><rect x="6" y="6.1" width="11" height="1.8"/><circle cx="2.4" cy="11.6" r="1.4"/><rect x="6" y="10.7" width="11" height="1.8"/></svg><span class="unseen">Bullets</span></button>
+            <button id="listNum" aria-pressed="false" title="Numbers: 1, 2, 3 before each line you start with Enter"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><text x="0.4" y="4.4" font-size="5" font-weight="700" font-family="Arial, sans-serif">1</text><rect x="6" y="1.5" width="11" height="1.8"/><text x="0.4" y="9" font-size="5" font-weight="700" font-family="Arial, sans-serif">2</text><rect x="6" y="6.1" width="11" height="1.8"/><text x="0.4" y="13.6" font-size="5" font-weight="700" font-family="Arial, sans-serif">3</text><rect x="6" y="10.7" width="11" height="1.8"/></svg><span class="unseen">Numbers</span></button>
+          </div>
+        </div>
+      </div>
+      <span class="sub" id="colorHead" hidden>Colour</span>
       <div class="swatches five" id="noteColors" role="group" aria-label="Colour"></div>
+      <div id="txtBgWrap" hidden>
+        <span class="sub">Background</span>
+        <div class="swatches" id="txtBg" role="group" aria-label="Background"></div>
+      </div>
       <div class="swatches" id="noteShapes" role="group" aria-label="Shape"></div>
       <div class="segrow">
       <div class="seg" role="group" aria-label="Orientation">
         <button id="oriH" aria-pressed="true" title="Horizontal: the words read across"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriH"><rect width="30" height="14" fill="#fff"/><text x="15" y="9.9" font-size="8" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#000">Ab</text></mask></defs><rect x="3" y="1.5" width="24" height="11" rx="5.5" fill="currentColor" mask="url(#mkOriH)"/></svg><span class="unseen">Horizontal</span></button>
         <button id="oriV" aria-pressed="false" title="Vertical: the words read upwards"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriV"><rect width="30" height="14" fill="#fff"/><text transform="translate(17.9 7) rotate(-90)" font-size="8" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#000">Ab</text></mask></defs><rect x="9.5" y="0" width="11" height="14" rx="5.5" fill="currentColor" mask="url(#mkOriV)"/></svg><span class="unseen">Vertical</span></button>
       </div>
-      <div class="seg" role="group" aria-label="Fill">
+      <div class="seg" role="group" aria-label="Fill" id="noteFill">
         <button id="fillOn" aria-pressed="true" title="Filled: the shape filled with the colour"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4" y="2" width="22" height="10" rx="5" fill="currentColor"/></svg><span class="unseen">Filled</span></button>
         <button id="fillOff" aria-pressed="false" title="Outline: an outline in the colour round the words, white inside (a yellow one with dark words; a white one dark inside)"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4.8" y="2.8" width="20.4" height="8.4" rx="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="unseen">Outline</span></button>
       </div>
-      <div class="seg" role="group" aria-label="End of the line">
+      <div class="seg" role="group" aria-label="End of the line" id="noteEnd">
         <button id="endDot" aria-pressed="true" title="Dot end: the line ends in a dot on the spot"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M26 2L8 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="6.6" cy="10.6" r="2.7" fill="currentColor"/></svg><span class="unseen">Dot end</span></button>
         <button id="endArrow" aria-pressed="false" title="Arrow end: the line ends in an arrowhead pointing at the spot"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M26 2L10.4 9.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 12L11.7 12L9.05 6.2Z" fill="currentColor"/></svg><span class="unseen">Arrow end</span></button>
       </div>
       </div>
-      <label for="noteSize" class="slider"><span class="head">Text size <span class="val" id="noteSizeVal"></span></span>
+      <label for="noteSize" class="slider"><span class="head"><span id="noteSizeHead">Text size</span> <span class="val" id="noteSizeVal"></span><span id="txtPtWrap" hidden><input id="txtPt" class="entry" type="text" inputmode="decimal" autocomplete="off" aria-label="Size in points"><span class="val">pt</span></span></span>
         <input type="range" id="noteSize" min="0.25" max="4" step="0.05">
       </label>
+      <div id="txtSpacing" hidden>
+        <label for="txtLead" class="slider"><span class="head">Leading <span class="val" id="txtLeadVal"></span></span>
+          <input type="range" id="txtLead" min="0.8" max="3" step="0.05">
+        </label>
+        <label for="txtTrack" class="slider"><span class="head">Tracking <span class="val" id="txtTrackVal"></span></span>
+          <input type="range" id="txtTrack" min="-100" max="500" step="10">
+        </label>
+      </div>
       <button id="del" class="danger">Delete note</button>
     </div>
-    <div class="section">
+    <div class="section" id="allNotes">
       <h2>All notes</h2>
       <label for="font">Typeface
         <select id="font">
@@ -838,6 +892,7 @@ body.has-pages #stripGrip { display: block; }
 
   function layout(n, c) {
     var fs = fontPx(n);
+    if (shapeOf(n) === "text") return layoutText(n, c, fs);
     c.font = fontStr(fs);
     var lines = wrapLines(c, noteWords(n), WRAP_EM * fs);
     var lw = 0;
@@ -849,9 +904,6 @@ body.has-pages #stripGrip { display: block; }
       // a circle round the whole text block, never smaller than a one-line pill is tall
       w = h = Math.max(Math.hypot(lw, blockH) + fs * 0.9, fs + padS * 2);
       cr = w / 2; padL = (w - lw) / 2;
-    } else if (shape === "text") {
-      // the words alone: their box just round them
-      padL = fs * 0.15; h = blockH + fs * 0.3; w = lw + padL * 2; cr = 0;
     } else {
       h = blockH + padS * 2;
       if (shape === "pill") { cr = h / 2; padL = Math.max(cr * 0.8, fs * 0.9); }
@@ -861,6 +913,92 @@ body.has-pages #stripGrip { display: block; }
     // cr is the corner radius; centre is true when each line is centred (circle) rather than left-aligned
     return { fs: fs, lines: lines, lineH: lineH, blockH: blockH, lw: lw, padL: padL, w: w, h: h, cr: cr,
              centre: shape === "circle", ang: n.vertical ? -Math.PI / 2 : 0 };
+  }
+
+  // ---------- a text's own type ----------
+  // A text (the Text tool) is set in a type of its own, as in InDesign: its face, bold, italic, underline,
+  // strikethrough, case, alignment, a list (bullets or numbers), leading (a multiple of the size), tracking
+  // (thousandths of an em) and a background. A text made before it had these takes the notes' face, bold and case.
+  var LEAD = 1.2, TYPE_KEYS = ["font", "bold", "italic", "under", "strike", "caps", "align", "list", "lead", "track", "bg"];
+  function own(o, k) { return typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k); }
+  function typeOf(n) {
+    var fin = function (v, lo, hi, d) { return typeof v === "number" && isFinite(v) ? clamp(v, lo, hi) : d; };
+    return { font: own(FONTS, n.font) ? n.font : state.font, bold: typeof n.bold === "boolean" ? n.bold : !!state.bold,
+             italic: n.italic === true, under: n.under === true, strike: n.strike === true,
+             caps: n.caps === "" || n.caps === "upper" || n.caps === "lower" ? n.caps : state.caps,
+             align: n.align === "center" || n.align === "right" ? n.align : "left",
+             list: n.list === "bullet" || n.list === "number" ? n.list : "",
+             lead: fin(n.lead, 0.8, 3, LEAD), track: fin(n.track, -100, 500, 0),
+             bg: own(COLORS, n.bg) || isHex(n.bg) ? n.bg : "" };
+  }
+  // a note is 0.25 to 4 per cent of the page width tall, a text 0.1 to 12
+  var TEXT_SIZE = [0.1, 12];
+  function sizeRange(n) { return n && shapeOf(n) === "text" ? TEXT_SIZE : [0.25, 4]; }
+  function typeFont(t, fs) { return (t.italic ? "italic " : "") + (t.bold ? 700 : 400) + " " + fs + "px " + FONTS[t.font].family; }
+  function cased(s, caps) { return caps === "upper" ? s.toUpperCase() : caps === "lower" ? s.toLowerCase() : s; }
+  // a line's letters as they are seen: an accent typed as a character of its own, or an emoji with a skin tone, is one
+  var graphemer = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+  function letters(s) { return graphemer ? Array.from(graphemer.segment(s), function (g) { return g.segment; }) : Array.from(s); }
+  // how wide a line is set with tracking tr (px between letters)
+  function trackedW(c, s, tr) { return s ? c.measureText(s).width + (tr ? tr * (letters(s).length - 1) : 0) : 0; }
+  function layoutText(n, c, fs) {
+    var t = typeOf(n), tr = t.track / 1000 * fs;
+    c.font = typeFont(t, fs);
+    var paras = cased(n.text || "", t.caps).split("\n"), k = 0;
+    // each paragraph of a list starts with its mark; the lines hang at one indent, past the widest mark
+    var marks = paras.map(function (p) { return !t.list || !p.trim() ? "" : t.list === "bullet" ? "\u2022" : (++k) + "."; });
+    var ind = 0;
+    marks.forEach(function (m) { if (m) ind = Math.max(ind, trackedW(c, m, tr) + fs * 0.45); });
+    // point type, as a click with Illustrator's type tool makes: a line breaks only where Enter was pressed
+    var rows = paras.map(function (para, pi) {
+      var str = para.replace(/\s+$/, "");
+      return { s: str, ind: marks[pi] ? ind : 0, w: trackedW(c, str, tr), mark: marks[pi] };
+    });
+    var lw = fs * 0.5;
+    rows.forEach(function (r) { lw = Math.max(lw, r.ind + r.w); });
+    var lineH = fs * t.lead, blockH = (rows.length - 1) * lineH + fs;
+    // the box just round the words; a background reaches a little further
+    var padL = t.bg ? fs * 0.4 : fs * 0.15, padV = t.bg ? fs * 0.35 : fs * 0.15;
+    return { fs: fs, lines: rows.map(function (r) { return r.s; }), rows: rows, type: t, tr: tr, lineH: lineH, blockH: blockH, lw: lw,
+             padL: padL, w: lw + padL * 2, h: blockH + padV * 2, cr: 0, centre: false, ang: n.vertical ? -Math.PI / 2 : 0 };
+  }
+  // one line, its letters spread by the tracking
+  function putText(c, str, x, y, tr, stroke) {
+    if (!tr) { if (stroke) c.strokeText(str, x, y); else c.fillText(str, x, y); return; }
+    var ch = letters(str);
+    for (var i = 0; i < ch.length; i++) {
+      var at = x + c.measureText(ch.slice(0, i).join("")).width + tr * i;
+      if (stroke) c.strokeText(ch[i], at, y); else c.fillText(ch[i], at, y);
+    }
+  }
+  // A text: its background, or else a faint halo so the words read over a busy render; then the words, marks and
+  // lines in the colour. Drawn in the text's own axes, its box centred on the origin.
+  function drawText(c, n, L) {
+    var t = L.type, col = colorOf(n), fs = L.fs;
+    if (t.bg) { c.fillStyle = colorDef(t.bg, "white").fill; c.fillRect(-L.w / 2, -L.h / 2, L.w, L.h); }
+    c.font = typeFont(t, fs); c.textBaseline = "middle"; c.textAlign = "left"; c.lineJoin = "round";
+    var mx = c.measureText("x"), down = mx.actualBoundingBoxDescent, xh = mx.actualBoundingBoxAscent + down;
+    if (!isFinite(down) || !isFinite(xh) || xh <= 0) { down = fs * 0.3; xh = fs * 0.52; }   // where the baseline is, below the middle
+    var deco = [], th = Math.max(0.6, fs * 0.07);
+    if (t.under) deco.push(down + fs * 0.1);
+    if (t.strike) deco.push(down - xh * 0.45);
+    var left = -L.lw / 2, top = -L.blockH / 2 + fs / 2;
+    var spots = L.rows.map(function (r, i) {
+      var x = t.align === "right" ? L.lw / 2 - r.w : t.align === "center" ? left + r.ind + (L.lw - r.ind - r.w) / 2 : left + r.ind;
+      return { r: r, x: x, y: top + i * L.lineH };
+    });
+    var pass = function (halo) {
+      c.fillStyle = c.strokeStyle = halo ? col.halo : col.fill;
+      var g = 0;
+      if (halo) { c.lineWidth = Math.max(1, fs * 0.16); g = c.lineWidth / 2; }
+      spots.forEach(function (p) {
+        if (p.r.mark) putText(c, p.r.mark, p.x - p.r.ind, p.y, L.tr, halo);
+        if (p.r.s) putText(c, p.r.s, p.x, p.y, L.tr, halo);
+        if (p.r.w) deco.forEach(function (dy) { c.fillRect(p.x - g, p.y + dy - th / 2 - g, p.r.w + 2 * g, th + 2 * g); });
+      });
+    };
+    if (!t.bg) pass(true);
+    pass(false);
   }
 
   function toLocal(n, L, x, y) {
@@ -1366,18 +1504,7 @@ body.has-pages #stripGrip { display: block; }
     c.translate(n.px, n.py); c.rotate(L.ang);
     // Filled: the shape in the colour, the words in its ink. Outline: a border in the colour round the words,
     // see outlineLook: white inside, the words in the colour (dark words in a yellow one; a white one dark inside).
-    if (shapeOf(n) === "text") {
-      // the words alone, in the colour, with a faint halo so they read over a busy render
-      c.font = fontStr(L.fs);
-      c.textBaseline = "middle"; c.textAlign = "left"; c.lineJoin = "round";
-      var tx0 = -L.lw / 2, ty0 = -L.blockH / 2 + L.fs / 2;
-      c.strokeStyle = col.halo; c.lineWidth = Math.max(1, L.fs * 0.16);
-      L.lines.forEach(function (line, i) { c.strokeText(line, tx0, ty0 + i * L.lineH); });
-      c.fillStyle = col.fill;
-      L.lines.forEach(function (line, i) { c.fillText(line, tx0, ty0 + i * L.lineH); });
-      c.restore();
-      return;
-    }
+    if (shapeOf(n) === "text") { drawText(c, n, L); c.restore(); return; }
     var ow = n.outline ? Math.max(1.5, L.fs * 0.12) : 0, ol = outlineLook(n);
     c.fillStyle = n.outline ? ol.inside : col.fill;
     c.beginPath();
@@ -1869,13 +1996,26 @@ body.has-pages #stripGrip { display: block; }
     return { vertical: !!l.vertical, color: validColor(l.color, "red"), shape: SHAPES[l.shape] ? l.shape : "pill",
              size: typeof l.size === "number" ? l.size : 1, outline: !!l.outline, end: l.end === "arrow" ? "arrow" : "" };
   }
-  // change the look of the next note (nothing on the image changes)
-  function setLook(fn) { var l = nextLook(); fn(l); state.style = l; sync(); }
+  // A text's look: its colour, size, orientation and type. state.textStyle is the look the next text gets: that
+  // of the text selected last, or what was picked with the Text tool on; at first the notes' colour and size.
+  function textLookOf(n) { var t = typeOf(n); t.vertical = !!n.vertical; t.color = n.color || "black"; t.size = n.size; return t; }
+  function nextTextLook() {
+    var l = state.textStyle, base = nextLook();
+    var t = typeOf(l || { font: state.font, bold: !!state.bold, caps: "" });
+    t.vertical = l ? !!l.vertical : base.vertical; t.color = l ? validColor(l.color, base.color) : base.color;
+    t.size = l && typeof l.size === "number" ? clamp(l.size, TEXT_SIZE[0], TEXT_SIZE[1]) : base.size;
+    return t;
+  }
+  // change the look of the next note, or with the Text tool on of the next text (nothing on the image changes)
+  function setLook(fn) {
+    if (state.tool === "text") { var t = nextTextLook(); fn(t); state.textStyle = t; sync(); return; }
+    var l = nextLook(); fn(l); state.style = l; sync();
+  }
   function newNote(x, y) {
     var dx = state.w * 0.11 * (x > state.w / 2 ? -1 : 1);
     var dy = -state.h * 0.1;
-    // a new note looks like the selected one, or failing that like the next-note look
-    var look = selected() ? lookOf(selected()) : nextLook();
+    // a new note looks like the selected one (not a text), or failing that like the next-note look
+    var sn = selected(), look = sn && shapeOf(sn) !== "text" ? lookOf(sn) : nextLook();
     var n = {
       id: state.nextId++, text: "New note", tx: x, ty: y,
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
@@ -1885,8 +2025,10 @@ body.has-pages #stripGrip { display: block; }
   }
   // Words alone, from the Text tool: a note of the shape "text", with no leader (its dot is under it)
   function textNote(x, y) {
-    var look = selected() && shapeOf(selected()) === "text" ? lookOf(selected()) : nextLook();
-    return { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, vertical: look.vertical, color: look.color, shape: "text", size: look.size };
+    var s = selected(), look = s && shapeOf(s) === "text" ? textLookOf(s) : nextTextLook();
+    var n = { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, vertical: look.vertical, color: look.color, shape: "text", size: look.size };
+    TYPE_KEYS.forEach(function (k) { n[k] = look[k]; });
+    return n;
   }
   function addNote(x, y, deferFocus, made) {
     snapshot();
@@ -1985,9 +2127,10 @@ body.has-pages #stripGrip { display: block; }
     saveSettings();
   }
 
-  function shapeRow(el, current, onPick) {
+  function shapeRow(el, current, onPick, noText) {
     el.innerHTML = "";
     Object.keys(SHAPES).forEach(function (k) {
+      if (noText && k === "text") return;
       var b = document.createElement("button");
       b.type = "button"; b.title = SHAPES[k].title;
       b.setAttribute("aria-pressed", String(k === current));
@@ -2044,15 +2187,22 @@ body.has-pages #stripGrip { display: block; }
     $("picLineThick").setAttribute("aria-pressed", String(!!pl && pl.w === "thick"));
     $("picLineColors").hidden = !pl;
     if (pl) swatchRow($("picLineColors"), pl.c, function (k) { var q = selectedPic(); if (!q || !q.line) return; snapshot(); q.line = { w: q.line.w, c: k }; sync(); render(); });
-    var n = selected(), many = state.picks.length > 1;
+    var n = selected(), many = state.picks.length > 1, ps = picked();
     // With a note selected the settings change it (and the selection it is part of). With none they are the
-    // settings for the next note, so they can be picked before it is placed.
-    if (n) state.style = lookOf(n);
-    var look = n ? lookOf(n) : nextLook();
-    $("editorTitle").textContent = !n ? (state.tool === "text" ? "New text" : "New note") : many ? state.picks.length + " notes selected" : shapeOf(n) === "text" ? "Selected text" : "Selected note";
+    // settings for the next note, so they can be picked before it is placed. Texts have settings of their own.
+    var asText = ps.length ? ps.every(function (m) { return shapeOf(m) === "text"; }) : state.tool === "text";
+    if (n) { if (shapeOf(n) === "text") state.textStyle = textLookOf(n); else state.style = lookOf(n); }
+    var look = asText ? (n ? textLookOf(n) : nextTextLook()) : n ? lookOf(n) : nextLook();
+    var kind = asText ? "text" : "note";
+    $("editorTitle").textContent = !n ? (state.tool === "text" ? "New text" : "New note") : many ? state.picks.length + " " + kind + "s selected" : shapeOf(n) === "text" ? "Selected text" : "Selected note";
     $("noteTextWrap").hidden = !n || many;   // text is per note; everything else below applies to all selected
     $("del").hidden = !n;
-    $("del").textContent = many ? "Delete " + state.picks.length + " notes" : "Delete note";
+    $("del").textContent = many ? "Delete " + state.picks.length + " " + kind + "s" : "Delete " + kind;
+    ["textType", "txtSpacing", "txtBgWrap", "colorHead", "txtPtWrap"].forEach(function (id) { $(id).hidden = !asText; });
+    ["noteShapes", "noteFill", "noteEnd", "noteSizeVal", "allNotes"].forEach(function (id) { $(id).hidden = asText; });
+    $("noteSizeHead").textContent = asText ? "Size" : "Text size";
+    $("noteSize").min = asText ? String(TEXT_SIZE[0]) : "0.25"; $("noteSize").max = asText ? String(TEXT_SIZE[1]) : "4";
+    if (asText) syncType(look);
     if (n && !many && document.activeElement !== $("noteText")) $("noteText").value = n.text;
     swatchRow($("noteColors"), look.color, function (k) {
       var ps = picked(); if (!ps.length) { setLook(function (l) { l.color = k; }); return; }
@@ -2061,8 +2211,8 @@ body.has-pages #stripGrip { display: block; }
     shapeRow($("noteShapes"), look.shape, function (k) {
       var ps = picked(); if (!ps.length) { setLook(function (l) { l.shape = k; }); return; }
       snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
-    });
-    $("fillOff").setAttribute("aria-pressed", String(!!look.outline));
+    }, true);
+    if (!asText) $("fillOff").setAttribute("aria-pressed", String(!!look.outline));
     $("endArrow").setAttribute("aria-pressed", String(look.end === "arrow"));
     $("endDot").setAttribute("aria-pressed", String(look.end !== "arrow"));
     $("fillOn").setAttribute("aria-pressed", String(!look.outline));
@@ -2225,6 +2375,91 @@ body.has-pages #stripGrip { display: block; }
     backToText();
     saveSettings();
     document.fonts.load(fontStr(40)).then(render, render);
+  });
+  // A text's type: each button changes the selected texts, or with none selected the next text
+  function fillType(m) { var t = typeOf(m); TYPE_KEYS.forEach(function (k) { m[k] = t[k]; }); }   // a text keeps its look, now as its own
+  function setType(fn, noSnap) {
+    if (!state.picks.length) { var l = nextTextLook(); fn(l); state.textStyle = l; sync(); loadType(); return; }
+    if (!noSnap) snapshot();
+    picked().forEach(function (m) { if (shapeOf(m) === "text") { fillType(m); fn(m); } });
+    sync(); render(); loadType();
+  }
+  function typeNow() { var n = selected(); return n && shapeOf(n) === "text" ? textLookOf(n) : nextTextLook(); }
+  // a face, or its bold or italic, may still be on its way: draw again once it is in
+  function loadType() { if (document.fonts && document.fonts.load) document.fonts.load(typeFont(typeNow(), 40)).then(render, render); }
+  function toggleType(key) { var v = !typeNow()[key]; setType(function (m) { m[key] = v; }); }
+  // a size as a share of the page width, in points on paper
+  function ptPerSize() { return refW() / 100 * paperMmPerPx() * 72 / 25.4; }
+  function syncType(t) {
+    if (document.activeElement !== $("txtFont")) $("txtFont").value = t.font;
+    $("txtFont").style.fontFamily = FONTS[t.font].family;
+    [["txtB", t.bold], ["txtI", t.italic], ["txtU", t.under], ["txtS", t.strike],
+     ["txtAs", !t.caps], ["txtUp", t.caps === "upper"], ["txtLow", t.caps === "lower"],
+     ["alignL", t.align === "left"], ["alignC", t.align === "center"], ["alignR", t.align === "right"],
+     ["listBul", t.list === "bullet"], ["listNum", t.list === "number"]].forEach(function (b) { $(b[0]).setAttribute("aria-pressed", String(!!b[1])); });
+    if (document.activeElement !== $("txtLead")) $("txtLead").value = t.lead;
+    $("txtLeadVal").textContent = Math.round(t.lead * 100) + " %";
+    if (document.activeElement !== $("txtTrack")) $("txtTrack").value = t.track;
+    $("txtTrackVal").textContent = String(Math.round(t.track));
+    if (document.activeElement !== $("txtPt")) { $("txtPt").value = String(Math.round(t.size * ptPerSize() * 10) / 10); $("txtPt").removeAttribute("aria-invalid"); }
+    // the background: none, or a colour
+    swatchRow($("txtBg"), t.bg, function (k) { setType(function (m) { m.bg = k; }); });
+    var none = document.createElement("button");
+    none.type = "button"; none.title = "No background"; none.setAttribute("aria-pressed", String(!t.bg));
+    none.innerHTML = '<span class="chip none"></span><span class="unseen">None</span>';
+    none.addEventListener("click", function () { setType(function (m) { m.bg = ""; }); });
+    $("txtBg").insertBefore(none, $("txtBg").firstChild);
+  }
+  [["txtB", "bold"], ["txtI", "italic"], ["txtU", "under"], ["txtS", "strike"]].forEach(function (b) {
+    $(b[0]).addEventListener("click", function () { toggleType(b[1]); });
+  });
+  [["txtAs", ""], ["txtUp", "upper"], ["txtLow", "lower"]].forEach(function (b) {
+    $(b[0]).addEventListener("click", function () { setType(function (m) { m.caps = b[1]; }); });
+  });
+  [["alignL", "left"], ["alignC", "center"], ["alignR", "right"]].forEach(function (b) {
+    $(b[0]).addEventListener("click", function () { setType(function (m) { m.align = b[1]; }); });
+  });
+  [["listBul", "bullet"], ["listNum", "number"]].forEach(function (b) {
+    $(b[0]).addEventListener("click", function () { var v = typeNow().list === b[1] ? "" : b[1]; setType(function (m) { m.list = v; }); });
+  });
+  // the same faces as the notes', each written in itself
+  Array.prototype.forEach.call($("font").options, function (o) { $("txtFont").appendChild(o.cloneNode(true)); });
+  $("txtFont").addEventListener("change", function (e) {
+    var v = e.target.value;
+    if (own(FONTS, v)) setType(function (m) { m.font = v; });
+    backToText();
+  });
+  ["txtLead", "txtTrack"].forEach(function (id) {
+    var key = id === "txtLead" ? "lead" : "track", snap = function () { if (state.picks.length) snapshot(); };
+    $(id).addEventListener("pointerdown", snap);
+    $(id).addEventListener("keydown", snap);
+    $(id).addEventListener("input", function (e) { var v = parseFloat(e.target.value); setType(function (m) { m[key] = v; }, true); });
+  });
+  // the size typed in points
+  $("txtPt").addEventListener("change", function (e) {
+    var v = parseFloat(String(e.target.value).replace(",", "."));
+    if (!(v > 0) || !(ptPerSize() > 0)) { e.target.setAttribute("aria-invalid", "true"); return; }
+    var size = clamp(v / ptPerSize(), TEXT_SIZE[0], TEXT_SIZE[1]);
+    e.target.removeAttribute("aria-invalid");
+    setType(function (m) { m.size = size; });
+  });
+  $("txtPt").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); e.target.blur(); backToText(); }      // leaving the box applies it
+    else if (e.key === "Escape") {
+      // as it was: the size shown again before leaving, so nothing changes, and the text stays selected
+      e.preventDefault(); e.stopPropagation();
+      e.target.value = String(Math.round(typeNow().size * ptPerSize() * 10) / 10);
+      e.target.removeAttribute("aria-invalid"); e.target.blur(); backToText();
+    }
+  });
+  // Ctrl+B, Ctrl+I and Ctrl+U while typing a text
+  $("noteText").addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    var key = { b: "bold", i: "italic", u: "under" }[String(e.key).toLowerCase()], n = selected();
+    if (!key || !n || shapeOf(n) !== "text") return;
+    e.preventDefault(); toggleType(key);
+    textAtFocus = e.target.value;   // the typing so far is in the step just taken, so Ctrl+Z undoes the style first, then the typing
+
   });
   // while either size slider is moved, the pen tip or the eraser ring shows in the middle of the image with its size
   $("penWidth").addEventListener("input", function (e) { state.pen.width = penFromSlider(parseFloat(e.target.value)); sliderPreview = "pen"; sync(); render(); });
@@ -2822,11 +3057,11 @@ body.has-pages #stripGrip { display: block; }
       status("Line width " + penLabel(state.pen.width) + tail);
     } else if (drag.what === "notes") {
       var ps = picked();
-      ps.forEach(function (n, k) { n.size = clamp(step5(drag.from[k] + dx / 100), 0.25, 4); });
+      ps.forEach(function (n, k) { var lo = sizeRange(n); n.size = clamp(step5(drag.from[k] + dx / 100), lo[0], lo[1]); });
       drag.changed = ps.some(function (n, k) { return n.size !== drag.from[k]; });
       status("Text size " + textLabel(ps[0]) + (ps.length > 1 ? " for " + ps.length + " notes" : "") + tail);
     } else {
-      drag.made.size = clamp(step5(drag.from + dx / 100), 0.25, 4);
+      var mr = sizeRange(drag.made); drag.made.size = clamp(step5(drag.from + dx / 100), mr[0], mr[1]);
       status("Text size " + textLabel(drag.made) + tail + " · let go to add the note");
     }
     sync(); render();
@@ -5639,7 +5874,7 @@ body.has-pages #stripGrip { display: block; }
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", end: state.pen.end || "" };
     var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
-                                style: state.style, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
+                                style: state.style, textStyle: state.textStyle || null, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "", strip: state.stripW || 0, stripFolded: !!state.stripFolded });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
@@ -5663,7 +5898,8 @@ body.has-pages #stripGrip { display: block; }
     state.eraser = num(d.eraser, 3, 100, state.eraser);
     var st = d.style;
     if (st && typeof st === "object" && validColor(st.color, "")) {
-      state.style = { vertical: st.vertical === true, color: validColor(st.color, "red"), shape: SHAPES[st.shape] ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
+      // not "text": a text's look was kept here once, and the next note would have come out as a text
+      state.style = { vertical: st.vertical === true, color: validColor(st.color, "red"), shape: SHAPES[st.shape] && st.shape !== "text" ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
     }
     // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
     if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
@@ -5672,6 +5908,12 @@ body.has-pages #stripGrip { display: block; }
     if (typeof d.bold === "boolean") state.bold = d.bold;
     if (d.caps === "" || d.caps === "upper" || d.caps === "lower") state.caps = d.caps;
     $("font").value = state.font;
+    var tl = d.textStyle;
+    if (tl && typeof tl === "object" && validColor(tl.color, "")) {
+      var tt = typeOf(tl);
+      tt.vertical = tl.vertical === true; tt.color = validColor(tl.color, "red"); tt.size = num(tl.size, TEXT_SIZE[0], TEXT_SIZE[1], 1);
+      state.textStyle = tt;
+    }
     if (d.dim && typeof d.dim === "object") state.dim = { color: validColor(d.dim.color, "red"), size: num(d.dim.size, 0.25, 4, 1) };
     if (isHex(d.own)) state.ownColor = d.own.toLowerCase();
     if (typeof d.strip === "number" && d.strip >= STRIP_MIN && d.strip <= STRIP_MAX) setStrip(d.strip);
