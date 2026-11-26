@@ -345,7 +345,7 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 /* A text's own type, as in InDesign: face, style, case, alignment, list, colour, background, leading, tracking */
 #textType { display: flex; flex-direction: column; gap: 8px; }
 #textType[hidden], #txtSpacing[hidden], #txtBgWrap[hidden], #colorHead[hidden], #txtPtWrap[hidden],
-#noteShapes[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden], #txtAutoW[hidden] { display: none; }
+#noteShapes[hidden], #noteOri[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden], #txtAutoW[hidden] { display: none; }
 #textType .seg button { text-transform: none; letter-spacing: normal; padding: 6px 4px; }
 #textType .seg button svg { display: block; }
 #txtB { font-weight: 700; } #txtI { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
@@ -661,7 +661,7 @@ body.has-pages #stripGrip { display: block; }
       </div>
       <div class="swatches" id="noteShapes" role="group" aria-label="Shape"></div>
       <div class="segrow">
-      <div class="seg" role="group" aria-label="Orientation">
+      <div class="seg" role="group" aria-label="Orientation" id="noteOri">
         <button id="oriH" aria-pressed="true" title="Horizontal: the words read across"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriH"><rect width="30" height="14" fill="#fff"/><text x="15" y="9.9" font-size="8" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#000">Ab</text></mask></defs><rect x="3" y="1.5" width="24" height="11" rx="5.5" fill="currentColor" mask="url(#mkOriH)"/></svg><span class="unseen">Horizontal</span></button>
         <button id="oriV" aria-pressed="false" title="Vertical: the words read upwards"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriV"><rect width="30" height="14" fill="#fff"/><text transform="translate(17.9 7) rotate(-90)" font-size="8" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#000">Ab</text></mask></defs><rect x="9.5" y="0" width="11" height="14" rx="5.5" fill="currentColor" mask="url(#mkOriV)"/></svg><span class="unseen">Vertical</span></button>
       </div>
@@ -684,7 +684,7 @@ body.has-pages #stripGrip { display: block; }
         <label for="txtTrack" class="slider"><span class="head">Tracking <span class="val" id="txtTrackVal"></span></span>
           <input type="range" id="txtTrack" min="-100" max="500" step="10">
         </label>
-        <button id="txtAutoW" type="button" hidden title="Wrap at about ten words again, the frame just round the lines">Auto width</button>
+        <button id="txtAutoW" type="button" hidden title="The frame just round the words again, wrapping at about ten words">Fit frame to text</button>
         <label for="txtGap" class="slider" id="txtGapWrap"><span class="head">Gutter <span class="val" id="txtGapVal"></span></span>
           <input type="range" id="txtGap" min="0.5" max="6" step="0.25">
         </label>
@@ -959,6 +959,10 @@ body.has-pages #stripGrip { display: block; }
   // a share of the page width, so it stays with the page).
   var TEXT_WRAP = 25;
   function frameW(n) { return typeof n.boxW === "number" && isFinite(n.boxW) && n.boxW > 0 ? refW() / 100 * n.boxW : null; }
+  // and as tall as dragged (n.boxH), never less than its words need
+  function frameH(n) { return typeof n.boxH === "number" && isFinite(n.boxH) && n.boxH > 0 ? refW() / 100 * n.boxH : null; }
+  // A text turns as a picture does, to any angle (n.rot, radians); one set on end before then reads upwards.
+  function textAngle(n) { return typeof n.rot === "number" && isFinite(n.rot) ? n.rot : n.vertical ? -Math.PI / 2 : 0; }
   function sizeRange(n) { return n && shapeOf(n) === "text" ? TEXT_SIZE : [0.25, 4]; }
   function typeFont(t, fs) { return (t.italic ? "italic " : "") + (t.bold ? 700 : 400) + " " + fs + "px " + FONTS[t.font].family; }
   function cased(s, caps) { return caps === "upper" ? s.toUpperCase() : caps === "lower" ? s.toLowerCase() : s; }
@@ -991,17 +995,20 @@ body.has-pages #stripGrip { display: block; }
       }
       rows.push(row(line));
     });
-    // the lines shared out between the columns, as many in each as can be (the last may have fewer)
-    var cols = Math.min(t.cols, rows.length), per = Math.ceil(rows.length / cols), colW = fs * 0.5;
+    // The lines shared out between the columns: as many in each as can be (the last may have fewer); with a frame
+    // set taller, as many as its height holds, the rest in the next column, as in InDesign. Nothing is ever hidden:
+    // a frame too short for its words grows to hold them.
+    var lineH = fs * t.lead, setH = frameH(n), cols = Math.min(t.cols, rows.length), per = Math.ceil(rows.length / cols), colW = fs * 0.5;
+    if (setH != null) per = Math.max(per, Math.floor((setH - fs) / lineH + 1e-6) + 1);
     rows.forEach(function (r, k) { colW = Math.max(colW, r.ind + r.w); r.col = Math.floor(k / per); r.line = k % per; });
     cols = Math.floor((rows.length - 1) / per) + 1;
     if (set != null) colW = colWrap;
     var lw = set != null ? set : cols * colW + (cols - 1) * gap;
-    var lineH = fs * t.lead, blockH = (per - 1) * lineH + fs;
+    var blockH = (per - 1) * lineH + fs, inH = setH != null ? Math.max(setH, blockH) : blockH;
     // the box just round the words; a background reaches a little further
     var padL = t.bg ? fs * 0.4 : fs * 0.15, padV = t.bg ? fs * 0.35 : fs * 0.15;
     return { fs: fs, lines: rows.map(function (r) { return r.s; }), rows: rows, type: t, tr: tr, lineH: lineH, blockH: blockH, lw: lw, colW: colW, gap: gap,
-             padL: padL, w: lw + padL * 2, h: blockH + padV * 2, cr: 0, centre: false, ang: n.vertical ? -Math.PI / 2 : 0 };
+             padL: padL, padV: padV, w: lw + padL * 2, h: inH + padV * 2, cr: 0, centre: false, ang: textAngle(n) };
   }
   // one line, its letters spread by the tracking
   function putText(c, str, x, y, tr, stroke) {
@@ -1023,7 +1030,7 @@ body.has-pages #stripGrip { display: block; }
     var deco = [], th = Math.max(0.6, fs * 0.07);
     if (t.under) deco.push(down + fs * 0.1);
     if (t.strike) deco.push(down - xh * 0.45);
-    var left = -L.lw / 2, top = -L.blockH / 2 + fs / 2;
+    var left = -L.lw / 2, top = -L.h / 2 + L.padV + fs / 2;        // the words from the top of the frame
     // each line aligned in its own column
     var spots = L.rows.map(function (r) {
       var cl = left + r.col * (L.colW + L.gap);
@@ -1572,15 +1579,24 @@ body.has-pages #stripGrip { display: block; }
     return k === "yellow" || col.light ? { inside: "#ffffff", words: col.ink } : { inside: col.ink, words: col.fill };
   }
   function accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#d9442e"; }
-  // the side of the selected text's frame under p, if any: the whole edge can be taken, a finger from further off
+  // A text's frame is handled as a picture is: its corners and edges set its width and height (the words reflow in
+  // it), and the round knob above it turns it. These are the handles of the one text selected, under p: 0-3 a
+  // corner (top left, then clockwise), 4-7 an edge (top, right, bottom, left), 8 the knob. A finger takes them from
+  // further off.
   var lastTouch = false;
-  function textSide(p, touch) {
+  function textHandle(p, touch) {
     if (state.picks.length !== 1) return null;
     var n = selected(); if (!n || shapeOf(n) !== "text") return null;
-    var L = layout(n, ctx), q = toLocal(n, L, p.x, p.y), m = 5 / view.s, r = (touch ? 16 : 6) / view.s;
-    for (var side = -1; side <= 1; side += 2) {
-      if (Math.abs(q.x - side * (L.w / 2 + m)) <= r && Math.abs(q.y) <= L.h / 2 + m + r) return { n: n, side: side, L: L };
-    }
+    var L = layout(n, ctx), q = toLocal(n, L, p.x, p.y), m = 5 / view.s, r = (touch ? 16 : 7) / view.s;
+    var hw = L.w / 2 + m, hh = L.h / 2 + m;
+    if (Math.hypot(q.x, q.y + hh + KNOB / view.s) <= r + 2 / view.s) return { n: n, k: 8, L: L };
+    var cs = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
+    for (var k = 0; k < 4; k++) if (Math.abs(q.x - cs[k][0]) <= r && Math.abs(q.y - cs[k][1]) <= r) return { n: n, k: k, L: L };
+    var alongX = Math.abs(q.x) <= hw, alongY = Math.abs(q.y) <= hh;
+    if (alongX && Math.abs(q.y + hh) <= r) return { n: n, k: 4, L: L };
+    if (alongY && Math.abs(q.x - hw) <= r) return { n: n, k: 5, L: L };
+    if (alongX && Math.abs(q.y - hh) <= r) return { n: n, k: 6, L: L };
+    if (alongY && Math.abs(q.x + hw) <= r) return { n: n, k: 7, L: L };
     return null;
   }
   function drawSelection(c, n, L) {
@@ -1594,11 +1610,15 @@ body.has-pages #stripGrip { display: block; }
     if (c.roundRect) c.roundRect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m, L.cr + m);
     else c.rect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m);
     c.stroke();
-    // a text alone selected: a handle on either side of its frame, to drag its width
+    // a text alone selected: a picture's handles round its frame, and the knob that turns it
     if (shapeOf(n) === "text" && state.picks.length === 1) {
-      var hs = (lastTouch ? 7 : 4.5) / view.s;
-      c.setLineDash([]); c.fillStyle = "#ffffff"; c.lineWidth = 1.5 / view.s;
-      [-1, 1].forEach(function (side) { var x = side * (L.w / 2 + m); c.beginPath(); c.rect(x - hs, -hs * 1.6, hs * 2, hs * 3.2); c.fill(); c.stroke(); });
+      var hs = (lastTouch ? 7 : 5) / view.s, hw = L.w / 2 + m, hh = L.h / 2 + m;
+      c.setLineDash([]); c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f"; c.lineWidth = 1.5 / view.s;
+      [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh], [0, -hh], [hw, 0], [0, hh], [-hw, 0]].forEach(function (pt) {
+        c.fillRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); c.strokeRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2);
+      });
+      c.beginPath(); c.moveTo(0, -hh - hs); c.lineTo(0, -hh - (KNOB - 6) / view.s); c.stroke();
+      c.beginPath(); c.arc(0, -hh - KNOB / view.s, 6 / view.s, 0, Math.PI * 2); c.fill(); c.stroke();
     }
     c.restore();
     if (bare(n, L)) return;                    // no dot to mark: it is under the pill
@@ -2090,7 +2110,7 @@ body.has-pages #stripGrip { display: block; }
   // Words alone, from the Text tool: a note of the shape "text", with no leader (its dot is under it)
   function textNote(x, y) {
     var s = selected(), look = s && shapeOf(s) === "text" ? textLookOf(s) : nextTextLook();
-    var n = { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, vertical: look.vertical, color: look.color, shape: "text", size: look.size };
+    var n = { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, color: look.color, shape: "text", size: look.size };
     TYPE_KEYS.forEach(function (k) { n[k] = look[k]; });
     return n;
   }
@@ -2276,7 +2296,7 @@ body.has-pages #stripGrip { display: block; }
     $("del").hidden = !n;
     $("del").textContent = many ? "Delete " + state.picks.length + " " + kind + "s" : "Delete " + kind;
     ["textType", "txtSpacing", "txtBgWrap", "colorHead", "txtPtWrap"].forEach(function (id) { $(id).hidden = !asText; });
-    ["noteShapes", "noteFill", "noteEnd", "noteSizeVal", "allNotes"].forEach(function (id) { $(id).hidden = asText; });
+    ["noteShapes", "noteOri", "noteFill", "noteEnd", "noteSizeVal", "allNotes"].forEach(function (id) { $(id).hidden = asText; });
     $("noteSizeHead").textContent = asText ? "Size" : "Text size";
     $("noteSize").min = asText ? String(TEXT_SIZE[0]) : "0.25"; $("noteSize").max = asText ? String(TEXT_SIZE[1]) : "4";
     if (asText) syncType(look);
@@ -2532,7 +2552,7 @@ body.has-pages #stripGrip { display: block; }
     if (document.activeElement !== $("txtTrack")) $("txtTrack").value = t.track;
     $("txtTrackVal").textContent = String(Math.round(t.track));
     var fn = selected();
-    $("txtAutoW").hidden = !(state.picks.length === 1 && fn && shapeOf(fn) === "text" && frameW(fn) != null);
+    $("txtAutoW").hidden = !(state.picks.length === 1 && fn && shapeOf(fn) === "text" && (frameW(fn) != null || frameH(fn) != null));
     $("txtGapWrap").hidden = t.cols === 1;                     // the gutter, with more than one column
     if (document.activeElement !== $("txtGap")) $("txtGap").value = t.gap;
     $("txtGapVal").textContent = (Math.round(t.gap * 100) / 100) + " em";
@@ -2564,7 +2584,7 @@ body.has-pages #stripGrip { display: block; }
     if (own(FONTS, v)) setType(function (m) { m.font = v; });
     backToText();
   });
-  $("txtAutoW").addEventListener("click", function () { setType(function (m) { delete m.boxW; }); });
+  $("txtAutoW").addEventListener("click", function () { setType(function (m) { delete m.boxW; delete m.boxH; }); });
   [["col1", 1], ["col2", 2], ["col3", 3]].forEach(function (b) {
     $(b[0]).addEventListener("click", function () { setType(function (m) { m.cols = b[1]; }); });
   });
@@ -2883,13 +2903,14 @@ body.has-pages #stripGrip { display: block; }
     }
     var p = toImg(e);
     lastTouch = e.pointerType === "touch";
-    // a side of the selected text's frame: a drag sets the width it wraps at; the other side stays where it is
-    var side = e.button === 0 && !rightBtn && !isSizeKey(e) ? textSide(p, lastTouch) : null;
-    if (side) {
+    // a handle of the selected text's frame: its size (the sides not dragged stay where they are), or its angle
+    var th = e.button === 0 && !rightBtn && !isSizeKey(e) ? textHandle(p, lastTouch) : null;
+    if (th) {
       snapshot();
-      var SL = side.L, sn = side.n, ang = SL.ang;
-      drag = { part: "textW", n: sn, side: side.side, ux: Math.cos(ang), uy: Math.sin(ang), padL: SL.padL, bare: bare(sn, SL), moved: false,
-               anchor: toGlobal(sn, SL, -side.side * SL.w / 2, 0), sx: e.clientX, sy: e.clientY };
+      var TL = th.L, tn0 = th.n;
+      drag = { part: th.k === 8 ? "textTurn" : "textBox", n: tn0, k: th.k, bare: bare(tn0, TL), moved: false, sx: e.clientX, sy: e.clientY,
+               f: { cx: tn0.px, cy: tn0.py, a: TL.ang, w: TL.w, h: TL.h, padL: TL.padL, padV: TL.padV },
+               a0: Math.atan2(p.y - tn0.py, p.x - tn0.px) };
       canvas.setPointerCapture(e.pointerId);
       return;
     }
@@ -2962,8 +2983,8 @@ body.has-pages #stripGrip { display: block; }
     if (wheelOpen) { wheelTrack(e.clientX, e.clientY); return; }
     var p = toImg(e);
     if (!drag) {
-      var ts = textSide(p, e.pointerType === "touch");
-      if (ts) { canvas.style.cursor = ts.n.vertical ? "ns-resize" : "ew-resize"; return; }
+      var ts = textHandle(p, e.pointerType === "touch");
+      if (ts) { canvas.style.cursor = ts.k === 8 ? "grab" : picCursor({ rot: ts.L.ang }, ts.k); return; }
       if (state.tool === "erase") {
         // the eraser's outline follows the pointer, so it is clear what it will rub out
         canvas.style.cursor = spaceDown ? "grab" : "crosshair";
@@ -2985,14 +3006,35 @@ body.has-pages #stripGrip { display: block; }
       render();
       return;
     }
-    if (drag.part === "textW") {
-      // the width from the side that stays put to the pointer, along the text's line; at least two ems of words
-      var tn = drag.n, fsz = fontPx(tn), out = drag.side * ((p.x - drag.anchor.x) * drag.ux + (p.y - drag.anchor.y) * drag.uy);
+    if (drag.part === "textBox" || drag.part === "textTurn") {
+      var tn = drag.n, f = drag.f, unit = refW() / 100;
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
       drag.moved = true;
-      var inner = Math.max(fsz * 2, out - drag.padL * 2), outer = inner + drag.padL * 2;
-      tn.boxW = inner / (refW() / 100);
-      tn.px = drag.anchor.x + drag.side * drag.ux * outer / 2; tn.py = drag.anchor.y + drag.side * drag.uy * outer / 2;
+      if (drag.part === "textTurn") {
+        // about its middle; it settles square within 3 degrees, and with Shift goes in steps of 15
+        var deg = (f.a + Math.atan2(p.y - f.cy, p.x - f.cx) - drag.a0) * 180 / Math.PI;
+        if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+        else if (Math.abs(deg - Math.round(deg / 90) * 90) < 3) deg = Math.round(deg / 90) * 90;
+        deg = ((deg % 360) + 540) % 360 - 180;
+        tn.rot = deg * Math.PI / 180; delete tn.vertical;
+        status("Turned to " + Math.round(deg) + "°" + (e.shiftKey ? "" : " · Shift turns in steps of 15°"));
+        render();
+        return;
+      }
+      // the pointer in the frame's own axes as it was when the drag began
+      var co = Math.cos(f.a), si = Math.sin(f.a), dx = p.x - f.cx, dy = p.y - f.cy, lx = dx * co + dy * si, ly = -dx * si + dy * co;
+      var k = drag.k, mL = k === 0 || k === 3 || k === 7, mR = k === 1 || k === 2 || k === 5, mT = k === 0 || k === 1 || k === 4, mB = k === 2 || k === 3 || k === 6;
+      var fs0 = fontPx(tn), x0 = -f.w / 2, x1 = f.w / 2, y0 = -f.h / 2, y1 = f.h / 2, minW = fs0 * 2 + f.padL * 2, minH = fs0 + f.padV * 2;
+      if (mL) x0 = Math.min(lx, x1 - minW); if (mR) x1 = Math.max(lx, x0 + minW);
+      if (mT) y0 = Math.min(ly, y1 - minH); if (mB) y1 = Math.max(ly, y0 + minH);
+      if (mL || mR) tn.boxW = (x1 - x0 - f.padL * 2) / unit;
+      if (mT || mB) tn.boxH = (y1 - y0 - f.padV * 2) / unit;
+      // the frame as it comes out (never shorter than its words), the sides not dragged where they were
+      var NL = layout(tn, ctx);
+      if (mL) x0 = x1 - NL.w; else x1 = x0 + NL.w;
+      if (mT) y0 = y1 - NL.h; else y1 = y0 + NL.h;
+      var cxl = (x0 + x1) / 2, cyl = (y0 + y1) / 2;
+      tn.px = f.cx + cxl * co - cyl * si; tn.py = f.cy + cxl * si + cyl * co;
       if (drag.bare) { tn.tx = tn.px; tn.ty = tn.py; }
       render();
       return;
@@ -3273,7 +3315,7 @@ body.has-pages #stripGrip { display: block; }
       }
       return;
     }
-    if (d.part === "textW") { if (!d.moved) history.pop(); sync(); render(); return; }
+    if (d.part === "textBox" || d.part === "textTurn") { if (!d.moved) history.pop(); sync(); render(); return; }
     if (d.part === "picMove" || d.part === "picSize" || d.part === "picTurn") {
       if (!d.moved) history.pop();
       sync(); render();
@@ -3441,7 +3483,8 @@ body.has-pages #stripGrip { display: block; }
         closeMenu(); snapshot(); picked().forEach(function (x) { x.shape = k; }); sync(); render();
       });
       add(sh);
-      add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
+      // a text is turned with its knob, as a picture is
+      if (shapeOf(n) !== "text") add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
       }));
       if (!bare(n)) add(menuItem(n.end === "arrow" ? "Dot end" : "Arrow end", "", function () {
