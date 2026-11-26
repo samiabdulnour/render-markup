@@ -290,13 +290,18 @@ details.optsub[open] summary { margin-bottom: 4px; }
 #txtEdit[hidden] { display: none; }
 #cropBar span, .floatbar span { flex: 1 1 auto; min-width: 0; }
 #cropBar[hidden], .floatbar[hidden], .exppages[hidden] { display: none; }
-#cmpBar { flex-wrap: wrap; max-width: min(760px, calc(100% - 140px)); }
-#cmpBar .seg button { padding: 6px 10px; }
-#cmpBar .ovl { display: flex; gap: 12px; flex: 1 0 100%; order: 10; }
-#cmpBar .ovl[hidden] { display: none; }
-#cmpBar .ovl label { flex-direction: row; align-items: center; gap: 6px; flex: 1 1 0; }
-#cmpBar .ovl input { flex: 1 1 auto; min-width: 60px; }
-.ovlchip { width: 18px; height: 18px; min-width: 0; padding: 0; border-radius: 50%; border: 1px solid rgba(0,0,0,0.25); flex: none; }
+/* Compare, at the head of the side panel while two versions are compared */
+#cmpPanel { display: flex; flex-direction: column; gap: 8px; }
+#cmpPanel[hidden], #cmpOvl[hidden] { display: none; }
+#cmpPanel .seg button { text-transform: uppercase; }
+#cmpText { margin: 0; text-transform: none; letter-spacing: normal; }
+#cmpOvl { display: flex; flex-direction: column; gap: 8px; }
+#cmpOvl .ver { display: flex; flex-direction: column; gap: 4px; }
+#cmpOvl .ver .head { display: flex; justify-content: space-between; align-items: baseline; }
+/* the first choice: each version in its own colours, as drawn */
+.swatches.colours .chip.orig { background: conic-gradient(#d6301f 0 25%, #1e63c8 0 50%, #111214 0 75%, #1d8a4b 0); }
+#cmpPanel .cmpacts { display: flex; gap: 8px; }
+#cmpPanel .cmpacts button { flex: 1; justify-content: center; }
 .modal .box.formbox { width: min(560px, 100%); }
 .formfields { display: flex; flex-direction: column; gap: 10px; }
 .formfields h4 { font-weight: 400; font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; margin: 6px 0 0; padding-top: 10px; border-top: 1px solid var(--divider); }
@@ -504,7 +509,6 @@ body.has-pages #stripGrip { display: block; }
     <input id="txtEdit" type="text" autocomplete="off" spellcheck="true" aria-label="Text" hidden>
     <div id="cropBar" role="group" aria-label="Crop page" hidden><span>Crop: drag a frame</span><button id="cropApply" class="primary">Apply</button><button id="cropCancel">Cancel</button></div>
     <div id="redactBar" class="floatbar" role="group" aria-label="Redact" hidden><span>Redact: drag boxes · click one to remove</span><button id="redactApply" class="primary">Apply</button><button id="redactCancel">Cancel</button></div>
-    <div id="cmpBar" class="floatbar" role="group" aria-label="Compare" hidden><span id="cmpText"></span><div class="seg" role="group" aria-label="Show"><button id="cmpThis" aria-pressed="true" title="This file's page">This</button><button id="cmpOther" aria-pressed="false" title="The other file's page in place of this one">Other</button><button id="cmpBoth" aria-pressed="false" title="Both laid over each other, each in its own colour, as Trace and Reference does: what they share mixes dark, what only one has shows in its colour">Overlay</button></div><span class="ovl" id="cmpOvl" hidden><label title="This file: its colour (click the dot to change it) and how strong it is"><button type="button" class="ovlchip" id="ovlThisC" aria-label="This file's colour"></button>This<input type="range" id="ovlThis" min="0" max="100" value="100" aria-label="This file"></label><label title="The other file: its colour (click the dot to change it) and how strong it is"><button type="button" class="ovlchip" id="ovlOtherC" aria-label="The other file's colour"></button>Other<input type="range" id="ovlOther" min="0" max="100" value="100" aria-label="The other file"></label></span><button id="cmpClouds" title="Put a red revision cloud round every change, on every page">Mark with clouds</button><button id="cmpClose">Close</button></div>
     <div id="wheel" role="menu" aria-label="Tool wheel" hidden><div class="disc"></div><div class="hub"></div><div class="label" id="wheelLabel"></div></div>
     <button id="zoom" type="button" hidden title="Zoom: hold Ctrl (Cmd on a Mac) and turn the mouse wheel, or pinch on a trackpad, or press + and -. It goes in to 800% and out to a tenth of the fitted size. When zoomed in, the wheel scrolls up and down, Shift + wheel scrolls sideways, and holding Space lets you drag the image. Click here, or press 0, to fit the image again.">100%</button>
     <div id="drop">Drop the file to open it</div>
@@ -517,6 +521,31 @@ body.has-pages #stripGrip { display: block; }
     </div>
   </section>
   <aside>
+    <div class="section" id="cmpPanel" role="group" aria-label="Compare" hidden>
+      <h2>Compare</h2>
+      <p class="note" id="cmpText"></p>
+      <div class="seg" role="group" aria-label="Show">
+        <button id="cmpThis" aria-pressed="true" title="This file's page">This</button>
+        <button id="cmpOther" aria-pressed="false" title="The other file's page in place of this one">Other</button>
+        <button id="cmpBoth" aria-pressed="false" title="Both over each other, as Trace and Reference does: what they share mixes dark, what only one has shows in its colour">Overlay</button>
+      </div>
+      <div id="cmpOvl" hidden>
+        <div class="ver">
+          <span class="head"><span class="sub">This</span><span class="val" id="ovlThisVal"></span></span>
+          <div class="swatches colours" id="ovlThisCols" role="group" aria-label="This file's colour"></div>
+          <input type="range" id="ovlThis" min="0" max="100" value="100" aria-label="This file's opacity" title="Opacity">
+        </div>
+        <div class="ver">
+          <span class="head"><span class="sub">Other</span><span class="val" id="ovlOtherVal"></span></span>
+          <div class="swatches colours" id="ovlOtherCols" role="group" aria-label="The other file's colour"></div>
+          <input type="range" id="ovlOther" min="0" max="100" value="100" aria-label="The other file's opacity" title="Opacity">
+        </div>
+      </div>
+      <div class="cmpacts">
+        <button id="cmpClouds" title="Put a red revision cloud round every change, on every page">Mark with clouds</button>
+        <button id="cmpClose">Close</button>
+      </div>
+    </div>
     <div class="section" id="penPanel" hidden>
       <h2 id="penTitle">Pen</h2>
       <div class="swatches" id="penShape" role="group" aria-label="Shape" hidden>
@@ -4954,7 +4983,7 @@ body.has-pages #stripGrip { display: block; }
       });
       return chain.then(function () {
         if (comparing !== c || !doc) return;
-        $("cmpBar").hidden = false;
+        $("cmpPanel").hidden = false;
         cmpText(); cmpView("this");
         var changed = [], total = 0;
         doc.pages.forEach(function (pg, i) { var b = c.boxes.get(pg); if (b && b.length) { changed.push(i + 1); total += b.length; } });
@@ -5047,14 +5076,15 @@ body.has-pages #stripGrip { display: block; }
   function endCompare() {
     if (!comparing) return;
     var c = comparing; comparing = null;
-    $("cmpBar").hidden = true;
+    $("cmpPanel").hidden = true;
     if (c.part.source.pdf) { try { c.part.source.pdf.destroy(); } catch (e) { /* gone */ } }
     if (doc) state.img = doc.pages[doc.cur].img || state.img;
     render();
   }
   // What the page shows while comparing: this file's page, the other's, or both laid over each other (Overlay),
-  // each tinted its own colour and as strong as its slider says, multiplied together as on a light table: where
-  // both have ink it mixes dark, where only one has it shows in that one's colour. The dots change the colours.
+  // multiplied together as on a light table, each at its own opacity, as Archicad's Trace and Reference does. Each
+  // is in one colour of its own (where both have ink it mixes dark, where only one has it shows in that one's
+  // colour), or in its own colours as drawn ("orig").
   var OVL_COLS = ["#1e63c8", "#d6301f", "#1d8a4b", "#d4148c", "#e08a00", "#111214"];
   function tinted(src, col, w, h) {
     var c = document.createElement("canvas"); c.width = w; c.height = h;
@@ -5069,7 +5099,10 @@ body.has-pages #stripGrip { display: block; }
     return Promise.all([renderPage(pg), otherImage(pg)]).then(function (r) {
       if (!r[1] || comparing !== c) return null;
       var key = c.colThis + c.colOther, t = c.tints.get(pg);
-      if (!t || t.key !== key) { t = { key: key, a: tinted(r[0], c.colThis, pg.w, pg.h), b: tinted(r[1], c.colOther, pg.w, pg.h) }; c.tints.set(pg, t); }
+      if (!t || t.key !== key) {
+        t = { key: key, a: c.colThis === "orig" ? r[0] : tinted(r[0], c.colThis, pg.w, pg.h), b: c.colOther === "orig" ? r[1] : tinted(r[1], c.colOther, pg.w, pg.h) };
+        c.tints.set(pg, t);
+      }
       var out = c.ovlCanvas && c.ovlCanvas.width === pg.w && c.ovlCanvas.height === pg.h ? c.ovlCanvas : document.createElement("canvas");
       out.width = pg.w; out.height = pg.h;
       var g = out.getContext("2d");
@@ -5089,7 +5122,7 @@ body.has-pages #stripGrip { display: block; }
     c.view = v;
     ["cmpThis", "cmpOther", "cmpBoth"].forEach(function (id, i) { $(id).setAttribute("aria-pressed", String(v === ["this", "other", "overlay"][i])); });
     $("cmpOvl").hidden = v !== "overlay";
-    $("ovlThisC").style.background = c.colThis; $("ovlOtherC").style.background = c.colOther;
+    syncOvl();
     if (v === "this") { if (pg.img) state.img = pg.img; render(); return Promise.resolve(); }
     return (v === "other" ? otherImage(pg) : overlayImage(pg)).then(function (img) {
       if (comparing !== c || c.view !== v || doc.pages[doc.cur] !== pg || !img) return;
@@ -5112,20 +5145,27 @@ body.has-pages #stripGrip { display: block; }
       if (!comparing) return;
       comparing[o[1]] = e.target.value / 100;
       fillRange(e.target);
+      $(o[0] + "Val").textContent = e.target.value + " %";
       cancelAnimationFrame(ovlFrame);
       ovlFrame = requestAnimationFrame(function () { if (comparing && comparing.view === "overlay") cmpView("overlay"); });
     });
   });
-  [["ovlThisC", "colThis", "colOther"], ["ovlOtherC", "colOther", "colThis"]].forEach(function (o) {
-    $(o[0]).addEventListener("click", function (e) {
-      e.preventDefault();
-      if (!comparing) return;
-      var i = OVL_COLS.indexOf(comparing[o[1]]), next;
-      do { i = (i + 1) % OVL_COLS.length; next = OVL_COLS[i]; } while (next === comparing[o[2]]);
-      comparing[o[1]] = next;
-      cmpView("overlay");
+  // each version: its own colours, or one of six; and its opacity
+  function syncOvl() {
+    var c = comparing; if (!c) return;
+    [["ovlThisCols", "colThis", "ovlThis", "ovlThisVal", "opThis"], ["ovlOtherCols", "colOther", "ovlOther", "ovlOtherVal", "opOther"]].forEach(function (o) {
+      var el = $(o[0]); el.innerHTML = "";
+      ["orig"].concat(OVL_COLS).forEach(function (col) {
+        var b = document.createElement("button");
+        b.type = "button"; b.title = col === "orig" ? "Its own colours" : "One colour";
+        b.setAttribute("aria-pressed", String(c[o[1]] === col));
+        b.innerHTML = '<span class="chip' + (col === "orig" ? " orig" : "") + '"' + (col === "orig" ? "" : ' style="background:' + col + '"') + '></span><span class="unseen">' + (col === "orig" ? "Own colours" : col) + "</span>";
+        b.addEventListener("click", function () { if (!comparing) return; comparing[o[1]] = col; cmpView("overlay"); });
+        el.appendChild(b);
+      });
+      $(o[3]).textContent = Math.round(c[o[4]] * 100) + " %";
     });
-  });
+  }
   $("cmpClouds").addEventListener("click", function () {
     if (!comparing || !doc) return;
     stashPage();
