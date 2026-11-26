@@ -404,7 +404,7 @@ label[hidden] { display: none; }
 kbd { font-family: var(--font-mono); font-size: var(--fs); border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
 /* Right-click pop-up menu: a card; it floats over the image, so it alone keeps a soft shadow to say so */
 .menu {
-  position: fixed; z-index: 30; min-width: 200px; max-width: 280px; background: var(--card);
+  position: fixed; z-index: 30; min-width: 200px; max-width: 280px; max-height: calc(100vh - 16px); overflow-y: auto; background: var(--card);
   border: 1px solid var(--divider); border-radius: 12px; padding: 4px; display: flex; flex-direction: column;
   box-shadow: 0 8px 24px rgba(0,0,0,0.14);
 }
@@ -2060,7 +2060,7 @@ body.has-pages #stripGrip { display: block; }
     if (ownApplying) { if (ownApplying.snapped) return; ownApplying.snapped = true; }   // one step for a whole go at the colour picker
     history.push(current());
     if (history.length > 80) history.shift();
-    if (touchGuard && !touchGuard.before) touchGuard.before = history[history.length - 1];   // what a second finger takes back to
+    if (touchGuard && touchGuard.armed && !touchGuard.before) touchGuard.before = history[history.length - 1];   // what a second finger takes back to
     future = [];
     setUndoButtons();
   }
@@ -3042,6 +3042,7 @@ body.has-pages #stripGrip { display: block; }
   }
   function startNav(now, t0, moved) {
     var pts = twoPts();
+    navBegins();
     touchNav = { kind: "nav", t: t0, lastDown: now, count: touchPts.size, moved: moved || 0, late: now - t0 > TAP_STAGGER, engaged: false,
                  mx0: (pts[0].x + pts[1].x) / 2, my0: (pts[0].y + pts[1].y) / 2, spread0: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) };
     navBase();
@@ -3064,25 +3065,57 @@ body.has-pages #stripGrip { display: block; }
   // held still: the menu, as a right-click gives, above the finger
   function holdMenu(x, y) {
     touchNav = { kind: "held", t: performance.now(), count: 1, moved: 0 };
+    navBegins();
     if (navigator.vibrate) { try { navigator.vibrate(10); } catch (err) { /* fine */ } }
     openMenu(x, y, toImg({ clientX: x, clientY: y }), true);
   }
   function modal() { return !!(cropping || redacting || editing); }
+  // The click a finger makes when it lifts goes nowhere if that finger moved the view or held the menu open: not to a
+  // control it landed on, nor to a menu item that opened under it. Clicks carry the pointer's id; another finger's
+  // tap a moment later is its own and goes through.
+  var spentFingers = new Set();
+  document.addEventListener("click", function (e) {
+    if (e.isTrusted && typeof e.pointerId === "number" && spentFingers.has(e.pointerId)) { spentFingers.delete(e.pointerId); e.stopPropagation(); e.preventDefault(); }
+  }, true);
+  function navBegins() { touchPts.forEach(function (v, id) { spentFingers.add(id); }); }
+  function navEnds() { var ids = Array.from(spentFingers); setTimeout(function () { ids.forEach(function (id) { spentFingers.delete(id); }); }, 600); }
+  // A finger that closes the menu does nothing else, but it is still a finger: one put down with it is the second of
+  // a pinch, not a lone finger using the tool.
+  function deadFinger(e) {
+    var xy = stageXY(e);
+    touchPts.set(e.pointerId, { x: xy[0], y: xy[1], x0: xy[0], y0: xy[1] });
+    if (!touchNav && !touchOne) { touchNav = { kind: "dead", t: performance.now(), count: 1, moved: 0 }; navBegins(); }
+  }
+  // the pair of fingers changed (one lifted, or another landed): carry on from where the view is, with no jump
+  function navRebase() {
+    var g = touchNav, pts = twoPts();
+    if (!g || g.kind !== "nav" || pts.length < 2) return;
+    g.mx0 = (pts[0].x + pts[1].x) / 2; g.my0 = (pts[0].y + pts[1].y) / 2; g.spread0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    navBase();
+  }
   stage.addEventListener("pointerdown", function (e) {
     lastPointerType = e.pointerType;
-    if (e.pointerType === "pen") { penSeen = true; return; }
-    if (e.pointerType !== "touch" || e.target !== canvas || !state.img) return;
+    if (e.pointerType === "pen") { if (e.target === canvas && state.img) penSeen = true; return; }   // a pen on the drawing, not on a button
+    if (e.pointerType !== "touch" || !state.img) return;
+    if (e.target !== canvas) {
+      // a finger on a control over the drawing (the tool bar, a bar, the zoom) while another is on the drawing: the
+      // second finger of a pinch, not a press on the control
+      if (!(touchOne || touchNav) || !stage.contains(e.target)) return;
+    }
     var xy = stageXY(e), now = performance.now();
     touchPts.set(e.pointerId, { x: xy[0], y: xy[1], x0: xy[0], y0: xy[1] });
     e.preventDefault();          // no compatibility mouse events after it: a text box being typed in keeps the keyboard
     if (touchNav) {
-      // a further finger. A one-finger pan (with a stylus about) becomes a pinch; it counts towards a tap of three.
+      // a further finger. A one-finger pan (with a stylus about), or a finger that closed the menu, becomes a pinch;
+      // it counts towards a tap of three.
       e.stopImmediatePropagation();
+      spentFingers.add(e.pointerId);
       if (touchNav.kind === "held") return;
-      if (touchNav.kind === "pan") { clearTimeout(touchNav.hold); startNav(now, touchNav.t, touchNav.moved); return; }
+      if (touchNav.kind === "pan" || touchNav.kind === "dead") { clearTimeout(touchNav.hold); startNav(now, touchNav.t, touchNav.moved); return; }
       touchNav.count = Math.max(touchNav.count, touchPts.size);
       if (now - touchNav.t > TAP_STAGGER) touchNav.late = true;
       touchNav.lastDown = now;
+      navRebase();
       return;
     }
     if (touchPts.size >= 2) {
@@ -3102,11 +3135,12 @@ body.has-pages #stripGrip { display: block; }
     if (fingerPans() && state.tool !== "move") {
       e.stopImmediatePropagation();
       touchNav = { kind: "pan", t: now, count: 1, moved: 0, sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy };
+      navBegins();
       if (!modal()) touchNav.hold = setTimeout(function () { var g = touchNav; if (g && g.kind === "pan" && g.moved <= HOLD_SLOP) holdMenu(g.sx, g.sy); }, HOLD_MS);
       return;
     }
     guardTouch();
-    touchOne = { id: e.pointerId, t: now, x: e.clientX, y: e.clientY, moved: 0 };
+    touchOne = { id: e.pointerId, t: now, x: e.clientX, y: e.clientY, moved: 0, typing: document.activeElement === $("noteText"), fg: focusGen };
     if (!modal()) touchOne.hold = setTimeout(function () {
       if (!touchOne || touchOne.moved > HOLD_SLOP) return;
       var o = touchOne; touchOne = null;
@@ -3115,7 +3149,9 @@ body.has-pages #stripGrip { display: block; }
     }, HOLD_MS);
   }, true);
   stage.addEventListener("pointermove", function (e) {
-    if (e.pointerType !== "touch" || !touchPts.has(e.pointerId)) return;
+    if (e.pointerType !== "touch") return;
+    if (!touchPts.has(e.pointerId)) { if (e.target === canvas) e.stopImmediatePropagation(); return; }   // never a tool's
+    
     var xy = stageXY(e), tp = touchPts.get(e.pointerId);
     tp.x = xy[0]; tp.y = xy[1];
     var moved = Math.hypot(tp.x - tp.x0, tp.y - tp.y0);
@@ -3135,7 +3171,8 @@ body.has-pages #stripGrip { display: block; }
     }
   }, true);
   function touchEnd(e) {
-    if (e.pointerType !== "touch" || !touchPts.has(e.pointerId)) return;
+    if (e.pointerType !== "touch") return;
+    if (!touchPts.has(e.pointerId)) { if (e.target === canvas) e.stopImmediatePropagation(); return; }
     touchPts.delete(e.pointerId);
     var now = performance.now(), cancel = e.type === "pointercancel";
     if (touchOne && touchOne.id === e.pointerId) {
@@ -3144,20 +3181,24 @@ body.has-pages #stripGrip { display: block; }
       // the browser took the touch away: what it began goes, rather than staying half done
       if (cancel) { e.stopImmediatePropagation(); takeBack(); return; }
       touchGuard = null;
+      // typing a note when the finger went down and it did not go to a note's text: the keyboard goes away now
+      if (one.typing) setTimeout(function () { if (focusGen === one.fg && document.activeElement === $("noteText")) canvas.focus({ preventScroll: true }); }, 0);
       // a quick tap twice in the same spot with Move on: fit the page, or zoom in to where it was tapped
       if (state.tool === "move" && one.moved < TAP_SLOP && now - one.t < TAP_MS) {
         if (lastTap && now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && !hit(toImg(e)) && !picAt(toImg(e))) {
           lastTap = null;
           var xy = stageXY(e);
-          if (view.zoom > 1.05) fitView(); else zoomAt(xy[0], xy[1], 2.5);
+          if (view.zoom > 1.05) fitView(); else zoomAt(xy[0], xy[1], 2.5 / view.zoom);   // 2.5 times the fit, at the tap
         } else lastTap = { t: now, x: e.clientX, y: e.clientY };
       }
       return;                                                // the tool has the rest of it
     }
     e.stopImmediatePropagation(); e.preventDefault();
-    if (!touchNav || touchPts.size) return;                   // the view is still being moved by the fingers left
+    if (touchNav && touchPts.size) { navRebase(); return; }   // the view is still being moved by the fingers left
+    if (!touchNav) return;
     var g = touchNav; touchNav = null;
     clearTimeout(g.hold);
+    navEnds();
     render();
     // a quick tap with two fingers, or three, landing together and not moving: undo, or redo
     if (g.kind === "nav" && !cancel && !g.engaged && !g.late && g.moved <= TAP_SLOP && now - g.lastDown <= TAP_MS && state.tapUndo !== false) {
@@ -3184,8 +3225,11 @@ body.has-pages #stripGrip { display: block; }
     var drawNow = state.tool === "text" ? false : state.wheelErase ? (!byTouch || state.tool === "draw" || state.tool === "shape") : state.tool !== "note";
     if (drag) endDrag(true);
     var wasTyping = document.activeElement === $("noteText");
-    // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
-    canvas.focus({ preventScroll: true });
+    // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app. A finger while a
+    // note is typed leaves the keyboard up: a second finger (a pinch) keeps it, and the router puts it away once a
+    // one-finger action ends without going to a note's text.
+    if (!(e.pointerType === "touch" && wasTyping)) canvas.focus({ preventScroll: true });
+    if (touchGuard) touchGuard.armed = true;          // from here on, what changes is the first finger's doing
     // the tool wheel is open: a left click picks the tool that way; any other click closes it, and does nothing else
     if (wheelOpen) {
       var wd = Math.hypot(e.clientX - wheelOpen.x, e.clientY - wheelOpen.y);
@@ -3890,7 +3934,12 @@ body.has-pages #stripGrip { display: block; }
     var m = $("menu");
     m.hidden = false;
     var r = m.getBoundingClientRect(), x = cx, y = cy, edge = 4;
-    if (above) { edge = 8; x = cx - r.width / 2; y = cy - r.height - 16 >= edge ? cy - r.height - 16 : cy + 24; }
+    if (above) {
+      edge = 8; x = cx - r.width / 2; y = cy - r.height - 16;
+      if (y < edge) y = cy + 24;
+      // no room above or below: beside the finger, so the hand covers none of it
+      if (y + r.height > window.innerHeight - edge) { y = cy - r.height / 2; x = cx + 24 + r.width <= window.innerWidth - edge ? cx + 24 : cx - 24 - r.width; }
+    }
     m.style.left = Math.max(edge, Math.min(x, window.innerWidth - r.width - edge)) + "px";
     m.style.top = Math.max(edge, Math.min(y, window.innerHeight - r.height - edge)) + "px";
     var first = m.querySelector("button:not([disabled])");
@@ -3909,7 +3958,10 @@ body.has-pages #stripGrip { display: block; }
     var m = $("menu");
     if (m.hidden || m.contains(e.target)) return;
     closeMenu();
-    if (e.button !== 2 && e.target === canvas) e.stopPropagation();
+    if (e.button !== 2 && e.target === canvas) {
+      e.stopPropagation();
+      if (e.pointerType === "touch" && state.img) { e.preventDefault(); deadFinger(e); }
+    }
   }, true);
   window.addEventListener("blur", closeMenu);
   window.addEventListener("resize", closeMenu);
@@ -4535,7 +4587,7 @@ body.has-pages #stripGrip { display: block; }
     var p = toImg(e), h = cropHit(p);
     p = { x: clamp(p.x, 0, state.w), y: clamp(p.y, 0, state.h) };
     cropping.r = cropRect();
-    if (h && h.move) cropping.act = { move: true, from: [p.x, p.y], r0: r.slice() };
+    if (h && h.move) cropping.act = { move: true, from: [p.x, p.y], r0: cropping.r.slice() };
     else if (h) cropping.act = { edges: h.edges };
     else { cropping.r = [p.x, p.y, p.x, p.y]; cropping.act = { edges: [0, 0, 1, 1] }; }
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
@@ -5455,13 +5507,13 @@ body.has-pages #stripGrip { display: block; }
   // ----- page strip -----
   var thumbWatch = null, thumbQueue = [], thumbBusy = false;
   // a finger held still on a page's thumbnail for half a second opens its menu (iOS sends no contextmenu)
-  var thumbPress = null, pageMenuAt = 0;
+  var thumbPress = null, pageMenuAt = 0, thumbHeld = -1;     // thumbHeld: the thumbnail whose press opened the menu
   function holdThumb(ev, i) {
     if (thumbPress) clearTimeout(thumbPress.timer);
     var t = thumbPress = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, i: i };
     t.timer = setTimeout(function () {
       if (thumbPress !== t) return;
-      thumbPress = null; pageMenuAt = Date.now();
+      thumbPress = null; pageMenuAt = Date.now(); thumbHeld = t.i;
       if (navigator.vibrate) { try { navigator.vibrate(10); } catch (err) { /* fine */ } }
       openPageMenu(t.i, t.x, t.y, true);
     }, HOLD_MS);
@@ -5492,15 +5544,15 @@ body.has-pages #stripGrip { display: block; }
       var mark = document.createElement("span"); mark.className = "mark"; mark.hidden = true;
       meta.appendChild(num); meta.appendChild(mark);
       b.appendChild(c); b.appendChild(meta);
-      b.addEventListener("click", function () { if (pageDrag && pageDrag.moved) return; if (Date.now() - pageMenuAt < 800) return; showPage(i); canvas.focus({ preventScroll: true }); });
+      b.addEventListener("click", function () { if (pageDrag && pageDrag.moved) return; if (thumbHeld === i) { thumbHeld = -1; return; } showPage(i); canvas.focus({ preventScroll: true }); });
       b.addEventListener("contextmenu", function (ev) {
         ev.preventDefault();
         if (Date.now() - pageMenuAt < 800) return;               // Android's own, after a finger held down opened it
-        if (thumbPress) { clearTimeout(thumbPress.timer); thumbPress = null; pageMenuAt = Date.now(); }
+        if (thumbPress) { clearTimeout(thumbPress.timer); thumbPress = null; pageMenuAt = Date.now(); thumbHeld = i; }
         openPageMenu(i, ev.clientX, ev.clientY);
       });
       b.addEventListener("pointerdown", function (ev) {
-        if (ev.pointerType === "touch") { holdThumb(ev, i); return; }   // a finger: held, the page menu; dragged, the strip scrolls
+        if (ev.pointerType === "touch") { thumbHeld = -1; holdThumb(ev, i); return; }   // a finger: held, the page menu; dragged, the strip scrolls
         if (ev.button === 0) { pageDrag = { from: i, at: [ev.clientX, ev.clientY], moved: false, to: i }; b.setPointerCapture(ev.pointerId); }
       });
       b.addEventListener("pointermove", function (ev) {
