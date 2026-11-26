@@ -1244,16 +1244,21 @@ body.has-pages #stripGrip { display: block; }
   // real millimetres per image px at the scale set, on this page or image; 0 with no scale
   // The scale this page (or image) is at. Once a page has dimensions on it, it keeps the scale they were placed
   // at (pageRatio), whatever scale is set later on another page; a page without any follows the scale set last.
-  function pageRatio() { return state.pageRatio != null ? state.pageRatio : state.ratio; }
+  // A page whose scale was cleared while it had something measured keeps 0 there, for no scale: it is not a page
+  // that was never measured, so it does not take up a scale typed later on another page.
+  function pageRatio() { return state.pageRatio != null ? state.pageRatio || null : state.ratio; }
   // anything on this page that reads at its scale: dimensions, areas and lengths (a count needs no scale)
   function hasMeasures() { return state.strokes.some(function (s) { return s.dim || (s.take && s.take !== "count"); }); }
-  // the scale typed on this page: the one set from now on, and this page's own if it has anything measured
-  function setRatio(v) { state.ratio = v; state.pageRatio = hasMeasures() ? v : null; }
-  // the page's first dimension, area or length fixes its scale: a scale set later on another page leaves it as it is
+  // the scale typed on this page: the one set from now on, and this page's own if it has anything measured (0 if
+  // it was cleared)
+  function setRatio(v) { state.ratio = v; state.pageRatio = hasMeasures() ? v || 0 : null; }
+  // the page's first dimension, area or length fixes its scale: a scale set later on another page leaves it as it is.
+  // A page whose scale was cleared stays without one until a scale is typed on it.
   function pinScale() { if (state.pageRatio == null && state.ratio) state.pageRatio = state.ratio; }
   function mmPerPx() { var k = pageRatio(); return k ? k * paperMmPerPx() : 0; }
   // The same for any page of the document without putting it on screen first: its own scale (or the scale set last,
-  // if it has nothing measured yet) at its own paper size. For adding up quantities over every page.
+  // if it has nothing measured yet; none if it was cleared) at its own paper size. For adding up quantities over
+  // every page.
   function mmPerPxOf(pg) {
     if (!doc || pg === (state.pg || doc.pages[doc.cur])) return mmPerPx();
     var k = pg.pageRatio != null ? pg.pageRatio : state.ratio;
@@ -3234,13 +3239,14 @@ body.has-pages #stripGrip { display: block; }
   // brings it back too; take-offs whose group has gone altogether are grey with a question mark.
   $("takeDel").addEventListener("click", function () {
     var g = takeChosen(); if (!g) return;
-    if (taking && taking.g === g.id) takeCancel(true);
     if (doc) stashPage();
     var mine = function (s) { return s.take && s.g === g.id; }, n = 0, on = [];
     if (doc) doc.pages.forEach(function (pg, i) { var c = (i === doc.cur ? state.strokes : pg.strokes).filter(mine).length; if (c) { n += c; on.push(i); } });
     else { n = state.strokes.filter(mine).length; if (n) on.push(-1); }
     var pagesWord = doc && doc.pages.length > 1 ? " on " + on.length + (on.length === 1 ? " page" : " pages") : "";
     if (n && !window.confirm("Delete " + g.name + " and its " + n + (n === 1 ? " take-off" : " take-offs") + pagesWord + "?")) return;
+    // an outline being drawn in the group goes with it, once it is sure the group goes (Cancel above keeps it open)
+    if (taking && taking.g === g.id) takeCancel(true);
     if (!n) state.groups.splice(state.groups.indexOf(g), 1);
     else {
       on.forEach(function (i) {
@@ -3556,7 +3562,9 @@ body.has-pages #stripGrip { display: block; }
   // every button release, so it cannot hold it either. { kind, g (its group), pts, last (the last click: when, and
   // where on screen), hover (where the pointer would put the next corner), near (on the first corner), rect (the first
   // press of an area dragged out into a rectangle) }. takeIdle is the corner the pointer would snap to before the first.
-  var taking = null, takeIdle = null;
+  // takeShut is the press that last finished an outline by a click on the page (on its first corner, or the second
+  // click of a double-click): { t, sx, sy }, so that the rest of that double-click does not start another outline.
+  var taking = null, takeIdle = null, takeShut = null;
   // The group a new take-off of this kind goes to: the one chosen, or the last made; the first time, Area 1 (or
   // Length 1, Count 1) in the next colour.
   function takeGroup(kind) {
@@ -3627,6 +3635,8 @@ body.has-pages #stripGrip { display: block; }
   function takeDown(p, e) {
     var now = Date.now(), touch = e.pointerType === "touch" || e.pointerType === "pen";
     if (!taking) {
+      // the second click of a double-click (or double tap) that has just closed an outline on its first corner
+      if (takeShut && now - takeShut.t < 400 && Math.hypot(e.clientX - takeShut.sx, e.clientY - takeShut.sy) < (touch ? 12 : 4)) return false;
       if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return false;
       var kind = state.measMode;
       if (!needPro("takeoff")) return false;
@@ -3640,11 +3650,11 @@ body.has-pages #stripGrip { display: block; }
       takeBar(); render();
       return true;
     }
-    var t = taking, first = t.pts[0];
+    var t = taking, first = t.pts[0], shut = { t: now, sx: e.clientX, sy: e.clientY };
     // a second click on the same spot soon after the first finishes it: a double-click, or a double tap
-    if (t.last && now - t.last.t < 400 && Math.hypot(e.clientX - t.last.sx, e.clientY - t.last.sy) < (touch ? 12 : 4)) { takeFinish(); return false; }
+    if (t.last && now - t.last.t < 400 && Math.hypot(e.clientX - t.last.sx, e.clientY - t.last.sy) < (touch ? 12 : 4)) { takeShut = shut; takeFinish(); return false; }
     // a click on the first corner closes it: an area, or a length into a loop
-    if (first && t.pts.length >= 3 && screenGap([p.x, p.y], first) <= 8) { takeFinish({ close: true }); return false; }
+    if (first && t.pts.length >= 3 && screenGap([p.x, p.y], first) <= 8) { takeShut = shut; takeFinish({ close: true }); return false; }
     t.pts.push(takePoint(p, e.shiftKey).pt);
     t.last = { t: now, sx: e.clientX, sy: e.clientY };
     t.hover = null; t.near = false;
@@ -4444,6 +4454,9 @@ body.has-pages #stripGrip { display: block; }
     }
     var openBox = document.querySelector(".modal.open");
     if (openBox && e.key === "Escape") { e.preventDefault(); openBox.classList.remove("open"); canvas.focus({ preventScroll: true }); return; }
+    // while a dialog is open the page behind it takes none of its own keys (letters, Delete, PageDown...), wherever a
+    // press has left the keyboard; the dialog's fields and buttons still have theirs
+    if (openBox && !e.ctrlKey && !e.metaKey) return;
     var menu = $("menu");
     if (!menu.hidden) {
       // the menu takes the keyboard while it is open: arrows move, Esc closes, Enter/Space press the item
@@ -4734,6 +4747,9 @@ body.has-pages #stripGrip { display: block; }
     if (!state.img) { openFiles(files); return; }
     status("Adding " + (files.length === 1 ? files[0].name || "the file" : files.length + " files") + "…");
     Promise.all(files.map(readPart)).then(function (parts) {
+      // an outline being drawn is finished (or dropped) first, where it was drawn: an image or a blank canvas becomes
+      // page 1 only after that, with the scale its first area or length fixed
+      takeEnd();
       if (!doc) toDoc();
       stashPage();
       var at = (after == null ? doc.cur : after) + 1, add = [];
@@ -6685,8 +6701,13 @@ body.has-pages #stripGrip { display: block; }
     if (id === "proModal") proAsk = null;        // what asked for Pro does not go on by itself later
     if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); }
   }
+  // A click on the shade round a dialog closes it, but only when the press began on the shade too: the end of a tap
+  // that opened the dialog (on touch its click comes once the finger lifts, over the dialog by then), or a drag out
+  // of one of its fields, leaves it open.
+  var pressedOn = null;
+  document.addEventListener("pointerdown", function (e) { pressedOn = e.target; }, true);
   ["setModal", "pdfModal", "formModal", "proModal"].forEach(function (id) {
-    $(id).addEventListener("click", function (e) { if (e.target === $(id)) closeModal(id); });
+    $(id).addEventListener("click", function (e) { if (e.target === $(id) && pressedOn === $(id)) closeModal(id); });
     $(id).addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeModal(id); } });
   });
   $("setBtn").addEventListener("click", function () { openKeys(false); });
@@ -7011,6 +7032,9 @@ body.has-pages #stripGrip { display: block; }
     { id: "takeoff", name: "Take-offs", icon: '<path d="M3.5 5.5h12l5 6v7h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5.5l-3.5 3.5M12 5.5l-8.5 8.5M16 6l-12.5 12.5M18.5 9l-9.5 9.5M20.5 12l-6.5 6.5" stroke="currentColor" stroke-width="1"/>' }
   ];
   var proAsk = null;            // what asked for Pro while the Unlock dialog shows: { id, then }, then run once Pro is on
+  // What was typed in the key field and is not kept (refused, or not checked for want of an answer): it stays in the
+  // field to be put right, while the key kept, if any, stays as it was.
+  var proTyped = null;
   function shopOpen() { return !!PRO_SHOP.org; }
   function isPro() { return pro.ok && (pro.live || Date.now() - pro.at < PRO_GRACE); }
   function trialLive() { var t = Date.now() - pro.trial; return !!pro.trial && t >= 0 && t < PRO_TRIAL; }
@@ -7026,7 +7050,11 @@ body.has-pages #stripGrip { display: block; }
     pro.said = "";
     proHome(true);
     syncPro();
-    openModal("proModal", $("proTry").hidden ? "proKey" : "proTry");
+    var f = $("proTry").hidden ? "proKey" : "proTry";
+    openModal("proModal", f);
+    // asked by a press on the page, the press goes on to give the keyboard to the image: it comes back to the dialog
+    // once the press is over
+    setTimeout(function () { if ($("proModal").classList.contains("open") && !$("proModal").contains(document.activeElement)) $(f).focus(); }, 0);
   }
   function loadPro() {
     try {
@@ -7035,6 +7063,8 @@ body.has-pages #stripGrip { display: block; }
         pro.key = d.key; pro.ok = d.ok === true; pro.at = typeof d.at === "number" ? d.at : 0;
         pro.act = typeof d.act === "string" && d.act.length < 100 ? d.act : "";
         pro.trial = typeof d.trial === "number" && isFinite(d.trial) && d.trial > 0 ? d.trial : 0;
+        // a key that never checked out here and holds no activation is not kept, as Unlock keeps none such now
+        if (!pro.ok && !pro.at && !pro.act) pro.key = "";
       }
     } catch (err) { /* nothing kept */ }
   }
@@ -7068,30 +7098,43 @@ body.has-pages #stripGrip { display: block; }
       return "offline";
     }, function () { return "offline"; });
   }
-  // Polar's answer about a key: "ok", "no" (unknown, revoked, or its subscription ended), "limit" (activated in as
-  // many browsers as it may be) or "offline" (no answer). Unlock activates it first, once; the check at the start
-  // of a visit only validates it.
-  function checkKey(key, activate) {
-    if (!shopOpen()) return Promise.resolve("closed");
-    var first = activate && !pro.act ? activateKey(key) : Promise.resolve({ id: pro.act });
+  // Polar's answer about a key, { r, act }: r is "ok", "no" (unknown, revoked, or its subscription ended), "limit"
+  // (activated in as many browsers as it may be) or "offline" (no answer), and act the activation it was checked with.
+  // Unlock activates a key first, once (when act is empty); the check at the start of a visit only validates it.
+  // Nothing is changed here: what the answer means for the key kept is for the caller to say.
+  function checkKey(key, act, activate) {
+    if (!shopOpen()) return Promise.resolve({ r: "closed", act: act });
+    var first = activate && !act ? activateKey(key) : Promise.resolve({ id: act });
     return first.then(function (a) {
-      if (typeof a === "string") return a;
-      pro.act = a.id;
-      var body = { key: key, organization_id: PRO_SHOP.org };
+      if (typeof a === "string") return { r: a, act: "" };
+      var body = { key: key, organization_id: PRO_SHOP.org }, answer = function (r) { return { r: r, act: a.id }; };
       if (a.id) body.activation_id = a.id;
       return proPost("validate", body).then(function (r) {
         return r.json().then(function (d) {
-          if (r.ok) return d && d.status === "granted" && !(d.expires_at && Date.parse(d.expires_at) < Date.now()) ? "ok" : "no";
-          return r.status === 404 && d && d.error === "ResourceNotFound" ? "no" : "offline";
-        }, function () { return "offline"; });
-      }, function () { return "offline"; });
+          if (r.ok) return answer(d && d.status === "granted" && !(d.expires_at && Date.parse(d.expires_at) < Date.now()) ? "ok" : "no");
+          return answer(r.status === 404 && d && d.error === "ResourceNotFound" ? "no" : "offline");
+        }, function () { return answer("offline"); });
+      }, function () { return answer("offline"); });
     });
   }
-  function applyCheck(r) {
-    if (r === "ok") { pro.ok = true; pro.at = Date.now(); pro.live = true; pro.said = "Pro is on. Thank you."; }
-    else if (r === "no") { pro.ok = false; pro.live = false; pro.act = ""; pro.said = "Polar does not know this key, or its subscription has ended."; }
-    else if (r === "limit") { pro.ok = false; pro.live = false; pro.said = "This key is on its limit of browsers: Remove key in another browser, or free one in Polar."; }
-    else if (r === "offline") pro.said = isPro() ? "Pro is on (no connection to Polar just now)." : "Polar could not be reached. Try again in a moment.";
+  // Give a key's place in this browser back at Polar: true once it is free (or was not held), false with no answer
+  function freeAct(key, act) {
+    return proPost("deactivate", { key: key, organization_id: PRO_SHOP.org, activation_id: act }).then(function (r) { return r.ok || r.status === 404; }, function () { return false; });
+  }
+  // what an answer says, in the line of the Pro block
+  function checkSaid(r) {
+    return r === "ok" ? "Pro is on. Thank you." : r === "no" ? "Polar does not know this key, or its subscription has ended."
+         : r === "limit" ? "This key is on its limit of browsers: Remove key in another browser, or free one in Polar."
+         : r === "offline" ? (isPro() ? "Pro is on (no connection to Polar just now)." : "Polar could not be reached. Try again in a moment.") : "";
+  }
+  // Polar's answer about the key kept
+  function applyCheck(c) {
+    var r = c.r;
+    if (r === "ok") { pro.ok = true; pro.at = Date.now(); pro.live = true; pro.act = c.act; }
+    else if (r === "no") { pro.ok = false; pro.live = false; pro.act = ""; }
+    else if (r === "limit") { pro.ok = false; pro.live = false; }
+    else if (r === "offline" && c.act) pro.act = c.act;
+    pro.said = checkSaid(r);
     savePro(); syncPro();
   }
   function dateText(t) { var d = new Date(t); return d.getDate() + "." + (d.getMonth() + 1) + "." + d.getFullYear(); }
@@ -7123,8 +7166,9 @@ body.has-pages #stripGrip { display: block; }
     $("proPrice").hidden = !open || !PRO_SHOP.price;
     $("proPrice").textContent = PRO_SHOP.price;
     $("proState").textContent = pro.said || proLine();
-    $("proTry").hidden = !open || !!pro.trial || !!pro.key;
-    if (document.activeElement !== $("proKey")) $("proKey").value = pro.key;
+    // Try 14 days is for a browser that has had neither the trial nor a key that checked out
+    $("proTry").hidden = !open || !!pro.trial || pro.at > 0;
+    if (document.activeElement !== $("proKey")) $("proKey").value = proTyped != null ? proTyped : pro.key;
     $("proUnlock").disabled = pro.busy || !open;
     $("proRemove").hidden = !pro.key;
     $("proBuy").hidden = !PRO_SHOP.checkout;
@@ -7147,13 +7191,28 @@ body.has-pages #stripGrip { display: block; }
     sync();
     if (then) then();
   }
+  // Unlock checks the key in the field with Polar, activating it in this browser the first time. A key other than the
+  // one kept takes its place only once Polar says it is good, and then the old key's place in this browser is given
+  // back, as Remove key does. A key refused, or not checked for want of a connection, is not kept, so it is not sent
+  // again at the next visit and does not stand in the way of the trial; an activation made for it is given back at once.
   $("proUnlock").addEventListener("click", function () {
     var key = $("proKey").value.replace(/\s+/g, "");      // pasted with spaces or line breaks
     if (!key) { pro.said = "Paste the licence key from your Polar receipt."; syncPro(); return; }
-    if (key !== pro.key) pro.act = "";
-    pro.key = key; pro.busy = true; pro.said = "Checking with Polar…"; syncPro();
-    checkKey(key, true).then(function (r) {
-      pro.busy = false; applyCheck(r);
+    var fresh = key !== pro.key, act = fresh ? "" : pro.act;
+    proTyped = key; pro.busy = true; pro.said = "Checking with Polar…"; syncPro();
+    checkKey(key, act, true).then(function (c) {
+      pro.busy = false;
+      if (c.act && c.act !== act && (c.r === "no" || (fresh && c.r !== "ok"))) { freeAct(key, c.act); c.act = ""; }
+      if (fresh && c.r !== "ok") { pro.said = checkSaid(c.r); syncPro(); return; }
+      if (fresh) {
+        var old = { key: pro.key, act: pro.act };
+        pro.key = key;
+        if (old.act) freeAct(old.key, old.act).then(function (freed) {
+          if (!freed) { pro.said = "Pro is on with the new key, but Polar could not be reached to free the old one's place in this browser: free it in Polar."; syncPro(); }
+        });
+      }
+      proTyped = null;
+      applyCheck(c);
       if (isPro()) { status("Pro is on."); if ($("proModal").classList.contains("open")) proGranted(); else sync(); }
     });
   });
@@ -7170,26 +7229,34 @@ body.has-pages #stripGrip { display: block; }
   $("proRemove").addEventListener("click", function () {
     var key = pro.key, act = pro.act;
     pro = { key: "", ok: false, at: 0, act: "", trial: pro.trial, live: false, busy: false, said: "The key is removed from this browser." };
+    proTyped = null;
     savePro(); syncPro(); sync();
     if (!act || !shopOpen()) return;
-    var unfreed = function () { pro.said = "The key is removed from this browser, but Polar could not be reached to free its place: free it in Polar."; syncPro(); };
-    proPost("deactivate", { key: key, organization_id: PRO_SHOP.org, activation_id: act }).then(function (r) { if (!r.ok && r.status !== 404) unfreed(); }, unfreed);
+    freeAct(key, act).then(function (freed) {
+      if (!freed) { pro.said = "The key is removed from this browser, but Polar could not be reached to free its place: free it in Polar."; syncPro(); }
+    });
   });
   // another tab of this page unlocked Pro, started a trial or removed the key: this one follows
   window.addEventListener("storage", function (e) {
     if (e.key !== PRO_STORE && e.key !== null) return;
     pro = { key: "", ok: false, at: 0, act: "", trial: 0, live: false, busy: false, said: "" };
+    proTyped = null;
     loadPro(); syncPro(); sync();
   });
   // a trial or a licence that runs out while the page is open: the marks come back, quietly
   setInterval(proMarks, 60000);
   loadPro();
   syncPro();
-  if (pro.key) checkKey(pro.key, false).then(function (r) {
-    pro.said = ""; applyCheck(r); if (r !== "no") pro.said = "";
-    if (r === "no") status("Pro is off: Polar no longer knows this licence key, or its subscription has ended.");
-    syncPro(); sync();
-  });
+  // At the start of a visit the key kept is validated if it has checked out here before or is activated here; one that
+  // has done neither waits for Unlock, which activates it first. Pro going off is said only if it was on.
+  if (pro.key && (pro.ok || pro.act)) {
+    var proWasOn = pro.ok;
+    checkKey(pro.key, pro.act, false).then(function (c) {
+      applyCheck(c); if (c.r !== "no") pro.said = "";
+      if (c.r === "no" && proWasOn) status("Pro is off: Polar no longer knows this licence key, or its subscription has ended.");
+      syncPro(); sync();
+    });
+  }
 
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
