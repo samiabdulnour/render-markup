@@ -9,10 +9,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
 <style>
-/* osifont: the free ISO 3098 lettering that stands in for ISOCPEUR where AutoCAD's is not installed */
-@font-face { font-family: "osifont"; src: url("fonts/osifont-lgpl3fe.ttf") format("truetype"); font-display: swap; }
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
    The look is Loriini's (samiabdulnour/loriini, app/theme.py and scripts/make_icons.py): a light grey surround,
@@ -41,9 +39,9 @@
   --accent: #d9442e;        /* marks on the image (the selected note), the drop outline */
   --stage: #dedede;
   /* the whole interface is in Arial (the note typefaces are separate, chosen under All notes) */
-  --font-display: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  --font-body: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  --font-mono: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-display: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-body: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-mono: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
   /* the on/off switch, in Loriini's colours: grey off, ink with a pale lemon knob on */
   --fs: 14px;               /* the one size of the interface's text */
   --switch-off: #cdcdcd; --switch-off-knob: #ffffff; --switch-on: #000000; --switch-on-knob: #fff07a;
@@ -150,8 +148,12 @@ aside h2 {
   letter-spacing: 0.02em; color: var(--muted); margin: -12px -12px 2px; padding: 8px 12px;
   border-bottom: 1px solid var(--divider);
 }
-#notesPanel { display: flex; flex-direction: column; gap: 8px; }
-#notesPanel[hidden] { display: none; }
+#notesPanel, #textPanel { display: flex; flex-direction: column; gap: 8px; }
+#notesPanel[hidden], #textPanel[hidden] { display: none; }
+/* a row of the Note list or the Text list being dragged to another place in front or behind */
+#list li.lifted, #textList li.lifted { opacity: 0.45; }
+#list li.drop-before button, #textList li.drop-before button { box-shadow: inset 0 2px 0 var(--ink); }
+#list li.drop-after button, #textList li.drop-after button { box-shadow: inset 0 -2px 0 var(--ink); }
 label { font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 textarea, select, input[type="range"] { font: inherit; color: var(--ink); }
 /* what is typed or chosen in a field keeps its own case */
@@ -252,14 +254,14 @@ input.entry, .scalebox input {
 .unseen { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent); display: inline-block; }
 .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs); text-transform: none; letter-spacing: normal; color: var(--ink); }
-#list, #picList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-#list li button, #picList li button {
+#list, #picList, #textList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+#list li button, #picList li button, #textList li button {
   width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent;
   padding: 6px 8px; gap: 10px;
 }
-#list li button, #picList li button { text-transform: none; letter-spacing: normal; }
-#list li button:hover, #picList li button:hover { background: var(--chosen-tint); border-color: transparent; }
-#list li button[aria-pressed="true"], #picList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
+#list li button, #picList li button, #textList li button { text-transform: none; letter-spacing: normal; }
+#list li button:hover, #picList li button:hover, #textList li button:hover { background: var(--chosen-tint); border-color: transparent; }
+#list li button[aria-pressed="true"], #picList li button[aria-pressed="true"], #textList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
 #picEditor[hidden] { display: none; }
 /* What the page has to say (saved, copied, a picture added...): a message at the foot of the stage that shows
@@ -341,7 +343,7 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 /* A text's own type, as in InDesign: face, style, case, alignment, list, colour, background, leading, tracking */
 #textType { display: flex; flex-direction: column; gap: 8px; }
 #textType[hidden], #txtSpacing[hidden], #txtBgWrap[hidden], #colorHead[hidden], #txtPtWrap[hidden],
-#noteShapes[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden] { display: none; }
+#noteShapes[hidden], #noteOri[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden], #txtAutoW[hidden] { display: none; }
 #textType .seg button { text-transform: none; letter-spacing: normal; padding: 6px 4px; }
 #textType .seg button svg { display: block; }
 #txtB { font-weight: 700; } #txtI { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
@@ -374,13 +376,13 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 #picList li.lifted { opacity: 0.45; }
 #picList li.drop-before button { box-shadow: inset 0 2px 0 var(--ink); }
 #picList li.drop-after button { box-shadow: inset 0 -2px 0 var(--ink); }
-#list { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
+#list, #textList { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
 label[hidden] { display: none; }
-#list .num {
+#list .num, #textList .num {
   font-family: var(--font-mono); font-size: var(--fs); min-width: 22px; height: 22px; border-radius: 11px;
   display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(0,0,0,0.2);
 }
-#list .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#list .txt, #textList .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty, .note { color: var(--muted); font-size: var(--fs); margin: 0; }
 #editor[hidden], #del[hidden] { display: none; }
 kbd { font-family: var(--font-mono); font-size: var(--fs); border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
@@ -643,6 +645,11 @@ body.has-pages #stripGrip { display: block; }
             <button id="listNum" aria-pressed="false" title="Numbers: 1, 2, 3 before each line you start with Enter"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><text x="0.4" y="4.4" font-size="5" font-weight="700" font-family="Arial, sans-serif">1</text><rect x="6" y="1.5" width="11" height="1.8"/><text x="0.4" y="9" font-size="5" font-weight="700" font-family="Arial, sans-serif">2</text><rect x="6" y="6.1" width="11" height="1.8"/><text x="0.4" y="13.6" font-size="5" font-weight="700" font-family="Arial, sans-serif">3</text><rect x="6" y="10.7" width="11" height="1.8"/></svg><span class="unseen">Numbers</span></button>
           </div>
         </div>
+        <div class="seg" role="group" aria-label="Columns">
+          <button id="col1" aria-pressed="true" title="One column"><svg viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="20" height="1.8"/><rect x="1" y="4.4" width="20" height="1.8"/><rect x="1" y="7.8" width="20" height="1.8"/><rect x="1" y="11.2" width="20" height="1.8"/></svg><span class="unseen">One column</span></button>
+          <button id="col2" aria-pressed="false" title="Two columns: the lines shared out between them, balanced"><svg viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="9" height="1.8"/><rect x="1" y="4.4" width="9" height="1.8"/><rect x="1" y="7.8" width="9" height="1.8"/><rect x="1" y="11.2" width="9" height="1.8"/><rect x="12" y="1" width="9" height="1.8"/><rect x="12" y="4.4" width="9" height="1.8"/><rect x="12" y="7.8" width="9" height="1.8"/><rect x="12" y="11.2" width="9" height="1.8"/></svg><span class="unseen">Two columns</span></button>
+          <button id="col3" aria-pressed="false" title="Three columns: the lines shared out between them, balanced"><svg viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="5.6" height="1.8"/><rect x="1" y="4.4" width="5.6" height="1.8"/><rect x="1" y="7.8" width="5.6" height="1.8"/><rect x="1" y="11.2" width="5.6" height="1.8"/><rect x="8.2" y="1" width="5.6" height="1.8"/><rect x="8.2" y="4.4" width="5.6" height="1.8"/><rect x="8.2" y="7.8" width="5.6" height="1.8"/><rect x="8.2" y="11.2" width="5.6" height="1.8"/><rect x="15.4" y="1" width="5.6" height="1.8"/><rect x="15.4" y="4.4" width="5.6" height="1.8"/><rect x="15.4" y="7.8" width="5.6" height="1.8"/><rect x="15.4" y="11.2" width="5.6" height="1.8"/></svg><span class="unseen">Three columns</span></button>
+        </div>
       </div>
       <span class="sub" id="colorHead" hidden>Colour</span>
       <div class="swatches five" id="noteColors" role="group" aria-label="Colour"></div>
@@ -652,7 +659,7 @@ body.has-pages #stripGrip { display: block; }
       </div>
       <div class="swatches" id="noteShapes" role="group" aria-label="Shape"></div>
       <div class="segrow">
-      <div class="seg" role="group" aria-label="Orientation">
+      <div class="seg" role="group" aria-label="Orientation" id="noteOri">
         <button id="oriH" aria-pressed="true" title="Horizontal: the words read across"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriH"><rect width="30" height="14" fill="#fff"/><text x="15" y="9.9" font-size="8" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#000">Ab</text></mask></defs><rect x="3" y="1.5" width="24" height="11" rx="5.5" fill="currentColor" mask="url(#mkOriH)"/></svg><span class="unseen">Horizontal</span></button>
         <button id="oriV" aria-pressed="false" title="Vertical: the words read upwards"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><defs><mask id="mkOriV"><rect width="30" height="14" fill="#fff"/><text transform="translate(17.9 7) rotate(-90)" font-size="8" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#000">Ab</text></mask></defs><rect x="9.5" y="0" width="11" height="14" rx="5.5" fill="currentColor" mask="url(#mkOriV)"/></svg><span class="unseen">Vertical</span></button>
       </div>
@@ -675,6 +682,10 @@ body.has-pages #stripGrip { display: block; }
         <label for="txtTrack" class="slider"><span class="head">Tracking <span class="val" id="txtTrackVal"></span></span>
           <input type="range" id="txtTrack" min="-100" max="500" step="10">
         </label>
+        <button id="txtAutoW" type="button" hidden title="The frame just round the words again, wrapping at about ten words">Fit frame to text</button>
+        <label for="txtGap" class="slider" id="txtGapWrap"><span class="head">Gutter <span class="val" id="txtGapVal"></span></span>
+          <input type="range" id="txtGap" min="0.5" max="6" step="0.25">
+        </label>
       </div>
       <button id="del" class="danger">Delete note</button>
     </div>
@@ -682,12 +693,11 @@ body.has-pages #stripGrip { display: block; }
       <h2>All notes</h2>
       <label for="font">Typeface
         <select id="font">
-          <option value="arial">Arial</option>
-          <option value="narrow">Arial Narrow</option>
-          <option value="verdana">Verdana</option>
+          <option value="arimo">Arimo</option>
           <option value="opensans">Open Sans</option>
-          <option value="menlo">Menlo</option>
-          <option value="isocpeur">ISOCPEUR</option>
+          <option value="condensed">IBM Plex Sans Condensed</option>
+          <option value="roboto">Roboto</option>
+          <option value="mono">IBM Plex Mono</option>
         </select>
       </label>
       <div class="textstyle">
@@ -701,8 +711,15 @@ body.has-pages #stripGrip { display: block; }
     </div>
     <div class="section" id="noteListBox">
       <h2>Note list</h2>
-      <ul id="list" title="Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
+      <ul id="list" title="Lower in the list is in front: drag a note up or down · Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
       <p class="empty" id="listEmpty">No notes yet. Drag with the right mouse button to add one.</p>
+    </div>
+    </div>
+    <div id="textPanel" hidden>
+    <div class="section" id="textListBox">
+      <h2>Text list</h2>
+      <ul id="textList" title="Lower in the list is in front: drag a text up or down · Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
+      <p class="empty" id="textEmpty">No text yet. Click the page to add some.</p>
     </div>
     </div>
   </aside>
@@ -753,7 +770,7 @@ body.has-pages #stripGrip { display: block; }
       <button id="expJpg" class="choice"><span class="ttl">JPG</span><span class="note" id="expJpgNote"></span></button>
       <button id="pdfFull" class="choice"><span class="ttl">PDF, full quality</span><span class="note" id="pdfFullNote"></span></button>
       <button id="pdfCompact" class="choice"><span class="ttl">PDF, compact</span><span class="note" id="pdfCompactNote"></span></button>
-      <button id="pdfSmall" class="choice"><span class="ttl">PDF, smallest</span><span class="note" id="pdfSmallNote"></span></button>
+      <button id="pdfSmall" class="choice"><span class="ttl">PDF, flatten</span><span class="note" id="pdfSmallNote"></span></button>
     </div>
     <div class="actions"><button id="pdfCancel">Cancel</button></div>
   </div>
@@ -780,22 +797,20 @@ body.has-pages #stripGrip { display: block; }
 <script>
 (function () {
   "use strict";
-  // The typefaces notes and lengths can be set in: five usual ones, Arial first and by default. Each is the
-  // computer's own where it has it (Menlo on a Mac, Consolas, its like, on Windows); Open Sans comes from
-  // Google Fonts, and a computer without Arial Narrow or a mono gets a web copy of one like it. Bold and the case are switches of their own, for every note.
+  // The typefaces notes, texts and lengths can be set in: open fonts only (SIL Open Font License, or Apache for
+  // Arimo), each from Google Fonts, so every computer sets the words alike. Arimo, with Arial's widths, first and by
+  // default. Bold and the case of the notes are switches of their own.
   var FONTS = {
-    arial:   { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif' },
-    narrow:  { family: '"Arial Narrow", "IBM Plex Sans Condensed", Arial, sans-serif' },
-    verdana: { family: 'Verdana, "DejaVu Sans", Geneva, sans-serif' },
-    opensans: { family: '"Open Sans", Arial, sans-serif' },
-    menlo:   { family: 'Menlo, Consolas, "DejaVu Sans Mono", "IBM Plex Mono", monospace' },
-    // the ISO 3098 lettering of CAD drawings: AutoCAD's own where it is installed, otherwise osifont, served
-    // with the page (fonts/README.md)
-    isocpeur: { family: 'ISOCPEUR, isocpeur, osifont, "Arial Narrow", sans-serif' }
+    arimo:     { family: '"Arimo", sans-serif' },
+    opensans:  { family: '"Open Sans", sans-serif' },
+    condensed: { family: '"IBM Plex Sans Condensed", sans-serif' },
+    roboto:    { family: '"Roboto", sans-serif' },
+    mono:      { family: '"IBM Plex Mono", monospace' }
   };
-  // the typefaces offered before, and what each is now
-  var OLD_FONTS = { arialBold: ["arial", true], cond: ["narrow", false], condBold: ["narrow", true], mono: ["menlo", false],
-                    monoBold: ["menlo", true], hand: ["arial", false], times: ["opensans", false] };
+  // the typefaces offered before, each as the open face nearest it now (and whether it was the bold)
+  var OLD_FONTS = { arial: ["arimo", false], narrow: ["condensed", false], verdana: ["opensans", false], menlo: ["mono", false], isocpeur: ["condensed", false],
+                    arialBold: ["arimo", true], cond: ["condensed", false], condBold: ["condensed", true], mono: ["mono", false],
+                    monoBold: ["mono", true], hand: ["arimo", false], times: ["opensans", false] };
   var COLORS = {
     black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     white: { name: "White", fill: "#ffffff", ink: "#111214", halo: "rgba(0,0,0,0.35)" },
@@ -840,7 +855,7 @@ body.has-pages #stripGrip { display: block; }
     text:   { name: "Text",    title: "Text: the words alone, with no shape round them", icon: '<path d="M5 1.5h12v2.4h-4.7V11H9.7V3.9H5z"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], edits: [], pg: null, sel: -1, picks: [], font: "arial", bold: false, caps: "", style: null,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], edits: [], pg: null, sel: -1, picks: [], font: "arimo", bold: false, caps: "", style: null,
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
@@ -918,21 +933,31 @@ body.has-pages #stripGrip { display: block; }
   // ---------- a text's own type ----------
   // A text (the Text tool) is set in a type of its own, as in InDesign: its face, bold, italic, underline,
   // strikethrough, case, alignment, a list (bullets or numbers), leading (a multiple of the size), tracking
-  // (thousandths of an em) and a background. A text made before it had these takes the notes' face, bold and case.
-  var LEAD = 1.2, TYPE_KEYS = ["font", "bold", "italic", "under", "strike", "caps", "align", "list", "lead", "track", "bg"];
+  // (thousandths of an em), a background, and one, two or three columns with a gutter between them (in ems). A text
+  // made before it had these takes the notes' face, bold and case.
+  var LEAD = 1.2, GAP = 1.5, TYPE_KEYS = ["font", "bold", "italic", "under", "strike", "caps", "align", "list", "lead", "track", "bg", "cols", "gap"];
   function own(o, k) { return typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k); }
   function typeOf(n) {
     var fin = function (v, lo, hi, d) { return typeof v === "number" && isFinite(v) ? clamp(v, lo, hi) : d; };
-    return { font: own(FONTS, n.font) ? n.font : state.font, bold: typeof n.bold === "boolean" ? n.bold : !!state.bold,
+    return { font: own(FONTS, n.font) ? n.font : own(OLD_FONTS, n.font) ? OLD_FONTS[n.font][0] : state.font, bold: typeof n.bold === "boolean" ? n.bold : !!state.bold,
              italic: n.italic === true, under: n.under === true, strike: n.strike === true,
              caps: n.caps === "" || n.caps === "upper" || n.caps === "lower" ? n.caps : state.caps,
              align: n.align === "center" || n.align === "right" ? n.align : "left",
              list: n.list === "bullet" || n.list === "number" ? n.list : "",
              lead: fin(n.lead, 0.8, 3, LEAD), track: fin(n.track, -100, 500, 0),
+             cols: n.cols === 2 || n.cols === 3 ? n.cols : 1, gap: fin(n.gap, 0.5, 6, GAP),
              bg: own(COLORS, n.bg) || isHex(n.bg) ? n.bg : "" };
   }
   // a note is 0.25 to 4 per cent of the page width tall, a text 0.1 to 12
   var TEXT_SIZE = [0.1, 12];
+  // A text wraps at about ten words (25 ems) until its frame's sides are dragged; then at the width set (n.boxW, as
+  // a share of the page width, so it stays with the page).
+  var TEXT_WRAP = 25;
+  function frameW(n) { return typeof n.boxW === "number" && isFinite(n.boxW) && n.boxW > 0 ? refW() / 100 * n.boxW : null; }
+  // and as tall as dragged (n.boxH), never less than its words need
+  function frameH(n) { return typeof n.boxH === "number" && isFinite(n.boxH) && n.boxH > 0 ? refW() / 100 * n.boxH : null; }
+  // A text turns as a picture does, to any angle (n.rot, radians); one set on end before then reads upwards.
+  function textAngle(n) { return typeof n.rot === "number" && isFinite(n.rot) ? n.rot : n.vertical ? -Math.PI / 2 : 0; }
   function sizeRange(n) { return n && shapeOf(n) === "text" ? TEXT_SIZE : [0.25, 4]; }
   function typeFont(t, fs) { return (t.italic ? "italic " : "") + (t.bold ? 700 : 400) + " " + fs + "px " + FONTS[t.font].family; }
   function cased(s, caps) { return caps === "upper" ? s.toUpperCase() : caps === "lower" ? s.toLowerCase() : s; }
@@ -949,18 +974,40 @@ body.has-pages #stripGrip { display: block; }
     var marks = paras.map(function (p) { return !t.list || !p.trim() ? "" : t.list === "bullet" ? "\u2022" : (++k) + "."; });
     var ind = 0;
     marks.forEach(function (m) { if (m) ind = Math.max(ind, trackedW(c, m, tr) + fs * 0.45); });
-    // point type, as a click with Illustrator's type tool makes: a line breaks only where Enter was pressed
-    var rows = paras.map(function (para, pi) {
-      var str = para.replace(/\s+$/, "");
-      return { s: str, ind: marks[pi] ? ind : 0, w: trackedW(c, str, tr), mark: marks[pi] };
+    // The frame: as wide as its sides were dragged, or else about ten words (25 ems), the box then just round the
+    // lines. Its columns share its width, each with the gutter between; the words wrap in a column's width.
+    var set = frameW(n), gap = t.gap * fs, wrapAt = set != null ? set : TEXT_WRAP * fs;
+    var colWrap = Math.max(fs, (wrapAt - (t.cols - 1) * gap) / t.cols), rows = [];
+    paras.forEach(function (para, pi) {
+      var pad = marks[pi] ? ind : 0, first = true;
+      var row = function (str) { var r = { s: str, ind: pad, w: trackedW(c, str, tr), mark: first ? marks[pi] : "" }; first = false; return r; };
+      // spaces as typed (several in a row line up figures, some in front indent a line); a line breaks only at one,
+      // and a line it wraps onto starts with the next word
+      var whole = para.replace(/\s+$/, "");
+      if (!whole) { rows.push(row("")); return; }
+      var toks = whole.split(" "), line = toks[0];
+      for (var i = 1; i < toks.length; i++) {
+        var test = line + " " + toks[i];
+        if (!line.trim() || trackedW(c, test, tr) <= colWrap - pad) line = test;
+        else { rows.push(row(line)); line = toks[i]; while (!line && i + 1 < toks.length) line = toks[++i]; }
+      }
+      rows.push(row(line));
     });
-    var lw = fs * 0.5;
-    rows.forEach(function (r) { lw = Math.max(lw, r.ind + r.w); });
-    var lineH = fs * t.lead, blockH = (rows.length - 1) * lineH + fs;
+    // The lines shared out between the columns: as many in each as can be (the last may have fewer); with a frame
+    // set taller, as many as its height holds, the rest in the next column, as in InDesign. Nothing is ever hidden:
+    // a frame too short for its words grows to hold them.
+    var lineH = fs * t.lead, setH = frameH(n), cols = Math.min(t.cols, rows.length), per = Math.ceil(rows.length / cols), colW = fs * 0.5;
+    if (setH != null) per = Math.max(per, Math.floor((setH - fs) / lineH + 1e-6) + 1);
+    rows.forEach(function (r, k) { colW = Math.max(colW, r.ind + r.w); r.col = Math.floor(k / per); r.line = k % per; });
+    cols = Math.floor((rows.length - 1) / per) + 1;
+    // a frame set narrower than a word: the column (and the frame) as wide as the word, so nothing spills over
+    if (set != null) colW = Math.max(colW, colWrap);
+    var lw = set != null ? Math.max(set, t.cols * colW + (t.cols - 1) * gap) : cols * colW + (cols - 1) * gap;
+    var blockH = (per - 1) * lineH + fs, inH = setH != null ? Math.max(setH, blockH) : blockH;
     // the box just round the words; a background reaches a little further
     var padL = t.bg ? fs * 0.4 : fs * 0.15, padV = t.bg ? fs * 0.35 : fs * 0.15;
-    return { fs: fs, lines: rows.map(function (r) { return r.s; }), rows: rows, type: t, tr: tr, lineH: lineH, blockH: blockH, lw: lw,
-             padL: padL, w: lw + padL * 2, h: blockH + padV * 2, cr: 0, centre: false, ang: n.vertical ? -Math.PI / 2 : 0 };
+    return { fs: fs, lines: rows.map(function (r) { return r.s; }), rows: rows, type: t, tr: tr, lineH: lineH, blockH: blockH, lw: lw, colW: colW, gap: gap,
+             padL: padL, padV: padV, w: lw + padL * 2, h: inH + padV * 2, cr: 0, centre: false, ang: textAngle(n) };
   }
   // one line, its letters spread by the tracking
   function putText(c, str, x, y, tr, stroke) {
@@ -982,10 +1029,12 @@ body.has-pages #stripGrip { display: block; }
     var deco = [], th = Math.max(0.6, fs * 0.07);
     if (t.under) deco.push(down + fs * 0.1);
     if (t.strike) deco.push(down - xh * 0.45);
-    var left = -L.lw / 2, top = -L.blockH / 2 + fs / 2;
-    var spots = L.rows.map(function (r, i) {
-      var x = t.align === "right" ? L.lw / 2 - r.w : t.align === "center" ? left + r.ind + (L.lw - r.ind - r.w) / 2 : left + r.ind;
-      return { r: r, x: x, y: top + i * L.lineH };
+    var left = -L.lw / 2, top = -L.h / 2 + L.padV + fs / 2;        // the words from the top of the frame
+    // each line aligned in its own column
+    var spots = L.rows.map(function (r) {
+      var cl = left + r.col * (L.colW + L.gap);
+      var x = t.align === "right" ? cl + L.colW - r.w : t.align === "center" ? cl + r.ind + (L.colW - r.ind - r.w) / 2 : cl + r.ind;
+      return { r: r, x: x, y: top + r.line * L.lineH };
     });
     var pass = function (halo) {
       c.fillStyle = c.strokeStyle = halo ? col.halo : col.fill;
@@ -1529,6 +1578,31 @@ body.has-pages #stripGrip { display: block; }
     return k === "yellow" || col.light ? { inside: "#ffffff", words: col.ink } : { inside: col.ink, words: col.fill };
   }
   function accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#d9442e"; }
+  // A text's frame is handled as a picture is: its corners and edges set its width and height (the words reflow in
+  // it), and the round knob above it turns it. These are the handles of the one text selected, under p: 0-3 a
+  // corner (top left, then clockwise), 4-7 an edge (top, right, bottom, left), 8 the knob. A finger takes them from
+  // further off.
+  var lastTouch = false;
+  // The handles work with Text, Notes or Move on; with a drawing tool the left button draws, as near them as it likes.
+  function framesLive() { return state.tool === "text" || state.tool === "note" || state.tool === "move"; }
+  function textHandle(p, touch) {
+    if (state.picks.length !== 1 || !framesLive()) return null;
+    var n = selected(); if (!n || shapeOf(n) !== "text") return null;
+    var L = layout(n, ctx), q = toLocal(n, L, p.x, p.y), m = 5 / view.s, r = (touch ? 16 : 7) / view.s;
+    var hw = L.w / 2 + m, hh = L.h / 2 + m;
+    if (Math.hypot(q.x, q.y + hh + KNOB / view.s) <= r + 2 / view.s) return { n: n, k: 8, L: L };
+    // within r outside the outline, and only a little way in, so a small text keeps its middle to move or edit it
+    var inX = m + Math.max(0, Math.min(r - m, L.w / 4)), inY = m + Math.max(0, Math.min(r - m, L.h / 4));
+    var near = function (v, edge, inward) { return v >= edge - inward && v <= edge + r; };   // v measured outwards
+    var sides = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    for (var k = 0; k < 4; k++) if (near(sides[k][0] * q.x, hw, inX) && near(sides[k][1] * q.y, hh, inY)) return { n: n, k: k, L: L };
+    var alongX = Math.abs(q.x) <= hw, alongY = Math.abs(q.y) <= hh;
+    if (alongX && near(-q.y, hh, inY)) return { n: n, k: 4, L: L };
+    if (alongY && near(q.x, hw, inX)) return { n: n, k: 5, L: L };
+    if (alongX && near(q.y, hh, inY)) return { n: n, k: 6, L: L };
+    if (alongY && near(-q.x, hw, inX)) return { n: n, k: 7, L: L };
+    return null;
+  }
   function drawSelection(c, n, L) {
     c.save();
     c.translate(n.px, n.py); c.rotate(L.ang);
@@ -1540,6 +1614,16 @@ body.has-pages #stripGrip { display: block; }
     if (c.roundRect) c.roundRect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m, L.cr + m);
     else c.rect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m);
     c.stroke();
+    // a text alone selected: a picture's handles round its frame, and the knob that turns it
+    if (shapeOf(n) === "text" && state.picks.length === 1 && framesLive()) {
+      var hs = (lastTouch ? 7 : 5) / view.s, hw = L.w / 2 + m, hh = L.h / 2 + m;
+      c.setLineDash([]); c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f"; c.lineWidth = 1.5 / view.s;
+      [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh], [0, -hh], [hw, 0], [0, hh], [-hw, 0]].forEach(function (pt) {
+        c.fillRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); c.strokeRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2);
+      });
+      c.beginPath(); c.moveTo(0, -hh - hs); c.lineTo(0, -hh - (KNOB - 6) / view.s); c.stroke();
+      c.beginPath(); c.arc(0, -hh - KNOB / view.s, 6 / view.s, 0, Math.PI * 2); c.fill(); c.stroke();
+    }
     c.restore();
     if (bare(n, L)) return;                    // no dot to mark: it is under the pill
     c.save();
@@ -1877,6 +1961,12 @@ body.has-pages #stripGrip { display: block; }
     }
     // Show length: while a line is drawn with Shift its length shows along it, in the scale and units set under
     // Measure. It is only a read-out: it goes when the button is let go and is never part of the image.
+    // a text frame being drawn
+    if (drag && drag.part === "textFrame" && drag.moved) {
+      ctx.save(); ctx.strokeStyle = accent(); ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([6 / view.s, 4 / view.s]);
+      ctx.strokeRect(Math.min(drag.a[0], drag.b[0]), Math.min(drag.a[1], drag.b[1]), Math.abs(drag.b[0] - drag.a[0]), Math.abs(drag.b[1] - drag.a[1]));
+      ctx.restore();
+    }
     var ls = drag && drag.part === "stroke" && state.showLen && (drag.stroke.straight || drag.stroke.shape === "arrow") && (!drag.stroke.shape || drag.stroke.shape === "arrow") ? drag.stroke : null;
     if (ls && ls.points.length === 2) writeLength(ctx, ls.points[0], ls.points[1], colorDef(ls.color, "red"), 15 / view.s, penPx(ls) / 2 + 6 / view.s);
     placeHud(hud, r);
@@ -1937,20 +2027,27 @@ body.has-pages #stripGrip { display: block; }
   function selected() { return state.sel >= 0 ? state.notes[state.sel] : null; }
   function select(i) { state.sel = i; state.picks = i >= 0 ? [i] : []; if (i >= 0) picSel = null; }
   function picked() { return state.picks.map(function (i) { return state.notes[i]; }).filter(Boolean); }
+  // every note, or with Text on every text
   function selectAll() {
-    if (!state.notes.length) { status("There are no notes to select."); return; }
-    state.picks = state.notes.map(function (n, i) { return i; });
+    var kind = state.tool === "text" ? "text" : "note", word = kind === "text" ? "text" : "note";
+    var all = []; state.notes.forEach(function (n, i) { if (panelOf(n) === kind) all.push(i); });
+    if (!all.length) { status(kind === "text" ? "There is no text to select." : "There are no notes to select."); return; }
+    state.picks = all;
+    if (all.indexOf(state.sel) < 0) state.sel = all[all.length - 1];
     if (state.sel < 0) state.sel = state.picks[state.picks.length - 1];
-    showPanel("note");
+    showPanel(kind);
     sync(); render();
-    status(state.notes.length === 1 ? "1 note selected." : "All " + state.notes.length + " notes selected.");
+    status(all.length === 1 ? "1 " + word + " selected." : "All " + all.length + " " + word + "s selected.");
   }
   function pickFromList(i, e) {
+    // a range or an addition only within one list: from the other one, a click picks just this row
+    var other = state.sel >= 0 && panelOf(state.notes[state.sel]) !== panelOf(state.notes[i]);
+    if (other) { select(i); return; }
     if (e.shiftKey && state.sel >= 0) {
       // everything between the note clicked last and this one
-      var a = Math.min(state.sel, i), z = Math.max(state.sel, i);
+      var a = Math.min(state.sel, i), z = Math.max(state.sel, i), kind = panelOf(state.notes[i]);
       state.picks = [];
-      for (var k = a; k <= z; k++) state.picks.push(k);
+      for (var k = a; k <= z; k++) if (panelOf(state.notes[k]) === kind) state.picks.push(k);   // in this list only
     } else if (e.ctrlKey || e.metaKey) {
       var at = state.picks.indexOf(i);
       if (at < 0) { state.picks.push(i); state.picks.sort(function (x, y) { return x - y; }); state.sel = i; }
@@ -1996,6 +2093,20 @@ body.has-pages #stripGrip { display: block; }
     return { vertical: !!l.vertical, color: validColor(l.color, "red"), shape: SHAPES[l.shape] ? l.shape : "pill",
              size: typeof l.size === "number" ? l.size : 1, outline: !!l.outline, end: l.end === "arrow" ? "arrow" : "" };
   }
+  // When what is in a text changes its size (its words, type, size or frame), the frame keeps its top left corner,
+  // in its own axes, as in InDesign; a text with its dot under it keeps the dot under it.
+  function textCorner(n) {
+    if (!n || shapeOf(n) !== "text") return null;
+    var L = layout(n, ctx), at = toGlobal(n, L, -L.w / 2, -L.h / 2);
+    at.bare = bare(n, L);
+    return at;
+  }
+  function holdCorner(n, at) {
+    if (!at) return;
+    var L = layout(n, ctx), co = Math.cos(L.ang), si = Math.sin(L.ang), hx = L.w / 2, hy = L.h / 2;
+    n.px = at.x + hx * co - hy * si; n.py = at.y + hx * si + hy * co;
+    if (at.bare) { n.tx = n.px; n.ty = n.py; }
+  }
   // A text's look: its colour, size, orientation and type. state.textStyle is the look the next text gets: that
   // of the text selected last, or what was picked with the Text tool on; at first the notes' colour and size.
   function textLookOf(n) { var t = typeOf(n); t.vertical = !!n.vertical; t.color = n.color || "black"; t.size = n.size; return t; }
@@ -2026,7 +2137,7 @@ body.has-pages #stripGrip { display: block; }
   // Words alone, from the Text tool: a note of the shape "text", with no leader (its dot is under it)
   function textNote(x, y) {
     var s = selected(), look = s && shapeOf(s) === "text" ? textLookOf(s) : nextTextLook();
-    var n = { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, vertical: look.vertical, color: look.color, shape: "text", size: look.size };
+    var n = { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, color: look.color, shape: "text", size: look.size };
     TYPE_KEYS.forEach(function (k) { n[k] = look[k]; });
     return n;
   }
@@ -2034,7 +2145,7 @@ body.has-pages #stripGrip { display: block; }
     snapshot();
     state.notes.push(made || newNote(x, y));
     select(state.notes.length - 1);
-    showPanel("note");
+    showPanel(panelOf(selected()));
     sync(); render();
     if (!deferFocus) focusText();
   }
@@ -2043,7 +2154,13 @@ body.has-pages #stripGrip { display: block; }
   // the same either way. A finger or a stylus has no other buttons, so for those it also says what a touch does.
   var COARSE = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   function setTool(t) {
+    backTool = null;                   // a tool chosen is the left button's tool from now on
     state.tool = t;
+    // the Notes panel holds notes and the Text panel texts: what is selected of the other kind is let go
+    if (t === "note" || t === "text") {
+      state.picks = state.picks.filter(function (i) { return panelOf(state.notes[i]) === t; });
+      if (state.picks.indexOf(state.sel) < 0) state.sel = state.picks.length ? state.picks[state.picks.length - 1] : -1;
+    }
     if (t !== "move") picSel = null;   // a picture is picked up and resized with Move
     $("toolMove").setAttribute("aria-pressed", String(t === "move"));
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
@@ -2055,7 +2172,11 @@ body.has-pages #stripGrip { display: block; }
     $("toolErase").setAttribute("aria-pressed", String(t === "erase"));
     $("penPanel").hidden = t !== "draw" && t !== "shape";
     $("erasePanel").hidden = t !== "erase";
-    $("notesPanel").hidden = t !== "note" && t !== "text";
+    $("notesPanel").hidden = t !== "note";
+    $("textPanel").hidden = t !== "text";
+    // one editor, in the Notes panel or the Text panel
+    var ed = $("editor"), home = t === "text" ? $("textPanel") : $("notesPanel"), before = t === "text" ? $("textListBox") : $("allNotes");
+    if (ed.parentNode !== home) home.insertBefore(ed, before);
     $("movePanel").hidden = t !== "move";
     $("measurePanel").hidden = t !== "measure";
     $("hint").textContent = t === "move"
@@ -2077,7 +2198,22 @@ body.has-pages #stripGrip { display: block; }
     render();
   }
   // show the settings for what is being used, without touching anything else
-  function showPanel(t) { if (state.tool !== t && !(t === "note" && state.tool === "text")) setTool(t); }   // Text shows the Notes panel
+  // A note made or picked up (with the right button, or with the left while another tool is on) brings up the
+  // Notes panel; the left button then goes back to the tool it had, the next time it is used off a note.
+  var backTool = null;
+  function showPanel(t) {
+    if (state.tool === t) return;
+    var was = state.tool, keep = backTool;
+    setTool(t);
+    if (t === "note" || t === "text") backTool = keep || was;
+  }
+  function panelOf(n) { return n && shapeOf(n) === "text" ? "text" : "note"; }     // a text is shown in the Text panel
+  // "Note 2" or "Text 1": the number it has in its own list
+  function listName(i) {
+    var kind = panelOf(state.notes[i]), k = 0;
+    for (var j = 0; j <= i; j++) if (panelOf(state.notes[j]) === kind) k++;
+    return (kind === "text" ? "Text " : "Note ") + k;
+  }
 
   // ---------- sidebar ----------
   function swatchRow(el, current, onPick, palette) {
@@ -2142,23 +2278,31 @@ body.has-pages #stripGrip { display: block; }
   }
 
   function sync() {
-    var list = $("list");
-    list.innerHTML = "";
+    var list = $("list"), tlist = $("textList"), counts = { note: 0, text: 0 };
+    list.innerHTML = ""; tlist.innerHTML = "";
+    // notes in the Note list, texts in the Text list, each in the order drawn: lower down is in front
     state.notes.forEach(function (n, i) {
+      var kind = panelOf(n), ul = kind === "text" ? tlist : list;
       var li = document.createElement("li");
+      li.setAttribute("data-i", String(i));
       var b = document.createElement("button");
       b.setAttribute("aria-pressed", state.picks.indexOf(i) >= 0 ? "true" : "false");
       var col = colorOf(n);
-      var num = document.createElement("span"); num.className = "num"; num.textContent = String(i + 1);
+      var num = document.createElement("span"); num.className = "num"; num.textContent = String(++counts[kind]);
       var ol = outlineLook(n);
       num.style.background = n.outline ? ol.inside : col.fill; num.style.color = n.outline ? ol.words : col.ink;
       if (n.outline) num.style.borderColor = col.fill;
       var t = document.createElement("span"); t.className = "txt"; t.textContent = (n.text || "").split("\n")[0] || "(empty)";
       b.appendChild(num); b.appendChild(t);
-      b.addEventListener("click", function (e) { pickFromList(i, e); sync(); render(); });
-      li.appendChild(b); list.appendChild(li);
+      b.addEventListener("click", function (e) { if (Date.now() - noteDragEnd < 50) return; pickFromList(i, e); sync(); render(); });
+      b.addEventListener("pointerdown", function (ev) { if (ev.button === 0 && ev.pointerType !== "touch") { noteDrag = { i: i, ul: ul, y0: ev.clientY, moved: false }; b.setPointerCapture(ev.pointerId); } });
+      b.addEventListener("pointermove", function (ev) { if (noteDrag && noteDrag.i === i) noteDragTo(ev.clientY); });
+      b.addEventListener("pointerup", function () { noteDrop(); });
+      b.addEventListener("pointercancel", function () { noteDrag = null; markNoteDrop(null, -1); });
+      li.appendChild(b); ul.appendChild(li);
     });
-    $("listEmpty").hidden = state.notes.length > 0;
+    $("listEmpty").hidden = counts.note > 0;
+    $("textEmpty").hidden = counts.text > 0;
     $("listEmpty").textContent = COARSE ? "No notes yet. Tap the image to add one." : state.wheelErase ? "No notes yet. Drag with the right mouse button to add one." : "No notes yet. Drag from a spot with the left button to add one.";
     // the pictures on this page, the one in front at the top, as in a layers list
     var pl = $("picList"), spic = selectedPic();
@@ -2199,7 +2343,7 @@ body.has-pages #stripGrip { display: block; }
     $("del").hidden = !n;
     $("del").textContent = many ? "Delete " + state.picks.length + " " + kind + "s" : "Delete " + kind;
     ["textType", "txtSpacing", "txtBgWrap", "colorHead", "txtPtWrap"].forEach(function (id) { $(id).hidden = !asText; });
-    ["noteShapes", "noteFill", "noteEnd", "noteSizeVal", "allNotes"].forEach(function (id) { $(id).hidden = asText; });
+    ["noteShapes", "noteOri", "noteFill", "noteEnd", "noteSizeVal", "allNotes"].forEach(function (id) { $(id).hidden = asText; });
     $("noteSizeHead").textContent = asText ? "Size" : "Text size";
     $("noteSize").min = asText ? String(TEXT_SIZE[0]) : "0.25"; $("noteSize").max = asText ? String(TEXT_SIZE[1]) : "4";
     if (asText) syncType(look);
@@ -2268,6 +2412,58 @@ body.has-pages #stripGrip { display: block; }
     saveSettings();
   }
 
+  // Dragging a row of the Note list or the Text list up or down changes which is in front, as layers do: lower in
+  // the list is in front. A line shows where it will go.
+  var noteDrag = null, noteDragEnd = 0;
+  function markNoteDrop(ul, slot) {
+    [$("list"), $("textList")].forEach(function (u) {
+      Array.prototype.forEach.call(u.children, function (row, k) {
+        var on = u === ul;
+        row.classList.toggle("lifted", on && !!noteDrag && noteDrag.moved && +row.getAttribute("data-i") === noteDrag.i);
+        row.classList.toggle("drop-before", on && slot >= 0 && k === slot && slot < u.children.length);
+        row.classList.toggle("drop-after", on && slot >= 0 && slot === u.children.length && k === u.children.length - 1);
+      });
+    });
+  }
+  function noteDragTo(y) {
+    if (!noteDrag.moved && Math.abs(y - noteDrag.y0) < 4) return;
+    noteDrag.moved = true;
+    var rows = noteDrag.ul.children, slot = rows.length;
+    for (var k = 0; k < rows.length; k++) { var r = rows[k].getBoundingClientRect(); if (y < r.top + r.height / 2) { slot = k; break; } }
+    noteDrag.slot = slot;
+    markNoteDrop(noteDrag.ul, slot);
+  }
+  function noteDrop() {
+    var d = noteDrag; if (!d) return;
+    noteDrag = null; markNoteDrop(null, -1);
+    if (!d.moved) return;
+    noteDragEnd = Date.now();                                  // the click that ends a drag does not also select
+    var rows = d.ul.children, n = state.notes[d.i];
+    if (d.slot < rows.length) placeNote(n, state.notes[+rows[d.slot].getAttribute("data-i")], false);
+    else placeNote(n, state.notes[+rows[rows.length - 1].getAttribute("data-i")], true);
+  }
+  // put note n just before (or after) another in the drawing order, keeping what is selected
+  function placeNote(n, target, after) {
+    if (!n || !target || n === target) return;
+    var order = state.notes.slice();
+    order.splice(order.indexOf(n), 1);
+    order.splice(order.indexOf(target) + (after ? 1 : 0), 0, n);
+    if (order.every(function (m, k) { return m === state.notes[k]; })) return;
+    snapshot();
+    var sel = selected(), picks = picked();
+    state.notes = order;
+    state.sel = sel ? order.indexOf(sel) : -1;
+    state.picks = picks.map(function (m) { return order.indexOf(m); }).sort(function (a, b) { return a - b; });
+    sync(); render();
+  }
+  // one step in front of, or behind, the next note or text over or under it: notes and texts lie in one order
+  function stepNote(dir) {
+    var n = selected(); if (!n) return;
+    var k = state.notes.indexOf(n) + dir;
+    if (k < 0 || k >= state.notes.length) { status(dir > 0 ? "It is in front of the others already." : "It is behind the others already."); return; }
+    placeNote(n, state.notes[k], dir > 0);
+    status(dir > 0 ? "Brought forward." : "Sent backward.");
+  }
   // Dragging a row of the pictures list up or down changes the layer order; a line shows where it will go.
   var listDrag = null;
   function markDrop(slot) {
@@ -2306,7 +2502,9 @@ body.has-pages #stripGrip { display: block; }
   $("ownColor").addEventListener("change", function (e) { applyOwn(e.target.value, true); });
   $("noteText").addEventListener("input", function (e) {
     var n = selected(); if (!n) return;
+    var at = textCorner(n);
     n.text = e.target.value;
+    holdCorner(n, at);
     clearTimeout(textTimer); textTimer = setTimeout(sync, 150);
     render();
   });
@@ -2336,7 +2534,7 @@ body.has-pages #stripGrip { display: block; }
   $("noteSize").addEventListener("input", function (e) {
     var v = parseFloat(e.target.value);
     if (!state.picks.length) { setLook(function (l) { l.size = v; }); return; }
-    picked().forEach(function (n) { n.size = v; });
+    picked().forEach(function (n) { var at = textCorner(n); n.size = v; holdCorner(n, at); });
     sync(); render();
   });
 
@@ -2344,9 +2542,13 @@ body.has-pages #stripGrip { display: block; }
   function deleteSel() {
     if (state.sel < 0) return;
     snapshot();
-    var gone = state.picks.slice().sort(function (a, b) { return b - a; });
+    var gone = state.picks.slice().sort(function (a, b) { return b - a; }), kind = panelOf(selected());
     gone.forEach(function (i) { state.notes.splice(i, 1); });
-    select(Math.min(gone[gone.length - 1], state.notes.length - 1));
+    // the nearest one left in the same list, after where they were, or else before
+    var from = gone[gone.length - 1], next = -1;
+    for (var k = from; k < state.notes.length && next < 0; k++) if (panelOf(state.notes[k]) === kind) next = k;
+    for (var j = from - 1; j >= 0 && next < 0; j--) if (panelOf(state.notes[j]) === kind) next = j;
+    select(next);
     sync(); render();
   }
   // Bold, and the case of every note: the words as typed are kept, only how they are set changes
@@ -2381,7 +2583,7 @@ body.has-pages #stripGrip { display: block; }
   function setType(fn, noSnap) {
     if (!state.picks.length) { var l = nextTextLook(); fn(l); state.textStyle = l; sync(); loadType(); return; }
     if (!noSnap) snapshot();
-    picked().forEach(function (m) { if (shapeOf(m) === "text") { fillType(m); fn(m); } });
+    picked().forEach(function (m) { if (shapeOf(m) === "text") { var at = textCorner(m); fillType(m); fn(m); holdCorner(m, at); } });
     sync(); render(); loadType();
   }
   function typeNow() { var n = selected(); return n && shapeOf(n) === "text" ? textLookOf(n) : nextTextLook(); }
@@ -2396,11 +2598,17 @@ body.has-pages #stripGrip { display: block; }
     [["txtB", t.bold], ["txtI", t.italic], ["txtU", t.under], ["txtS", t.strike],
      ["txtAs", !t.caps], ["txtUp", t.caps === "upper"], ["txtLow", t.caps === "lower"],
      ["alignL", t.align === "left"], ["alignC", t.align === "center"], ["alignR", t.align === "right"],
-     ["listBul", t.list === "bullet"], ["listNum", t.list === "number"]].forEach(function (b) { $(b[0]).setAttribute("aria-pressed", String(!!b[1])); });
+     ["listBul", t.list === "bullet"], ["listNum", t.list === "number"],
+     ["col1", t.cols === 1], ["col2", t.cols === 2], ["col3", t.cols === 3]].forEach(function (b) { $(b[0]).setAttribute("aria-pressed", String(!!b[1])); });
     if (document.activeElement !== $("txtLead")) $("txtLead").value = t.lead;
     $("txtLeadVal").textContent = Math.round(t.lead * 100) + " %";
     if (document.activeElement !== $("txtTrack")) $("txtTrack").value = t.track;
     $("txtTrackVal").textContent = String(Math.round(t.track));
+    var fn = selected();
+    $("txtAutoW").hidden = !(state.picks.length === 1 && fn && shapeOf(fn) === "text" && (frameW(fn) != null || frameH(fn) != null));
+    $("txtGapWrap").hidden = t.cols === 1;                     // the gutter, with more than one column
+    if (document.activeElement !== $("txtGap")) $("txtGap").value = t.gap;
+    $("txtGapVal").textContent = (Math.round(t.gap * 100) / 100) + " em";
     if (document.activeElement !== $("txtPt")) { $("txtPt").value = String(Math.round(t.size * ptPerSize() * 10) / 10); $("txtPt").removeAttribute("aria-invalid"); }
     // the background: none, or a colour
     swatchRow($("txtBg"), t.bg, function (k) { setType(function (m) { m.bg = k; }); });
@@ -2429,8 +2637,12 @@ body.has-pages #stripGrip { display: block; }
     if (own(FONTS, v)) setType(function (m) { m.font = v; });
     backToText();
   });
-  ["txtLead", "txtTrack"].forEach(function (id) {
-    var key = id === "txtLead" ? "lead" : "track", snap = function () { if (state.picks.length) snapshot(); };
+  $("txtAutoW").addEventListener("click", function () { setType(function (m) { delete m.boxW; delete m.boxH; }); });
+  [["col1", 1], ["col2", 2], ["col3", 3]].forEach(function (b) {
+    $(b[0]).addEventListener("click", function () { setType(function (m) { m.cols = b[1]; }); });
+  });
+  ["txtLead", "txtTrack", "txtGap"].forEach(function (id) {
+    var key = id === "txtLead" ? "lead" : id === "txtGap" ? "gap" : "track", snap = function () { if (state.picks.length) snapshot(); };
     $(id).addEventListener("pointerdown", snap);
     $(id).addEventListener("keydown", snap);
     $(id).addEventListener("input", function (e) { var v = parseFloat(e.target.value); setType(function (m) { m[key] = v; }, true); });
@@ -2602,9 +2814,11 @@ body.has-pages #stripGrip { display: block; }
   // note down and drag its pill out. o gives Shift and where on screen the button went down. True if it began.
   function beginTool(p, drawNow, o) {
     var h = hit(p), onImage = p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h;
-    if (state.tool === "text" && !h) {
-      if (onImage) addNote(p.x, p.y, false, textNote(p.x, p.y));
-      return false;
+    if (state.tool === "text" && !h && !o.right) {
+      // a click puts words there, the frame just round them; a drag draws the frame they go in, as in InDesign
+      if (!onImage) return false;
+      drag = { part: "textFrame", a: [p.x, p.y], b: [p.x, p.y], sx: o.sx, sy: o.sy, moved: false };
+      return true;
     }
     if (!h && drawNow) {
       if (!onImage) return false;
@@ -2630,7 +2844,7 @@ body.has-pages #stripGrip { display: block; }
         var n = state.notes[h.i];
         drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false, bare: bare(n) };
       }
-      if (state.tool !== "move") showPanel("note");
+      if (state.tool !== "move") showPanel(panelOf(state.notes[h.i]));
       sync(); render();
       return true;
     }
@@ -2713,6 +2927,12 @@ body.has-pages #stripGrip { display: block; }
     if (!state.img) return;
     var rightBtn = isRightButton(e), wheelBtn = !rightBtn && e.button === 1, penEraser = e.button === 5;
     if (!rightBtn && !wheelBtn && !penEraser && e.button !== 0) return;
+    // the left button off a note, after a note was made or picked up: the tool it was using before, as the pen
+    // and the highlighter always were
+    if (backTool && e.button === 0 && !rightBtn && !spaceDown && !wheelOpen && (state.tool === "note" || state.tool === "text")) {
+      var bp = toImg(e);
+      if (!hit(bp) && !textHandle(bp, e.pointerType === "touch")) setTool(backTool);
+    }
     // a mouse's left button always draws; a finger or a stylus does what the Draw / Notes switch says
     var byTouch = e.pointerType === "touch" || e.pointerType === "pen";
     // With the tool wheel (Wheel button erases off) a mouse works by tool too: with Notes it places notes.
@@ -2743,6 +2963,18 @@ body.has-pages #stripGrip { display: block; }
       return;
     }
     var p = toImg(e);
+    lastTouch = e.pointerType === "touch";
+    // a handle of the selected text's frame: its size (the sides not dragged stay where they are), or its angle
+    var th = e.button === 0 && !rightBtn && !isSizeKey(e) ? textHandle(p, lastTouch) : null;
+    if (th) {
+      snapshot();
+      var TL = th.L, tn0 = th.n;
+      drag = { part: th.k === 8 ? "textTurn" : "textBox", n: tn0, k: th.k, bare: bare(tn0, TL), moved: false, sx: e.clientX, sy: e.clientY,
+               f: { cx: tn0.px, cy: tn0.py, a: TL.ang, w: TL.w, h: TL.h, padL: TL.padL, padV: TL.padV },
+               a0: Math.atan2(p.y - tn0.py, p.x - tn0.px) };
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
     // With Move on, the left button (or a finger) drags pictures and notes, and the selected picture's edges and
     // corners resize it. A press on nothing lets go of what is selected.
     if (state.tool === "move" && e.button === 0 && !rightBtn && !isSizeKey(e)) {
@@ -2812,6 +3044,8 @@ body.has-pages #stripGrip { display: block; }
     if (wheelOpen) { wheelTrack(e.clientX, e.clientY); return; }
     var p = toImg(e);
     if (!drag) {
+      var ts = textHandle(p, e.pointerType === "touch");
+      if (ts) { canvas.style.cursor = ts.k === 8 ? "grab" : picCursor({ rot: ts.L.ang }, ts.k); return; }
       if (state.tool === "erase") {
         // the eraser's outline follows the pointer, so it is clear what it will rub out
         canvas.style.cursor = spaceDown ? "grab" : "crosshair";
@@ -2833,6 +3067,47 @@ body.has-pages #stripGrip { display: block; }
       render();
       return;
     }
+    if (drag.part === "textFrame") {
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+      drag.moved = true;
+      drag.b = [clamp(p.x, 0, state.w), clamp(p.y, 0, state.h)];
+      render();
+      return;
+    }
+    if (drag.part === "textBox" || drag.part === "textTurn") {
+      var tn = drag.n, f = drag.f, unit = refW() / 100;
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
+      drag.moved = true;
+      if (drag.part === "textTurn") {
+        // about its middle; it settles square within 3 degrees, and with Shift goes in steps of 15
+        var deg = (f.a + Math.atan2(p.y - f.cy, p.x - f.cx) - drag.a0) * 180 / Math.PI;
+        if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+        else if (Math.abs(deg - Math.round(deg / 90) * 90) < 3) deg = Math.round(deg / 90) * 90;
+        deg = ((deg % 360) + 540) % 360 - 180;
+        tn.rot = deg * Math.PI / 180; delete tn.vertical;
+        status("Turned to " + Math.round(deg) + "°" + (e.shiftKey ? "" : " · Shift turns in steps of 15°"));
+        render();
+        return;
+      }
+      // the pointer in the frame's own axes as it was when the drag began
+      var co = Math.cos(f.a), si = Math.sin(f.a), dx = p.x - f.cx, dy = p.y - f.cy, lx = dx * co + dy * si, ly = -dx * si + dy * co;
+      var k = drag.k, mL = k === 0 || k === 3 || k === 7, mR = k === 1 || k === 2 || k === 5, mT = k === 0 || k === 1 || k === 4, mB = k === 2 || k === 3 || k === 6;
+      var fs0 = fontPx(tn), tt = typeOf(tn), x0 = -f.w / 2, x1 = f.w / 2, y0 = -f.h / 2, y1 = f.h / 2, minH = fs0 + f.padV * 2;
+      var minW = Math.max(fs0 * 2, tt.cols * fs0 * 2 + (tt.cols - 1) * tt.gap * fs0) + f.padL * 2;   // two ems a column
+      if (mL) x0 = Math.min(lx, x1 - minW); if (mR) x1 = Math.max(lx, x0 + minW);
+      if (mT) y0 = Math.min(ly, y1 - minH); if (mB) y1 = Math.max(ly, y0 + minH);
+      if (mL || mR) tn.boxW = (x1 - x0 - f.padL * 2) / unit;
+      if (mT || mB) tn.boxH = (y1 - y0 - f.padV * 2) / unit;
+      // the frame as it comes out (never shorter than its words), the sides not dragged where they were
+      var NL = layout(tn, ctx);
+      if (mL) x0 = x1 - NL.w; else x1 = x0 + NL.w;
+      if (mT) y0 = y1 - NL.h; else y1 = y0 + NL.h;
+      var cxl = (x0 + x1) / 2, cyl = (y0 + y1) / 2;
+      tn.px = f.cx + cxl * co - cyl * si; tn.py = f.cy + cxl * si + cyl * co;
+      if (drag.bare) { tn.tx = tn.px; tn.ty = tn.py; }
+      render();
+      return;
+    }
     if (drag.menuOnly) { if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) >= 5) drag.dragged = true; return; }
     if (drag.part === "rclick" || drag.part === "sizewait") {
       if (drag.sizing) {
@@ -2844,7 +3119,7 @@ body.has-pages #stripGrip { display: block; }
         if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
         var was = drag;
         drag = null;
-        if (!beginTool({ x: was.last[0], y: was.last[1] }, false, { shift: e.shiftKey, sx: was.sx, sy: was.sy })) drag = { part: "idle" };
+        if (!beginTool({ x: was.last[0], y: was.last[1] }, false, { shift: e.shiftKey, sx: was.sx, sy: was.sy, right: true })) drag = { part: "idle" };
         drag.right = true;
       }
     }
@@ -3004,7 +3279,7 @@ body.has-pages #stripGrip { display: block; }
     else if (h) {
       // on a note: that note, with the rest of its selection
       if (state.picks.indexOf(h.i) < 0) { select(h.i); }
-      showPanel("note");
+      showPanel(panelOf(state.notes[h.i]));
       snapshot();
       drag.note = state.notes[h.i];
       drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
@@ -3107,6 +3382,22 @@ body.has-pages #stripGrip { display: block; }
         if (on) { select(on.i); sync(); render(); if (d.typing) focusText(!freshNote(selected())); }
         else if (at.x >= 0 && at.y >= 0 && at.x <= state.w && at.y <= state.h) addNote(at.x, at.y);
       }
+      return;
+    }
+    if (d.part === "textBox" || d.part === "textTurn") { if (!d.moved) history.pop(); sync(); render(); return; }
+    if (d.part === "textFrame") {
+      if (cancelled === true) { render(); return; }
+      var made = textNote(d.a[0], d.a[1]);
+      // a frame narrower than two ems is taken for a click that slipped: words there, the frame round them
+      if (d.moved && Math.abs(d.b[0] - d.a[0]) >= fontPx(made) * 2) {
+        // the frame as drawn, its words from its top left; never smaller than two ems across and a line down
+        var fx0 = Math.min(d.a[0], d.b[0]), fy0 = Math.min(d.a[1], d.b[1]), unit = refW() / 100, F0 = layout(made, ctx), fz = fontPx(made);
+        made.boxW = Math.max(fz * 2, Math.abs(d.b[0] - d.a[0]) - F0.padL * 2) / unit;
+        made.boxH = Math.max(fz, Math.abs(d.b[1] - d.a[1]) - F0.padV * 2) / unit;
+        var F1 = layout(made, ctx);
+        made.px = made.tx = fx0 + F1.w / 2; made.py = made.ty = fy0 + F1.h / 2;
+      }
+      addNote(made.px, made.py, false, made);
       return;
     }
     if (d.part === "picMove" || d.part === "picSize" || d.part === "picTurn") {
@@ -3262,7 +3553,7 @@ body.has-pages #stripGrip { display: block; }
     if (h) {
       // a note: act on it, or on the whole selection if it is part of one
       if (state.picks.indexOf(h.i) < 0) select(h.i); else state.sel = h.i;
-      showPanel("note");
+      showPanel(panelOf(state.notes[h.i]));
       sync(); render();
       var n = state.notes[h.i], many = state.picks.length > 1;
       if (!many) add(menuItem("Edit text", "", focusText));
@@ -3276,7 +3567,8 @@ body.has-pages #stripGrip { display: block; }
         closeMenu(); snapshot(); picked().forEach(function (x) { x.shape = k; }); sync(); render();
       });
       add(sh);
-      add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
+      // a text is turned with its knob, as a picture is
+      if (shapeOf(n) !== "text") add(menuItem(n.vertical ? "Make horizontal" : "Make vertical", "", function () {
         var v = !n.vertical; snapshot(); picked().forEach(function (x) { x.vertical = v; }); sync(); render();
       }));
       if (!bare(n)) add(menuItem(n.end === "arrow" ? "Dot end" : "Arrow end", "", function () {
@@ -3287,6 +3579,11 @@ body.has-pages #stripGrip { display: block; }
       }));
       // notes keep their arrows; one whose dot was dragged under it can have it back
       if (bare(n)) add(menuItem("Add arrow", "", function () { snapshot(); picked().forEach(giveArrow); sync(); render(); }));
+      if (!many) {
+        var at = state.notes.indexOf(n);
+        add(menuItem("Bring forward", "Ctrl+]", function () { stepNote(1); }, { disabled: at === state.notes.length - 1 }));
+        add(menuItem("Send backward", "Ctrl+[", function () { stepNote(-1); }, { disabled: at === 0 }));
+      }
       rule();
       add(menuItem(many ? "Delete " + state.picks.length + " notes" : "Delete note", "Del", deleteSel, { danger: true }));
     } else {
@@ -3308,7 +3605,8 @@ body.has-pages #stripGrip { display: block; }
         snapshot(); state.strokes.splice(si, 1); sync(); render(); status("Line deleted. Undo brings it back.");
       }, { danger: true }));
       rule();
-      add(menuItem("Select all notes", "Ctrl+A", selectAll, { disabled: state.notes.length === 0 }));
+      var allKind = state.tool === "text" ? "text" : "note";
+      add(menuItem(allKind === "text" ? "Select all text" : "Select all notes", "Ctrl+A", selectAll, { disabled: !state.notes.some(function (m) { return panelOf(m) === allKind; }) }));
       add(menuItem("Undo", "Ctrl+Z", undo, { disabled: history.length === 0 }));
       add(menuItem("Redo", "Ctrl+Y", redo, { disabled: future.length === 0 }));
       add(menuItem("Clear drawing", "", function () { $("clearDraw").click(); }, { disabled: state.strokes.length === 0 }));
@@ -3397,6 +3695,7 @@ body.has-pages #stripGrip { display: block; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
     // Ctrl/Cmd+] and [ bring the selected picture forward or send it backward, as in Photoshop
     if (mod && (e.key === "]" || e.key === "[") && !typing && selectedPic()) { e.preventDefault(); stepPic(e.key === "]" ? 1 : -1); return; }
+    if (mod && (e.key === "]" || e.key === "[") && (!typing || el === $("noteText")) && selected() && state.picks.length === 1) { e.preventDefault(); stepNote(e.key === "]" ? 1 : -1); return; }
     // 0 fits the image again; Ctrl/Cmd+0 does too (the browser resets its own zoom on that as well)
     if (e.key === "0" && !typing && !e.altKey) { fitView(); if (!mod) e.preventDefault(); return; }
     // - and + (or =) zoom out and in about the middle of the stage; with Ctrl they are left to the browser
@@ -5802,7 +6101,7 @@ body.has-pages #stripGrip { display: block; }
       var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = f.on; cb.id = "fix" + k;
       var box = document.createElement("label"); box.htmlFor = cb.id; box.style.color = "var(--ink)";
       var line = document.createElement("span"); line.className = "now";
-      line.appendChild(document.createTextNode("Note " + (f.i + 1) + ": …" + f.before));
+      line.appendChild(document.createTextNode(listName(f.i) + ": …" + f.before));
       var was = document.createElement("span"); was.className = "was"; was.textContent = f.orig || "␣";
       var now = document.createElement("mark"); now.textContent = f.rep || "(remove)";
       line.appendChild(was); line.appendChild(document.createTextNode(" ")); line.appendChild(now);
@@ -5901,10 +6200,10 @@ body.has-pages #stripGrip { display: block; }
       // not "text": a text's look was kept here once, and the next note would have come out as a text
       state.style = { vertical: st.vertical === true, color: validColor(st.color, "red"), shape: SHAPES[st.shape] && st.shape !== "text" ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
     }
-    // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
+    // Arial (Arimo now) is the default since version 3: the old default (Condensed sans) saved before then is not held to
     if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
-    else if (OLD_FONTS[d.font]) { state.font = OLD_FONTS[d.font][0]; state.bold = OLD_FONTS[d.font][1]; }
-    else if (FONTS[d.font]) state.font = d.font;
+    else if (own(OLD_FONTS, d.font)) { state.font = OLD_FONTS[d.font][0]; state.bold = OLD_FONTS[d.font][1]; }
+    else if (own(FONTS, d.font)) state.font = d.font;
     if (typeof d.bold === "boolean") state.bold = d.bold;
     if (d.caps === "" || d.caps === "upper" || d.caps === "lower") state.caps = d.caps;
     $("font").value = state.font;
