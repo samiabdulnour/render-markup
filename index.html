@@ -150,8 +150,12 @@ aside h2 {
   letter-spacing: 0.02em; color: var(--muted); margin: -12px -12px 2px; padding: 8px 12px;
   border-bottom: 1px solid var(--divider);
 }
-#notesPanel { display: flex; flex-direction: column; gap: 8px; }
-#notesPanel[hidden] { display: none; }
+#notesPanel, #textPanel { display: flex; flex-direction: column; gap: 8px; }
+#notesPanel[hidden], #textPanel[hidden] { display: none; }
+/* a row of the Note list or the Text list being dragged to another place in front or behind */
+#list li.lifted, #textList li.lifted { opacity: 0.45; }
+#list li.drop-before button, #textList li.drop-before button { box-shadow: inset 0 2px 0 var(--ink); }
+#list li.drop-after button, #textList li.drop-after button { box-shadow: inset 0 -2px 0 var(--ink); }
 label { font-size: var(--fs); text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 textarea, select, input[type="range"] { font: inherit; color: var(--ink); }
 /* what is typed or chosen in a field keeps its own case */
@@ -252,14 +256,14 @@ input.entry, .scalebox input {
 .unseen { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .chip { width: 22px; height: 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent); display: inline-block; }
 .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs); text-transform: none; letter-spacing: normal; color: var(--ink); }
-#list, #picList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-#list li button, #picList li button {
+#list, #picList, #textList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+#list li button, #picList li button, #textList li button {
   width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent;
   padding: 6px 8px; gap: 10px;
 }
-#list li button, #picList li button { text-transform: none; letter-spacing: normal; }
-#list li button:hover, #picList li button:hover { background: var(--chosen-tint); border-color: transparent; }
-#list li button[aria-pressed="true"], #picList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
+#list li button, #picList li button, #textList li button { text-transform: none; letter-spacing: normal; }
+#list li button:hover, #picList li button:hover, #textList li button:hover { background: var(--chosen-tint); border-color: transparent; }
+#list li button[aria-pressed="true"], #picList li button[aria-pressed="true"], #textList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
 #picEditor[hidden] { display: none; }
 /* What the page has to say (saved, copied, a picture added...): a message at the foot of the stage that shows
@@ -341,7 +345,7 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 /* A text's own type, as in InDesign: face, style, case, alignment, list, colour, background, leading, tracking */
 #textType { display: flex; flex-direction: column; gap: 8px; }
 #textType[hidden], #txtSpacing[hidden], #txtBgWrap[hidden], #colorHead[hidden], #txtPtWrap[hidden],
-#noteShapes[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden] { display: none; }
+#noteShapes[hidden], #noteFill[hidden], #noteEnd[hidden], #noteSizeVal[hidden], #txtAutoW[hidden] { display: none; }
 #textType .seg button { text-transform: none; letter-spacing: normal; padding: 6px 4px; }
 #textType .seg button svg { display: block; }
 #txtB { font-weight: 700; } #txtI { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
@@ -374,13 +378,13 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 #picList li.lifted { opacity: 0.45; }
 #picList li.drop-before button { box-shadow: inset 0 2px 0 var(--ink); }
 #picList li.drop-after button { box-shadow: inset 0 -2px 0 var(--ink); }
-#list { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
+#list, #textList { user-select: none; -webkit-user-select: none; }  /* Shift-click picks a range, it should not highlight text */
 label[hidden] { display: none; }
-#list .num {
+#list .num, #textList .num {
   font-family: var(--font-mono); font-size: var(--fs); min-width: 22px; height: 22px; border-radius: 11px;
   display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(0,0,0,0.2);
 }
-#list .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#list .txt, #textList .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty, .note { color: var(--muted); font-size: var(--fs); margin: 0; }
 #editor[hidden], #del[hidden] { display: none; }
 kbd { font-family: var(--font-mono); font-size: var(--fs); border: 1px solid var(--face-edge); border-radius: 5px; padding: 0 4px; background: var(--card); }
@@ -643,6 +647,11 @@ body.has-pages #stripGrip { display: block; }
             <button id="listNum" aria-pressed="false" title="Numbers: 1, 2, 3 before each line you start with Enter"><svg viewBox="0 0 18 14" width="18" height="14" fill="currentColor" aria-hidden="true"><text x="0.4" y="4.4" font-size="5" font-weight="700" font-family="Arial, sans-serif">1</text><rect x="6" y="1.5" width="11" height="1.8"/><text x="0.4" y="9" font-size="5" font-weight="700" font-family="Arial, sans-serif">2</text><rect x="6" y="6.1" width="11" height="1.8"/><text x="0.4" y="13.6" font-size="5" font-weight="700" font-family="Arial, sans-serif">3</text><rect x="6" y="10.7" width="11" height="1.8"/></svg><span class="unseen">Numbers</span></button>
           </div>
         </div>
+        <div class="seg" role="group" aria-label="Columns">
+          <button id="col1" aria-pressed="true" title="One column"><svg viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="20" height="1.8"/><rect x="1" y="4.4" width="20" height="1.8"/><rect x="1" y="7.8" width="20" height="1.8"/><rect x="1" y="11.2" width="20" height="1.8"/></svg><span class="unseen">One column</span></button>
+          <button id="col2" aria-pressed="false" title="Two columns: the lines shared out between them, balanced"><svg viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="9" height="1.8"/><rect x="1" y="4.4" width="9" height="1.8"/><rect x="1" y="7.8" width="9" height="1.8"/><rect x="1" y="11.2" width="9" height="1.8"/><rect x="12" y="1" width="9" height="1.8"/><rect x="12" y="4.4" width="9" height="1.8"/><rect x="12" y="7.8" width="9" height="1.8"/><rect x="12" y="11.2" width="9" height="1.8"/></svg><span class="unseen">Two columns</span></button>
+          <button id="col3" aria-pressed="false" title="Three columns: the lines shared out between them, balanced"><svg viewBox="0 0 22 14" width="22" height="14" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="5.6" height="1.8"/><rect x="1" y="4.4" width="5.6" height="1.8"/><rect x="1" y="7.8" width="5.6" height="1.8"/><rect x="1" y="11.2" width="5.6" height="1.8"/><rect x="8.2" y="1" width="5.6" height="1.8"/><rect x="8.2" y="4.4" width="5.6" height="1.8"/><rect x="8.2" y="7.8" width="5.6" height="1.8"/><rect x="8.2" y="11.2" width="5.6" height="1.8"/><rect x="15.4" y="1" width="5.6" height="1.8"/><rect x="15.4" y="4.4" width="5.6" height="1.8"/><rect x="15.4" y="7.8" width="5.6" height="1.8"/><rect x="15.4" y="11.2" width="5.6" height="1.8"/></svg><span class="unseen">Three columns</span></button>
+        </div>
       </div>
       <span class="sub" id="colorHead" hidden>Colour</span>
       <div class="swatches five" id="noteColors" role="group" aria-label="Colour"></div>
@@ -675,6 +684,10 @@ body.has-pages #stripGrip { display: block; }
         <label for="txtTrack" class="slider"><span class="head">Tracking <span class="val" id="txtTrackVal"></span></span>
           <input type="range" id="txtTrack" min="-100" max="500" step="10">
         </label>
+        <button id="txtAutoW" type="button" hidden title="Wrap at about ten words again, the frame just round the lines">Auto width</button>
+        <label for="txtGap" class="slider" id="txtGapWrap"><span class="head">Gutter <span class="val" id="txtGapVal"></span></span>
+          <input type="range" id="txtGap" min="0.5" max="6" step="0.25">
+        </label>
       </div>
       <button id="del" class="danger">Delete note</button>
     </div>
@@ -701,8 +714,15 @@ body.has-pages #stripGrip { display: block; }
     </div>
     <div class="section" id="noteListBox">
       <h2>Note list</h2>
-      <ul id="list" title="Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
+      <ul id="list" title="Lower in the list is in front: drag a note up or down · Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
       <p class="empty" id="listEmpty">No notes yet. Drag with the right mouse button to add one.</p>
+    </div>
+    </div>
+    <div id="textPanel" hidden>
+    <div class="section" id="textListBox">
+      <h2>Text list</h2>
+      <ul id="textList" title="Lower in the list is in front: drag a text up or down · Shift-click selects a range · Ctrl/Cmd-click adds or removes one · Ctrl/Cmd+A selects all"></ul>
+      <p class="empty" id="textEmpty">No text yet. Click the page to add some.</p>
     </div>
     </div>
   </aside>
@@ -918,8 +938,9 @@ body.has-pages #stripGrip { display: block; }
   // ---------- a text's own type ----------
   // A text (the Text tool) is set in a type of its own, as in InDesign: its face, bold, italic, underline,
   // strikethrough, case, alignment, a list (bullets or numbers), leading (a multiple of the size), tracking
-  // (thousandths of an em) and a background. A text made before it had these takes the notes' face, bold and case.
-  var LEAD = 1.2, TYPE_KEYS = ["font", "bold", "italic", "under", "strike", "caps", "align", "list", "lead", "track", "bg"];
+  // (thousandths of an em), a background, and one, two or three columns with a gutter between them (in ems). A text
+  // made before it had these takes the notes' face, bold and case.
+  var LEAD = 1.2, GAP = 1.5, TYPE_KEYS = ["font", "bold", "italic", "under", "strike", "caps", "align", "list", "lead", "track", "bg", "cols", "gap"];
   function own(o, k) { return typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k); }
   function typeOf(n) {
     var fin = function (v, lo, hi, d) { return typeof v === "number" && isFinite(v) ? clamp(v, lo, hi) : d; };
@@ -929,10 +950,15 @@ body.has-pages #stripGrip { display: block; }
              align: n.align === "center" || n.align === "right" ? n.align : "left",
              list: n.list === "bullet" || n.list === "number" ? n.list : "",
              lead: fin(n.lead, 0.8, 3, LEAD), track: fin(n.track, -100, 500, 0),
+             cols: n.cols === 2 || n.cols === 3 ? n.cols : 1, gap: fin(n.gap, 0.5, 6, GAP),
              bg: own(COLORS, n.bg) || isHex(n.bg) ? n.bg : "" };
   }
   // a note is 0.25 to 4 per cent of the page width tall, a text 0.1 to 12
   var TEXT_SIZE = [0.1, 12];
+  // A text wraps at about ten words (25 ems) until its frame's sides are dragged; then at the width set (n.boxW, as
+  // a share of the page width, so it stays with the page).
+  var TEXT_WRAP = 25;
+  function frameW(n) { return typeof n.boxW === "number" && isFinite(n.boxW) && n.boxW > 0 ? refW() / 100 * n.boxW : null; }
   function sizeRange(n) { return n && shapeOf(n) === "text" ? TEXT_SIZE : [0.25, 4]; }
   function typeFont(t, fs) { return (t.italic ? "italic " : "") + (t.bold ? 700 : 400) + " " + fs + "px " + FONTS[t.font].family; }
   function cased(s, caps) { return caps === "upper" ? s.toUpperCase() : caps === "lower" ? s.toLowerCase() : s; }
@@ -949,17 +975,32 @@ body.has-pages #stripGrip { display: block; }
     var marks = paras.map(function (p) { return !t.list || !p.trim() ? "" : t.list === "bullet" ? "\u2022" : (++k) + "."; });
     var ind = 0;
     marks.forEach(function (m) { if (m) ind = Math.max(ind, trackedW(c, m, tr) + fs * 0.45); });
-    // point type, as a click with Illustrator's type tool makes: a line breaks only where Enter was pressed
-    var rows = paras.map(function (para, pi) {
-      var str = para.replace(/\s+$/, "");
-      return { s: str, ind: marks[pi] ? ind : 0, w: trackedW(c, str, tr), mark: marks[pi] };
+    // The frame: as wide as its sides were dragged, or else about ten words (25 ems), the box then just round the
+    // lines. Its columns share its width, each with the gutter between; the words wrap in a column's width.
+    var set = frameW(n), gap = t.gap * fs, wrapAt = set != null ? set : TEXT_WRAP * fs;
+    var colWrap = Math.max(fs, (wrapAt - (t.cols - 1) * gap) / t.cols), rows = [];
+    paras.forEach(function (para, pi) {
+      var pad = marks[pi] ? ind : 0, first = true;
+      var row = function (str) { var r = { s: str, ind: pad, w: trackedW(c, str, tr), mark: first ? marks[pi] : "" }; first = false; return r; };
+      var words = para.split(/\s+/).filter(Boolean);
+      if (!words.length) { rows.push(row("")); return; }
+      var line = words[0];
+      for (var i = 1; i < words.length; i++) {
+        var test = line + " " + words[i];
+        if (trackedW(c, test, tr) <= colWrap - pad) line = test; else { rows.push(row(line)); line = words[i]; }
+      }
+      rows.push(row(line));
     });
-    var lw = fs * 0.5;
-    rows.forEach(function (r) { lw = Math.max(lw, r.ind + r.w); });
-    var lineH = fs * t.lead, blockH = (rows.length - 1) * lineH + fs;
+    // the lines shared out between the columns, as many in each as can be (the last may have fewer)
+    var cols = Math.min(t.cols, rows.length), per = Math.ceil(rows.length / cols), colW = fs * 0.5;
+    rows.forEach(function (r, k) { colW = Math.max(colW, r.ind + r.w); r.col = Math.floor(k / per); r.line = k % per; });
+    cols = Math.floor((rows.length - 1) / per) + 1;
+    if (set != null) colW = colWrap;
+    var lw = set != null ? set : cols * colW + (cols - 1) * gap;
+    var lineH = fs * t.lead, blockH = (per - 1) * lineH + fs;
     // the box just round the words; a background reaches a little further
     var padL = t.bg ? fs * 0.4 : fs * 0.15, padV = t.bg ? fs * 0.35 : fs * 0.15;
-    return { fs: fs, lines: rows.map(function (r) { return r.s; }), rows: rows, type: t, tr: tr, lineH: lineH, blockH: blockH, lw: lw,
+    return { fs: fs, lines: rows.map(function (r) { return r.s; }), rows: rows, type: t, tr: tr, lineH: lineH, blockH: blockH, lw: lw, colW: colW, gap: gap,
              padL: padL, w: lw + padL * 2, h: blockH + padV * 2, cr: 0, centre: false, ang: n.vertical ? -Math.PI / 2 : 0 };
   }
   // one line, its letters spread by the tracking
@@ -983,9 +1024,11 @@ body.has-pages #stripGrip { display: block; }
     if (t.under) deco.push(down + fs * 0.1);
     if (t.strike) deco.push(down - xh * 0.45);
     var left = -L.lw / 2, top = -L.blockH / 2 + fs / 2;
-    var spots = L.rows.map(function (r, i) {
-      var x = t.align === "right" ? L.lw / 2 - r.w : t.align === "center" ? left + r.ind + (L.lw - r.ind - r.w) / 2 : left + r.ind;
-      return { r: r, x: x, y: top + i * L.lineH };
+    // each line aligned in its own column
+    var spots = L.rows.map(function (r) {
+      var cl = left + r.col * (L.colW + L.gap);
+      var x = t.align === "right" ? cl + L.colW - r.w : t.align === "center" ? cl + r.ind + (L.colW - r.ind - r.w) / 2 : cl + r.ind;
+      return { r: r, x: x, y: top + r.line * L.lineH };
     });
     var pass = function (halo) {
       c.fillStyle = c.strokeStyle = halo ? col.halo : col.fill;
@@ -1529,6 +1572,17 @@ body.has-pages #stripGrip { display: block; }
     return k === "yellow" || col.light ? { inside: "#ffffff", words: col.ink } : { inside: col.ink, words: col.fill };
   }
   function accent() { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#d9442e"; }
+  // the side of the selected text's frame under p, if any: the whole edge can be taken, a finger from further off
+  var lastTouch = false;
+  function textSide(p, touch) {
+    if (state.picks.length !== 1) return null;
+    var n = selected(); if (!n || shapeOf(n) !== "text") return null;
+    var L = layout(n, ctx), q = toLocal(n, L, p.x, p.y), m = 5 / view.s, r = (touch ? 16 : 6) / view.s;
+    for (var side = -1; side <= 1; side += 2) {
+      if (Math.abs(q.x - side * (L.w / 2 + m)) <= r && Math.abs(q.y) <= L.h / 2 + m + r) return { n: n, side: side, L: L };
+    }
+    return null;
+  }
   function drawSelection(c, n, L) {
     c.save();
     c.translate(n.px, n.py); c.rotate(L.ang);
@@ -1540,6 +1594,12 @@ body.has-pages #stripGrip { display: block; }
     if (c.roundRect) c.roundRect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m, L.cr + m);
     else c.rect(-L.w / 2 - m, -L.h / 2 - m, L.w + 2 * m, L.h + 2 * m);
     c.stroke();
+    // a text alone selected: a handle on either side of its frame, to drag its width
+    if (shapeOf(n) === "text" && state.picks.length === 1) {
+      var hs = (lastTouch ? 7 : 4.5) / view.s;
+      c.setLineDash([]); c.fillStyle = "#ffffff"; c.lineWidth = 1.5 / view.s;
+      [-1, 1].forEach(function (side) { var x = side * (L.w / 2 + m); c.beginPath(); c.rect(x - hs, -hs * 1.6, hs * 2, hs * 3.2); c.fill(); c.stroke(); });
+    }
     c.restore();
     if (bare(n, L)) return;                    // no dot to mark: it is under the pill
     c.save();
@@ -1937,20 +1997,24 @@ body.has-pages #stripGrip { display: block; }
   function selected() { return state.sel >= 0 ? state.notes[state.sel] : null; }
   function select(i) { state.sel = i; state.picks = i >= 0 ? [i] : []; if (i >= 0) picSel = null; }
   function picked() { return state.picks.map(function (i) { return state.notes[i]; }).filter(Boolean); }
+  // every note, or with Text on every text
   function selectAll() {
-    if (!state.notes.length) { status("There are no notes to select."); return; }
-    state.picks = state.notes.map(function (n, i) { return i; });
+    var kind = state.tool === "text" ? "text" : "note", word = kind === "text" ? "text" : "note";
+    var all = []; state.notes.forEach(function (n, i) { if (panelOf(n) === kind) all.push(i); });
+    if (!all.length) { status(kind === "text" ? "There is no text to select." : "There are no notes to select."); return; }
+    state.picks = all;
+    if (all.indexOf(state.sel) < 0) state.sel = all[all.length - 1];
     if (state.sel < 0) state.sel = state.picks[state.picks.length - 1];
-    showPanel("note");
+    showPanel(kind);
     sync(); render();
-    status(state.notes.length === 1 ? "1 note selected." : "All " + state.notes.length + " notes selected.");
+    status(all.length === 1 ? "1 " + word + " selected." : "All " + all.length + " " + word + "s selected.");
   }
   function pickFromList(i, e) {
     if (e.shiftKey && state.sel >= 0) {
       // everything between the note clicked last and this one
-      var a = Math.min(state.sel, i), z = Math.max(state.sel, i);
+      var a = Math.min(state.sel, i), z = Math.max(state.sel, i), kind = panelOf(state.notes[i]);
       state.picks = [];
-      for (var k = a; k <= z; k++) state.picks.push(k);
+      for (var k = a; k <= z; k++) if (panelOf(state.notes[k]) === kind) state.picks.push(k);   // in this list only
     } else if (e.ctrlKey || e.metaKey) {
       var at = state.picks.indexOf(i);
       if (at < 0) { state.picks.push(i); state.picks.sort(function (x, y) { return x - y; }); state.sel = i; }
@@ -2034,7 +2098,7 @@ body.has-pages #stripGrip { display: block; }
     snapshot();
     state.notes.push(made || newNote(x, y));
     select(state.notes.length - 1);
-    showPanel("note");
+    showPanel(panelOf(selected()));
     sync(); render();
     if (!deferFocus) focusText();
   }
@@ -2055,7 +2119,11 @@ body.has-pages #stripGrip { display: block; }
     $("toolErase").setAttribute("aria-pressed", String(t === "erase"));
     $("penPanel").hidden = t !== "draw" && t !== "shape";
     $("erasePanel").hidden = t !== "erase";
-    $("notesPanel").hidden = t !== "note" && t !== "text";
+    $("notesPanel").hidden = t !== "note";
+    $("textPanel").hidden = t !== "text";
+    // one editor, in the Notes panel or the Text panel
+    var ed = $("editor"), home = t === "text" ? $("textPanel") : $("notesPanel"), before = t === "text" ? $("textListBox") : $("allNotes");
+    if (ed.parentNode !== home) home.insertBefore(ed, before);
     $("movePanel").hidden = t !== "move";
     $("measurePanel").hidden = t !== "measure";
     $("hint").textContent = t === "move"
@@ -2077,7 +2145,8 @@ body.has-pages #stripGrip { display: block; }
     render();
   }
   // show the settings for what is being used, without touching anything else
-  function showPanel(t) { if (state.tool !== t && !(t === "note" && state.tool === "text")) setTool(t); }   // Text shows the Notes panel
+  function showPanel(t) { if (state.tool !== t) setTool(t); }
+  function panelOf(n) { return n && shapeOf(n) === "text" ? "text" : "note"; }     // a text is shown in the Text panel
 
   // ---------- sidebar ----------
   function swatchRow(el, current, onPick, palette) {
@@ -2142,23 +2211,31 @@ body.has-pages #stripGrip { display: block; }
   }
 
   function sync() {
-    var list = $("list");
-    list.innerHTML = "";
+    var list = $("list"), tlist = $("textList"), counts = { note: 0, text: 0 };
+    list.innerHTML = ""; tlist.innerHTML = "";
+    // notes in the Note list, texts in the Text list, each in the order drawn: lower down is in front
     state.notes.forEach(function (n, i) {
+      var kind = panelOf(n), ul = kind === "text" ? tlist : list;
       var li = document.createElement("li");
+      li.setAttribute("data-i", String(i));
       var b = document.createElement("button");
       b.setAttribute("aria-pressed", state.picks.indexOf(i) >= 0 ? "true" : "false");
       var col = colorOf(n);
-      var num = document.createElement("span"); num.className = "num"; num.textContent = String(i + 1);
+      var num = document.createElement("span"); num.className = "num"; num.textContent = String(++counts[kind]);
       var ol = outlineLook(n);
       num.style.background = n.outline ? ol.inside : col.fill; num.style.color = n.outline ? ol.words : col.ink;
       if (n.outline) num.style.borderColor = col.fill;
       var t = document.createElement("span"); t.className = "txt"; t.textContent = (n.text || "").split("\n")[0] || "(empty)";
       b.appendChild(num); b.appendChild(t);
-      b.addEventListener("click", function (e) { pickFromList(i, e); sync(); render(); });
-      li.appendChild(b); list.appendChild(li);
+      b.addEventListener("click", function (e) { if (Date.now() - noteDragEnd < 50) return; pickFromList(i, e); sync(); render(); });
+      b.addEventListener("pointerdown", function (ev) { if (ev.button === 0 && ev.pointerType !== "touch") { noteDrag = { i: i, ul: ul, y0: ev.clientY, moved: false }; b.setPointerCapture(ev.pointerId); } });
+      b.addEventListener("pointermove", function (ev) { if (noteDrag && noteDrag.i === i) noteDragTo(ev.clientY); });
+      b.addEventListener("pointerup", function () { noteDrop(); });
+      b.addEventListener("pointercancel", function () { noteDrag = null; markNoteDrop(null, -1); });
+      li.appendChild(b); ul.appendChild(li);
     });
-    $("listEmpty").hidden = state.notes.length > 0;
+    $("listEmpty").hidden = counts.note > 0;
+    $("textEmpty").hidden = counts.text > 0;
     $("listEmpty").textContent = COARSE ? "No notes yet. Tap the image to add one." : state.wheelErase ? "No notes yet. Drag with the right mouse button to add one." : "No notes yet. Drag from a spot with the left button to add one.";
     // the pictures on this page, the one in front at the top, as in a layers list
     var pl = $("picList"), spic = selectedPic();
@@ -2268,6 +2345,58 @@ body.has-pages #stripGrip { display: block; }
     saveSettings();
   }
 
+  // Dragging a row of the Note list or the Text list up or down changes which is in front, as layers do: lower in
+  // the list is in front. A line shows where it will go.
+  var noteDrag = null, noteDragEnd = 0;
+  function markNoteDrop(ul, slot) {
+    [$("list"), $("textList")].forEach(function (u) {
+      Array.prototype.forEach.call(u.children, function (row, k) {
+        var on = u === ul;
+        row.classList.toggle("lifted", on && !!noteDrag && noteDrag.moved && +row.getAttribute("data-i") === noteDrag.i);
+        row.classList.toggle("drop-before", on && slot >= 0 && k === slot && slot < u.children.length);
+        row.classList.toggle("drop-after", on && slot >= 0 && slot === u.children.length && k === u.children.length - 1);
+      });
+    });
+  }
+  function noteDragTo(y) {
+    if (!noteDrag.moved && Math.abs(y - noteDrag.y0) < 4) return;
+    noteDrag.moved = true;
+    var rows = noteDrag.ul.children, slot = rows.length;
+    for (var k = 0; k < rows.length; k++) { var r = rows[k].getBoundingClientRect(); if (y < r.top + r.height / 2) { slot = k; break; } }
+    noteDrag.slot = slot;
+    markNoteDrop(noteDrag.ul, slot);
+  }
+  function noteDrop() {
+    var d = noteDrag; if (!d) return;
+    noteDrag = null; markNoteDrop(null, -1);
+    if (!d.moved) return;
+    noteDragEnd = Date.now();                                  // the click that ends a drag does not also select
+    var rows = d.ul.children, n = state.notes[d.i];
+    if (d.slot < rows.length) placeNote(n, state.notes[+rows[d.slot].getAttribute("data-i")], false);
+    else placeNote(n, state.notes[+rows[rows.length - 1].getAttribute("data-i")], true);
+  }
+  // put note n just before (or after) another in the drawing order, keeping what is selected
+  function placeNote(n, target, after) {
+    if (!n || !target || n === target) return;
+    var order = state.notes.slice();
+    order.splice(order.indexOf(n), 1);
+    order.splice(order.indexOf(target) + (after ? 1 : 0), 0, n);
+    if (order.every(function (m, k) { return m === state.notes[k]; })) return;
+    snapshot();
+    var sel = selected(), picks = picked();
+    state.notes = order;
+    state.sel = sel ? order.indexOf(sel) : -1;
+    state.picks = picks.map(function (m) { return order.indexOf(m); }).sort(function (a, b) { return a - b; });
+    sync(); render();
+  }
+  // one step in front of, or behind, the next note (or text) in its list
+  function stepNote(dir) {
+    var n = selected(); if (!n) return;
+    var kind = panelOf(n), mine = state.notes.filter(function (m) { return panelOf(m) === kind; }), k = mine.indexOf(n) + dir;
+    if (k < 0 || k >= mine.length) { status(dir > 0 ? "It is in front of the others already." : "It is behind the others already."); return; }
+    placeNote(n, mine[k], dir > 0);
+    status(dir > 0 ? "Brought forward." : "Sent backward.");
+  }
   // Dragging a row of the pictures list up or down changes the layer order; a line shows where it will go.
   var listDrag = null;
   function markDrop(slot) {
@@ -2396,11 +2525,17 @@ body.has-pages #stripGrip { display: block; }
     [["txtB", t.bold], ["txtI", t.italic], ["txtU", t.under], ["txtS", t.strike],
      ["txtAs", !t.caps], ["txtUp", t.caps === "upper"], ["txtLow", t.caps === "lower"],
      ["alignL", t.align === "left"], ["alignC", t.align === "center"], ["alignR", t.align === "right"],
-     ["listBul", t.list === "bullet"], ["listNum", t.list === "number"]].forEach(function (b) { $(b[0]).setAttribute("aria-pressed", String(!!b[1])); });
+     ["listBul", t.list === "bullet"], ["listNum", t.list === "number"],
+     ["col1", t.cols === 1], ["col2", t.cols === 2], ["col3", t.cols === 3]].forEach(function (b) { $(b[0]).setAttribute("aria-pressed", String(!!b[1])); });
     if (document.activeElement !== $("txtLead")) $("txtLead").value = t.lead;
     $("txtLeadVal").textContent = Math.round(t.lead * 100) + " %";
     if (document.activeElement !== $("txtTrack")) $("txtTrack").value = t.track;
     $("txtTrackVal").textContent = String(Math.round(t.track));
+    var fn = selected();
+    $("txtAutoW").hidden = !(state.picks.length === 1 && fn && shapeOf(fn) === "text" && frameW(fn) != null);
+    $("txtGapWrap").hidden = t.cols === 1;                     // the gutter, with more than one column
+    if (document.activeElement !== $("txtGap")) $("txtGap").value = t.gap;
+    $("txtGapVal").textContent = (Math.round(t.gap * 100) / 100) + " em";
     if (document.activeElement !== $("txtPt")) { $("txtPt").value = String(Math.round(t.size * ptPerSize() * 10) / 10); $("txtPt").removeAttribute("aria-invalid"); }
     // the background: none, or a colour
     swatchRow($("txtBg"), t.bg, function (k) { setType(function (m) { m.bg = k; }); });
@@ -2429,8 +2564,12 @@ body.has-pages #stripGrip { display: block; }
     if (own(FONTS, v)) setType(function (m) { m.font = v; });
     backToText();
   });
-  ["txtLead", "txtTrack"].forEach(function (id) {
-    var key = id === "txtLead" ? "lead" : "track", snap = function () { if (state.picks.length) snapshot(); };
+  $("txtAutoW").addEventListener("click", function () { setType(function (m) { delete m.boxW; }); });
+  [["col1", 1], ["col2", 2], ["col3", 3]].forEach(function (b) {
+    $(b[0]).addEventListener("click", function () { setType(function (m) { m.cols = b[1]; }); });
+  });
+  ["txtLead", "txtTrack", "txtGap"].forEach(function (id) {
+    var key = id === "txtLead" ? "lead" : id === "txtGap" ? "gap" : "track", snap = function () { if (state.picks.length) snapshot(); };
     $(id).addEventListener("pointerdown", snap);
     $(id).addEventListener("keydown", snap);
     $(id).addEventListener("input", function (e) { var v = parseFloat(e.target.value); setType(function (m) { m[key] = v; }, true); });
@@ -2630,7 +2769,7 @@ body.has-pages #stripGrip { display: block; }
         var n = state.notes[h.i];
         drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false, bare: bare(n) };
       }
-      if (state.tool !== "move") showPanel("note");
+      if (state.tool !== "move") showPanel(panelOf(state.notes[h.i]));
       sync(); render();
       return true;
     }
@@ -2743,6 +2882,17 @@ body.has-pages #stripGrip { display: block; }
       return;
     }
     var p = toImg(e);
+    lastTouch = e.pointerType === "touch";
+    // a side of the selected text's frame: a drag sets the width it wraps at; the other side stays where it is
+    var side = e.button === 0 && !rightBtn && !isSizeKey(e) ? textSide(p, lastTouch) : null;
+    if (side) {
+      snapshot();
+      var SL = side.L, sn = side.n, ang = SL.ang;
+      drag = { part: "textW", n: sn, side: side.side, ux: Math.cos(ang), uy: Math.sin(ang), padL: SL.padL, bare: bare(sn, SL), moved: false,
+               anchor: toGlobal(sn, SL, -side.side * SL.w / 2, 0), sx: e.clientX, sy: e.clientY };
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
     // With Move on, the left button (or a finger) drags pictures and notes, and the selected picture's edges and
     // corners resize it. A press on nothing lets go of what is selected.
     if (state.tool === "move" && e.button === 0 && !rightBtn && !isSizeKey(e)) {
@@ -2812,6 +2962,8 @@ body.has-pages #stripGrip { display: block; }
     if (wheelOpen) { wheelTrack(e.clientX, e.clientY); return; }
     var p = toImg(e);
     if (!drag) {
+      var ts = textSide(p, e.pointerType === "touch");
+      if (ts) { canvas.style.cursor = ts.n.vertical ? "ns-resize" : "ew-resize"; return; }
       if (state.tool === "erase") {
         // the eraser's outline follows the pointer, so it is clear what it will rub out
         canvas.style.cursor = spaceDown ? "grab" : "crosshair";
@@ -2830,6 +2982,18 @@ body.has-pages #stripGrip { display: block; }
     }
     if (drag.part === "pan") {
       view.cx = drag.cx - (e.clientX - drag.sx) / view.s; view.cy = drag.cy - (e.clientY - drag.sy) / view.s;
+      render();
+      return;
+    }
+    if (drag.part === "textW") {
+      // the width from the side that stays put to the pointer, along the text's line; at least two ems of words
+      var tn = drag.n, fsz = fontPx(tn), out = drag.side * ((p.x - drag.anchor.x) * drag.ux + (p.y - drag.anchor.y) * drag.uy);
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
+      drag.moved = true;
+      var inner = Math.max(fsz * 2, out - drag.padL * 2), outer = inner + drag.padL * 2;
+      tn.boxW = inner / (refW() / 100);
+      tn.px = drag.anchor.x + drag.side * drag.ux * outer / 2; tn.py = drag.anchor.y + drag.side * drag.uy * outer / 2;
+      if (drag.bare) { tn.tx = tn.px; tn.ty = tn.py; }
       render();
       return;
     }
@@ -3004,7 +3168,7 @@ body.has-pages #stripGrip { display: block; }
     else if (h) {
       // on a note: that note, with the rest of its selection
       if (state.picks.indexOf(h.i) < 0) { select(h.i); }
-      showPanel("note");
+      showPanel(panelOf(state.notes[h.i]));
       snapshot();
       drag.note = state.notes[h.i];
       drag.what = "notes"; drag.from = picked().map(function (n) { return n.size; });
@@ -3109,6 +3273,7 @@ body.has-pages #stripGrip { display: block; }
       }
       return;
     }
+    if (d.part === "textW") { if (!d.moved) history.pop(); sync(); render(); return; }
     if (d.part === "picMove" || d.part === "picSize" || d.part === "picTurn") {
       if (!d.moved) history.pop();
       sync(); render();
@@ -3262,7 +3427,7 @@ body.has-pages #stripGrip { display: block; }
     if (h) {
       // a note: act on it, or on the whole selection if it is part of one
       if (state.picks.indexOf(h.i) < 0) select(h.i); else state.sel = h.i;
-      showPanel("note");
+      showPanel(panelOf(state.notes[h.i]));
       sync(); render();
       var n = state.notes[h.i], many = state.picks.length > 1;
       if (!many) add(menuItem("Edit text", "", focusText));
@@ -3287,6 +3452,11 @@ body.has-pages #stripGrip { display: block; }
       }));
       // notes keep their arrows; one whose dot was dragged under it can have it back
       if (bare(n)) add(menuItem("Add arrow", "", function () { snapshot(); picked().forEach(giveArrow); sync(); render(); }));
+      if (!many) {
+        var mine = state.notes.filter(function (m) { return panelOf(m) === panelOf(n); }), at = mine.indexOf(n);
+        add(menuItem("Bring forward", "Ctrl+]", function () { stepNote(1); }, { disabled: at === mine.length - 1 }));
+        add(menuItem("Send backward", "Ctrl+[", function () { stepNote(-1); }, { disabled: at === 0 }));
+      }
       rule();
       add(menuItem(many ? "Delete " + state.picks.length + " notes" : "Delete note", "Del", deleteSel, { danger: true }));
     } else {
@@ -3397,6 +3567,7 @@ body.has-pages #stripGrip { display: block; }
     if (mod && k === "a" && !typing && !e.altKey) { e.preventDefault(); selectAll(); return; }
     // Ctrl/Cmd+] and [ bring the selected picture forward or send it backward, as in Photoshop
     if (mod && (e.key === "]" || e.key === "[") && !typing && selectedPic()) { e.preventDefault(); stepPic(e.key === "]" ? 1 : -1); return; }
+    if (mod && (e.key === "]" || e.key === "[") && !typing && selected() && state.picks.length === 1) { e.preventDefault(); stepNote(e.key === "]" ? 1 : -1); return; }
     // 0 fits the image again; Ctrl/Cmd+0 does too (the browser resets its own zoom on that as well)
     if (e.key === "0" && !typing && !e.altKey) { fitView(); if (!mod) e.preventDefault(); return; }
     // - and + (or =) zoom out and in about the middle of the stage; with Ctrl they are left to the browser
