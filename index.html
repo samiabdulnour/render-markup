@@ -348,7 +348,17 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 .pro { display: flex; flex-direction: column; gap: 8px; }
 .pro p { margin: 0; text-transform: none; letter-spacing: normal; }
 .proacts { display: flex; gap: 8px; flex-wrap: wrap; }
-#proBuy[hidden], #proRemove[hidden], #proBox[hidden] { display: none; }
+#proBuy[hidden], #proRemove[hidden], #proBox[hidden], #proTry[hidden], #proPortal[hidden], #proPrice[hidden], #proNowRow[hidden] { display: none; }
+#proTry { align-self: flex-start; }
+/* what Pro adds, a pictogram and a word or two each; the one that was reached for is tinted */
+#proWhat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+#proWhat li { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 8px; text-transform: none; letter-spacing: normal; }
+#proWhat li.asked { background: var(--chosen-tint); }
+#proWhat svg { flex: none; }
+.modal .box.probox { width: min(460px, 100%); }
+/* A control that needs Pro, while Pro is locked: a small ink corner, top right. No words and no lemon, which means on. */
+.pro-mark { position: relative; }
+body.pro-lock .pro-mark::after { content: ""; position: absolute; top: 3px; right: 3px; border-top: 6px solid var(--ink); border-left: 6px solid transparent; pointer-events: none; }
 .textstyle .seg { flex: 1; }
 #boldBtn { width: 44px; flex: none; justify-content: center; font-weight: 700; text-transform: none; }
 #boldBtn[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
@@ -778,6 +788,11 @@ body.has-pages #stripGrip { display: block; }
     <select id="scaleUnit" aria-label="Unit"><option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option></select></div>
   <div class="row"><button type="submit" class="primary">Set scale</button><button type="button" id="scaleCancel">Cancel</button></div>
 </form>
+<div class="modal" id="proModal" role="dialog" aria-modal="true" aria-labelledby="proTitle">
+  <div class="box probox" id="proHome">
+    <h3 id="proTitle">Pro</h3>
+  </div>
+</div>
 <div class="modal" id="setModal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="box setbox">
     <h3 id="setTitle">Options</h3>
@@ -789,11 +804,15 @@ body.has-pages #stripGrip { display: block; }
     <div class="keysgrid" id="keysGrid"></div>
     </details>
     <details class="optsub" id="proBox" hidden><summary>Pro</summary>
-    <div class="pro">
+    <div class="pro" id="proPane">
+      <ul id="proWhat" aria-label="What Pro adds"></ul>
+      <p id="proPrice" hidden></p>
       <p id="proState"></p>
+      <button id="proTry" hidden>Try 14 days</button>
       <label for="proKey">Licence key<input id="proKey" class="entry" type="text" autocomplete="off" spellcheck="false" placeholder="RMPRO-…"></label>
-      <div class="proacts"><button id="proUnlock" class="primary">Unlock</button><button id="proRemove">Remove key</button><a id="proBuy" class="btn" target="_blank" rel="noopener">Buy Pro</a></div>
-      <p class="note">Sold through Polar, which takes the payment and handles VAT. The key is checked with Polar once a session; nothing else about you is kept.</p>
+      <div class="proacts"><button id="proUnlock" class="primary">Unlock</button><button id="proRemove">Remove key</button><a id="proBuy" class="btn" target="_blank" rel="noopener">Buy Pro</a><a id="proPortal" class="btn" target="_blank" rel="noopener" title="Your keys, and the browsers each is used in, at Polar" hidden>Manage</a></div>
+      <p class="note">Sold through Polar, which takes the payment and handles VAT. Only the licence key, and a label naming this browser, go to Polar to check it, once a session; drawings, notes and reports never leave your browser.</p>
+      <div class="actions" id="proNowRow" hidden><button id="proNow">Not now</button></div>
     </div>
     </details>
     <details class="optsub" id="aboutBox"><summary>About</summary>
@@ -2477,6 +2496,7 @@ body.has-pages #stripGrip { display: block; }
     $("editBtn").disabled = !state.img;
     if (doc) markPage(doc.cur);
     $("export").disabled = !state.img;
+    if (PRO_SHOP) proMarks();     // (not yet set while the page is first put together)
     saveSettings();
   }
 
@@ -5945,10 +5965,13 @@ body.has-pages #stripGrip { display: block; }
     $("keysGrid").innerHTML = html.join("");
   }
   // the gear opens Options with the shortcuts folded away; ? opens them unfolded
-  function openKeys(unfold) { writeKeys(); $("keysBox").open = !!unfold; openModal("setModal", unfold ? "setClose" : "wheelErase"); }
+  function openKeys(unfold) { writeKeys(); proHome(false); proAsk = null; syncPro(); $("keysBox").open = !!unfold; openModal("setModal", unfold ? "setClose" : "wheelErase"); }
   function openModal(id, focus) { $(id).classList.add("open"); if (focus) $(focus).focus(); }
-  function closeModal(id) { if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); } }
-  ["setModal", "pdfModal", "formModal"].forEach(function (id) {
+  function closeModal(id) {
+    if (id === "proModal") proAsk = null;        // what asked for Pro does not go on by itself later
+    if ($(id).classList.contains("open")) { $(id).classList.remove("open"); canvas.focus({ preventScroll: true }); }
+  }
+  ["setModal", "pdfModal", "formModal", "proModal"].forEach(function (id) {
     $(id).addEventListener("click", function (e) { if (e.target === $(id)) closeModal(id); });
     $(id).addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeModal(id); } });
   });
@@ -6255,61 +6278,204 @@ body.has-pages #stripGrip { display: block; }
   // the check is a public one), and kept in this browser with when it last checked out; without a connection, a good
   // check stands for a fortnight. Nothing else Polar says about the buyer is kept. The code is open, so this is a
   // receipt, not a lock.
-  var PRO_SHOP = { org: "", checkout: "", api: "https://api.polar.sh" };   // the shop's organisation id and checkout link
-  var PRO_STORE = "render-markup.pro", PRO_GRACE = 14 * 864e5;
-  var pro = { key: "", ok: false, at: 0, live: false, busy: false, said: "" };
-  var PRO_FEATURES = [];        // what Pro unlocks: the Pro section shows once there is something in it
+  // The first time a key is used in a browser it is activated there, with a label naming only the browser, the system
+  // and the date, so a key counts the browsers it is in (Polar holds the limit) and Remove key gives the place back.
+  // Before buying, Pro can be tried for 14 days in a browser, once, with no account. Until the shop opens (PRO_SHOP.org
+  // set, after the move to the owner's own domain) nothing is locked and Options says Pro opens soon. ?polar=sandbox
+  // tries all of it against Polar's sandbox (test keys, no money), with the sandbox organisation set below or given as
+  // &org=<id>; what it unlocks is kept apart from a real licence.
+  var PRO_SANDBOX = /[?&]polar=sandbox(&|$)/.test(location.search);
+  var PRO_SHOP = PRO_SANDBOX ? { org: "", checkout: "", portal: "", api: "https://sandbox-api.polar.sh" }
+                             : { org: "", checkout: "", portal: "", api: "https://api.polar.sh" };   // the shop's organisation id, checkout and customer portal
+  PRO_SHOP.price = "EUR 59 a person a year · office licences";
+  if (PRO_SANDBOX) { var proOrg = location.search.match(/[?&]org=([\w-]{1,64})(&|$)/); if (proOrg) PRO_SHOP.org = proOrg[1]; }
+  var PRO_STORE = "render-markup.pro" + (PRO_SANDBOX ? ".sandbox" : ""), PRO_GRACE = 14 * 864e5, PRO_TRIAL = 14 * 864e5;
+  // act: this browser's activation of the key; trial: when the trial began (it is kept when a key is removed)
+  var pro = { key: "", ok: false, at: 0, act: "", trial: 0, live: false, busy: false, said: "" };
+  // what Pro unlocks, each with a pictogram and a word or two for the Unlock dialog: the Pro section shows once there is something in it
+  var PRO_FEATURES = [
+    { id: "takeoff", name: "Take-offs", icon: '<path d="M3.5 5.5h12l5 6v7h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5.5l-3.5 3.5M12 5.5l-8.5 8.5M16 6l-12.5 12.5M18.5 9l-9.5 9.5M20.5 12l-6.5 6.5" stroke="currentColor" stroke-width="1"/>' }
+  ];
+  var proAsk = null;            // what asked for Pro while the Unlock dialog shows: { id, then }, then run once Pro is on
   function shopOpen() { return !!PRO_SHOP.org; }
   function isPro() { return pro.ok && (pro.live || Date.now() - pro.at < PRO_GRACE); }
+  function trialLive() { var t = Date.now() - pro.trial; return !!pro.trial && t >= 0 && t < PRO_TRIAL; }
+  // Pro can be used: the shop is not open yet, or there is a licence or a trial
+  function proOk() { return !shopOpen() || isPro() || trialLive(); }
+  // Before something new is made with a Pro feature: true if it can go ahead, otherwise the Unlock dialog, which
+  // goes on with `then` once Pro is on. Only ever on the person's own click: never at load or on a timer.
+  function needPro(id, then) { if (proOk()) return true; askPro(id, then); return false; }
+  // The Options' Pro block is the one set of fields: it moves into the dialog while that shows, and back for Options
+  function proHome(inDialog) { var home = inDialog ? $("proHome") : $("proBox"); if ($("proPane").parentNode !== home) home.appendChild($("proPane")); }
+  function askPro(id, then) {
+    proAsk = { id: id, then: then || null };
+    pro.said = "";
+    proHome(true);
+    syncPro();
+    openModal("proModal", $("proTry").hidden ? "proKey" : "proTry");
+  }
   function loadPro() {
     try {
       var d = JSON.parse(localStorage.getItem(PRO_STORE) || "null");
-      if (d && typeof d.key === "string" && d.key.length < 200) { pro.key = d.key; pro.ok = d.ok === true; pro.at = typeof d.at === "number" ? d.at : 0; }
+      if (d && typeof d.key === "string" && d.key.length < 200) {
+        pro.key = d.key; pro.ok = d.ok === true; pro.at = typeof d.at === "number" ? d.at : 0;
+        pro.act = typeof d.act === "string" && d.act.length < 100 ? d.act : "";
+        pro.trial = typeof d.trial === "number" && isFinite(d.trial) && d.trial > 0 ? d.trial : 0;
+      }
     } catch (err) { /* nothing kept */ }
   }
+  // kept while there is a key or a trial (a trial is used once a browser, so it is not forgotten with the key)
   function savePro() {
-    try { if (pro.key) localStorage.setItem(PRO_STORE, JSON.stringify({ key: pro.key, ok: pro.ok, at: pro.at })); else localStorage.removeItem(PRO_STORE); }
-    catch (err) { /* not kept: fine */ }
+    try { if (pro.key || pro.trial) localStorage.setItem(PRO_STORE, JSON.stringify({ key: pro.key, ok: pro.ok, at: pro.at, act: pro.act, trial: pro.trial })); else localStorage.removeItem(PRO_STORE); }
+    catch (err) { /* not kept: the licence lasts this visit */ }
   }
-  // Polar's answer about a key: "ok", "no" (unknown, revoked, or its subscription ended) or "offline" (no answer)
-  function checkKey(key) {
-    if (!shopOpen()) return Promise.resolve("closed");
-    return fetch(PRO_SHOP.api + "/v1/customer-portal/license-keys/validate", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key, organization_id: PRO_SHOP.org })
-    }).then(function (r) {
-      return r.json().then(function (d) {
-        if (r.ok) return d && d.status === "granted" ? "ok" : "no";
-        return r.status === 404 && d && d.error === "ResourceNotFound" ? "no" : "offline";
-      }, function () { return "offline"; });
+  function proPost(what, body) {
+    return fetch(PRO_SHOP.api + "/v1/customer-portal/license-keys/" + what, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
+  }
+  // what the browser it is activated in is called at Polar: the browser, the system and the date, nothing else
+  function proLabel() {
+    var ua = navigator.userAgent || "", d = new Date(), two = function (n) { return (n < 10 ? "0" : "") + n; };
+    var b = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "a browser";
+    var os = /Windows/.test(ua) ? "Windows" : /iPhone|iPad/.test(ua) ? "iOS" : /Mac OS X/.test(ua) ? "macOS" : /Android/.test(ua) ? "Android" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : "another system";
+    return "Render Markup · " + b + " on " + os + " · " + d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+  }
+  // Activate the key in this browser: { id } (an empty id for a product that counts no browsers), or "limit" (on its
+  // limit of browsers), "no" (Polar does not know it) or "offline"
+  function activateKey(key) {
+    return proPost("activate", { key: key, organization_id: PRO_SHOP.org, label: proLabel() }).then(function (r) {
+      return r.json().then(function (d) { return [r, d]; }, function () { return [r, null]; });
+    }).then(function (rd) {
+      var r = rd[0], d = rd[1] || {};
+      if (r.ok) return { id: typeof d.id === "string" ? d.id : "" };
+      if (r.status === 403) return /limit/i.test(String(d.detail || "")) ? "limit" : { id: "" };
+      if (r.status === 404) return "no";
+      return "offline";
     }, function () { return "offline"; });
+  }
+  // Polar's answer about a key: "ok", "no" (unknown, revoked, or its subscription ended), "limit" (activated in as
+  // many browsers as it may be) or "offline" (no answer). Unlock activates it first, once; the check at the start
+  // of a visit only validates it.
+  function checkKey(key, activate) {
+    if (!shopOpen()) return Promise.resolve("closed");
+    var first = activate && !pro.act ? activateKey(key) : Promise.resolve({ id: pro.act });
+    return first.then(function (a) {
+      if (typeof a === "string") return a;
+      pro.act = a.id;
+      var body = { key: key, organization_id: PRO_SHOP.org };
+      if (a.id) body.activation_id = a.id;
+      return proPost("validate", body).then(function (r) {
+        return r.json().then(function (d) {
+          if (r.ok) return d && d.status === "granted" && !(d.expires_at && Date.parse(d.expires_at) < Date.now()) ? "ok" : "no";
+          return r.status === 404 && d && d.error === "ResourceNotFound" ? "no" : "offline";
+        }, function () { return "offline"; });
+      }, function () { return "offline"; });
+    });
   }
   function applyCheck(r) {
     if (r === "ok") { pro.ok = true; pro.at = Date.now(); pro.live = true; pro.said = "Pro is on. Thank you."; }
-    else if (r === "no") { pro.ok = false; pro.live = false; pro.said = "Polar does not know this key, or its subscription has ended."; }
+    else if (r === "no") { pro.ok = false; pro.live = false; pro.act = ""; pro.said = "Polar does not know this key, or its subscription has ended."; }
+    else if (r === "limit") { pro.ok = false; pro.live = false; pro.said = "This key is on its limit of browsers: Remove key in another browser, or free one in Polar."; }
     else if (r === "offline") pro.said = isPro() ? "Pro is on (no connection to Polar just now)." : "Polar could not be reached. Try again in a moment.";
     savePro(); syncPro();
   }
+  function dateText(t) { var d = new Date(t); return d.getDate() + "." + (d.getMonth() + 1) + "." + d.getFullYear(); }
+  // where Pro stands in this browser, in a line
+  function proLine() {
+    if (!shopOpen()) return "Pro opens soon.";
+    if (isPro()) return "Pro · key …" + pro.key.slice(-4) + " · checked " + dateText(pro.at);
+    if (trialLive()) { var d = Math.max(1, Math.round((pro.trial + PRO_TRIAL - Date.now()) / 864e5)); return "Trial · " + d + (d === 1 ? " day" : " days") + " left"; }
+    if (pro.key && pro.at) return "Licence ended";
+    if (pro.trial) return "Trial ended";
+    return "Free";
+  }
+  // The marks on the controls that need Pro, while it is locked: an ink corner, and ' · Pro' at the end of the tooltip.
+  // None before the shop opens, and none with a licence or a trial.
+  function proMarks() {
+    var locked = shopOpen() && !proOk();
+    if (document.body.classList.contains("pro-lock") !== locked) document.body.classList.toggle("pro-lock", locked);
+    Array.prototype.forEach.call(document.querySelectorAll(".pro-mark"), function (el) {
+      if (!el.hasAttribute("data-title")) el.setAttribute("data-title", el.title || "");
+      var t = el.getAttribute("data-title") + (locked ? " · Pro" : "");
+      if (el.title !== t) el.title = t;
+    });
+  }
   function syncPro() {
+    var open = shopOpen(), inDialog = $("proPane").parentNode === $("proHome");
     $("proBox").hidden = !PRO_FEATURES.length;
-    $("proState").textContent = pro.said || (isPro() ? "Pro is on." : !shopOpen() ? "Pro opens soon." : "Pro is off: unlock it with your licence key.");
+    proMarks();
+    Array.prototype.forEach.call($("proWhat").children, function (li) { li.classList.toggle("asked", inDialog && !!proAsk && li.getAttribute("data-pro") === proAsk.id); });
+    $("proPrice").hidden = !open || !PRO_SHOP.price;
+    $("proPrice").textContent = PRO_SHOP.price;
+    $("proState").textContent = pro.said || proLine();
+    $("proTry").hidden = !open || !!pro.trial || !!pro.key;
     if (document.activeElement !== $("proKey")) $("proKey").value = pro.key;
-    $("proUnlock").disabled = pro.busy || !shopOpen();
+    $("proUnlock").disabled = pro.busy || !open;
     $("proRemove").hidden = !pro.key;
     $("proBuy").hidden = !PRO_SHOP.checkout;
     if (PRO_SHOP.checkout) $("proBuy").href = PRO_SHOP.checkout;
+    $("proPortal").hidden = !PRO_SHOP.portal || !pro.key;
+    if (PRO_SHOP.portal) $("proPortal").href = PRO_SHOP.portal;
+    $("proNowRow").hidden = !inDialog;
+  }
+  PRO_FEATURES.forEach(function (f) {
+    var li = document.createElement("li");
+    li.setAttribute("data-pro", f.id);
+    li.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">' + f.icon + "</svg>";
+    var t = document.createElement("span"); t.textContent = f.name; li.appendChild(t);
+    $("proWhat").appendChild(li);
+  });
+  // Once Pro is on from the dialog, what asked for it goes ahead
+  function proGranted() {
+    var then = proAsk && $("proModal").classList.contains("open") ? proAsk.then : null;
+    closeModal("proModal");
+    sync();
+    if (then) then();
   }
   $("proUnlock").addEventListener("click", function () {
-    var key = $("proKey").value.trim();
+    var key = $("proKey").value.replace(/\s+/g, "");      // pasted with spaces or line breaks
     if (!key) { pro.said = "Paste the licence key from your Polar receipt."; syncPro(); return; }
+    if (key !== pro.key) pro.act = "";
     pro.key = key; pro.busy = true; pro.said = "Checking with Polar…"; syncPro();
-    checkKey(key).then(function (r) { pro.busy = false; applyCheck(r); if (pro.ok) status("Pro is on."); });
+    checkKey(key, true).then(function (r) {
+      pro.busy = false; applyCheck(r);
+      if (isPro()) { status("Pro is on."); if ($("proModal").classList.contains("open")) proGranted(); else sync(); }
+    });
   });
   $("proKey").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("proUnlock").click(); } });
-  $("proRemove").addEventListener("click", function () { pro = { key: "", ok: false, at: 0, live: false, busy: false, said: "The key is removed from this browser." }; savePro(); syncPro(); });
+  $("proTry").addEventListener("click", function () {
+    if (!shopOpen() || pro.trial) return;
+    pro.trial = Date.now(); pro.said = "";
+    savePro(); syncPro();
+    status("Pro for 14 days in this browser. What you make stays yours.");
+    proGranted();
+  });
+  $("proNow").addEventListener("click", function () { closeModal("proModal"); });
+  // Remove key: forgotten here, and its place given back at Polar so another browser can have it; a trial is kept
+  $("proRemove").addEventListener("click", function () {
+    var key = pro.key, act = pro.act;
+    pro = { key: "", ok: false, at: 0, act: "", trial: pro.trial, live: false, busy: false, said: "The key is removed from this browser." };
+    savePro(); syncPro(); sync();
+    if (!act || !shopOpen()) return;
+    var unfreed = function () { pro.said = "The key is removed from this browser, but Polar could not be reached to free its place: free it in Polar."; syncPro(); };
+    proPost("deactivate", { key: key, organization_id: PRO_SHOP.org, activation_id: act }).then(function (r) { if (!r.ok && r.status !== 404) unfreed(); }, unfreed);
+  });
+  // another tab of this page unlocked Pro, started a trial or removed the key: this one follows
+  window.addEventListener("storage", function (e) {
+    if (e.key !== PRO_STORE && e.key !== null) return;
+    pro = { key: "", ok: false, at: 0, act: "", trial: 0, live: false, busy: false, said: "" };
+    loadPro(); syncPro(); sync();
+  });
+  // a trial or a licence that runs out while the page is open: the marks come back, quietly
+  setInterval(proMarks, 60000);
   loadPro();
   syncPro();
-  if (pro.key) checkKey(pro.key).then(function (r) { pro.said = ""; applyCheck(r); if (r !== "no") pro.said = ""; syncPro(); });
+  if (pro.key) checkKey(pro.key, false).then(function (r) {
+    pro.said = ""; applyCheck(r); if (r !== "no") pro.said = "";
+    if (r === "no") status("Pro is off: Polar no longer knows this licence key, or its subscription has ended.");
+    syncPro(); sync();
+  });
 
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
