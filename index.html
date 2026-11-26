@@ -7,9 +7,7 @@
 <title>Render Markup</title>
 <meta name="description" content="Mark up architectural renders with clean pill callouts, leader lines and sketches. Runs in your browser; images never leave your computer.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
@@ -341,6 +339,12 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 }
 /* Bold and the case of every note, under the typeface */
 .textstyle { display: flex; gap: 8px; }
+/* who the grammar check is by, and About in Options */
+p.credit { margin: 0; font-size: 12px; }
+p.credit a, .about a { color: inherit; }
+.about { display: flex; flex-direction: column; gap: 8px; text-transform: none; letter-spacing: normal; }
+.about p { margin: 0; }
+.credits { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .textstyle .seg { flex: 1; }
 #boldBtn { width: 44px; flex: none; justify-content: center; font-weight: 700; text-transform: none; }
 #boldBtn[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
@@ -642,6 +646,7 @@ body.has-pages #stripGrip { display: block; }
     <div class="section">
       <h2>Notes</h2>
       <button id="grammar" title="Proofread every note with LanguageTool (only the note text is sent); you review each fix before it applies">Check grammar</button>
+      <p class="note credit">By <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a></p>
     </div>
     <div class="section" id="editor">
       <h2 id="editorTitle">Selected note</h2>
@@ -778,6 +783,18 @@ body.has-pages #stripGrip { display: block; }
     </div>
     <details class="optsub" id="keysBox"><summary id="keysTitle">Shortcuts</summary>
     <div class="keysgrid" id="keysGrid"></div>
+    </details>
+    <details class="optsub" id="aboutBox"><summary>About</summary>
+    <div class="about">
+      <p>Render Markup runs in your browser: images and PDFs never leave your computer. Check grammar sends only the words of the notes, to <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a>.</p>
+      <p class="sub">Made with</p>
+      <ul class="credits">
+        <li><a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noopener">PDF.js</a>, Apache-2.0, with its fonts, CMaps and decoders under their own licences · <a href="vendor/pdfjs/LICENSE" target="_blank">licences</a></li>
+        <li><a href="https://pdf-lib.js.org" target="_blank" rel="noopener">pdf-lib</a>, MIT, with pako (MIT), UPNG (MIT) and tslib (Apache-2.0) · <a href="vendor/pdf-lib/LICENSE.md" target="_blank">licence</a>, <a href="vendor/pdf-lib/LICENSE-pako.txt" target="_blank">pako</a>, <a href="vendor/pdf-lib/LICENSE-upng.txt" target="_blank">UPNG</a></li>
+        <li>Arimo, Open Sans, IBM Plex Sans Condensed, Roboto and IBM Plex Mono, SIL Open Font License 1.1, served with the page · <a href="fonts/README.md" target="_blank">licences</a></li>
+      </ul>
+      <p class="note">Archicad, AutoCAD, InDesign, Bluebeam and the other names mentioned are trademarks of their owners. Render Markup is not connected with them.</p>
+    </div>
     </details>
     <div class="actions"><button id="setClose">Close</button></div>
   </div>
