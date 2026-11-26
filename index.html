@@ -1163,8 +1163,11 @@ body.has-pages #stripGrip { display: block; }
     var v = px * k / UNITS[state.unit];
     return (state.unit === "mm" ? String(Math.round(v)) : state.unit === "cm" ? String(Math.round(v * 10) / 10) : v.toFixed(2)) + " " + state.unit;
   }
-  // millimetres on paper per image px: from the page size for a PDF, from the resolution for an image
-  function paperMmPerPx() { if (!doc) return 25.4 / (state.dpi || 96); var pg = doc.pages[doc.cur]; return 25.4 / 72 * pg.wPt / pg.w; }
+  // millimetres on paper per image px: from the page size for a PDF, from the resolution for an image. The page is
+  // the one being painted (state.pg), which is not the one on screen while another page is exported. It comes from
+  // the page's k (pixels to the point) itself, not from its size in pixels over its size in points: those are rounded
+  // to whole pixels, differently once the page is turned or cropped, and lengths would change by a hair.
+  function paperMmPerPx() { if (!doc) return 25.4 / (state.dpi || 96); var pg = state.pg || doc.pages[doc.cur]; return 25.4 / 72 / pg.k; }
   // real millimetres per image px at the scale set, on this page or image; 0 with no scale
   // The scale this page (or image) is at. Once a page has dimensions on it, it keeps the scale they were placed
   // at (pageRatio), whatever scale is set later on another page; a page without any follows the scale set last.
@@ -1173,6 +1176,13 @@ body.has-pages #stripGrip { display: block; }
   // the scale typed on this page: the one set from now on, and this page's own if it has dimensions
   function setRatio(v) { state.ratio = v; state.pageRatio = hasDims() ? v : null; }
   function mmPerPx() { var k = pageRatio(); return k ? k * paperMmPerPx() : 0; }
+  // The same for any page of the document without putting it on screen first: its own scale (or the scale set last,
+  // if it has nothing measured yet) at its own paper size. For adding up quantities over every page.
+  function mmPerPxOf(pg) {
+    if (!doc || pg === (state.pg || doc.pages[doc.cur])) return mmPerPx();
+    var k = pg.pageRatio != null ? pg.pageRatio : state.ratio;
+    return k ? k * 25.4 / 72 / pg.k : 0;
+  }
   // "1:100", "1 : 100" or just "100" (NaN for anything else)
   function parseRatio(t) {
     var m = String(t).replace(/\s+/g, "").replace(",", ".").match(/^(?:1[:\/])?(\d*\.?\d+)$/);
@@ -5315,11 +5325,13 @@ body.has-pages #stripGrip { display: block; }
   }
 
   // ----- PDF export -----
-  // Paint with another page's size and markup standing in for the one on screen.
+  // Paint with another page's size and markup standing in for the one on screen. Its scale comes too, so the lengths
+  // it shows are worked out at that page's own scale and paper size, not those of the page on screen.
   function withPage(pg, fn) {
-    var keep = { w: state.w, h: state.h, refW: state.refW, refH: state.refH, notes: state.notes, strokes: state.strokes, pics: state.pics, edits: state.edits, pg: state.pg };
+    var keep = { w: state.w, h: state.h, refW: state.refW, refH: state.refH, notes: state.notes, strokes: state.strokes, pics: state.pics, edits: state.edits, pg: state.pg, pageRatio: state.pageRatio };
     state.w = pg.w; state.h = pg.h; state.refW = pg.refW; state.refH = pg.refH; state.notes = pg.notes; state.strokes = pg.strokes; state.pics = pg.pics || []; state.edits = pg.edits || []; state.pg = pg;
-    try { return fn(); } finally { state.w = keep.w; state.h = keep.h; state.refW = keep.refW; state.refH = keep.refH; state.notes = keep.notes; state.strokes = keep.strokes; state.pics = keep.pics; state.edits = keep.edits; state.pg = keep.pg; }
+    state.pageRatio = pg.pageRatio != null ? pg.pageRatio : null;
+    try { return fn(); } finally { state.w = keep.w; state.h = keep.h; state.refW = keep.refW; state.refH = keep.refH; state.notes = keep.notes; state.strokes = keep.strokes; state.pics = keep.pics; state.edits = keep.edits; state.pg = keep.pg; state.pageRatio = keep.pageRatio; }
   }
   function canvasBytes(c, type, quality) {
     return new Promise(function (resolve, reject) {
