@@ -410,6 +410,7 @@ input[type="file"] { display: none; }
 /* Page strip, shown down the left side when a document with several pages is open */
 #pages { border-right: 1px solid var(--divider); background: var(--chrome); overflow-y: auto; padding: 12px 10px; min-height: 0; }
 #pages[hidden] { display: none; }
+#stripToggle { display: none; }
 body.has-pages main { grid-template-columns: var(--strip, 132px) 1fr 300px; }
 /* the page strip's edge: drag it (or use the arrow keys on it) to make the strip wider or narrower */
 #stripGrip { display: none; position: absolute; top: 0; bottom: 0; left: calc(var(--strip, 132px) - 4px); width: 8px; cursor: col-resize; z-index: 5; touch-action: none; }
@@ -435,9 +436,14 @@ body.has-pages #stripGrip { display: block; }
   aside { border-left: 0; border-top: 1px solid var(--divider); }
   /* on a phone the strip runs across the top: thumbnails share one height so nothing is cut off */
   body.has-pages main { grid-template-columns: 1fr; grid-template-rows: max-content minmax(280px, 52vh) auto; }
-  #pages { border-right: 0; border-bottom: 1px solid var(--divider); overflow-x: auto; overflow-y: hidden; padding: 6px 10px; }
+  #pages { border-right: 0; border-bottom: 1px solid var(--divider); overflow: hidden; padding: 4px 10px 6px; display: flex; flex-direction: column; gap: 4px; }
   body.has-pages #stripGrip { display: none; }
-  #pageList { flex-direction: row; gap: 6px; }
+  /* on a phone the strip folds away under a bar saying which page this is */
+  #stripToggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 36px; padding: 4px 8px; border: 0; background: transparent; }
+  #stripToggle svg { transition: transform 0.15s; }
+  #pages.folded #stripToggle svg { transform: rotate(-90deg); }
+  #pages.folded #pageList { display: none; }
+  #pageList { flex-direction: row; gap: 6px; overflow-x: auto; overflow-y: hidden; }
   #pageList li { flex: none; }
   #pageList button { padding: 4px; gap: 3px; }
   #pageList .thumb { height: 52px; width: auto; }
@@ -459,7 +465,7 @@ body.has-pages #stripGrip { display: block; }
   <button id="export" class="primary" title="Save as PNG, JPG or PDF (Ctrl/Cmd+S)">Export</button>
 </header>
 <main>
-  <nav id="pages" aria-label="Pages" hidden><ol id="pageList"></ol></nav>
+  <nav id="pages" aria-label="Pages" hidden><button id="stripToggle" type="button" aria-expanded="true" aria-controls="pageList" title="Show or hide the pages"><span id="stripLabel">Pages</span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 4.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><ol id="pageList"></ol></nav>
   <div id="stripGrip" role="separator" aria-orientation="vertical" aria-label="Page strip width" tabindex="0" title="Drag to make the page strip wider or narrower"></div>
   <section id="stage" aria-label="Image stage">
     <canvas id="view" tabindex="0" aria-label="Render with notes. The left button draws (or measures, with Measure on), the wheel button erases, dragging with the right button adds a note, a right-click opens a menu. D, N and M switch between Draw, Notes and Measure. Ctrl or Cmd+Z to undo."></canvas>
@@ -472,6 +478,7 @@ body.has-pages #stripGrip { display: block; }
       <button id="toolHi" aria-pressed="false" aria-label="Highlighter" title="Highlighter (H): the left button draws a wide see-through line"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(45 12 11)"><rect x="8.75" y="0.5" width="6.5" height="11" rx="1.6"/><path d="M9.75 11.5v2.5h4.5v-2.5"/><path d="M10.6 14h2.8l-0.4 3.6h-2z" fill="currentColor"/></g><path d="M3 21.5h12" stroke-width="3" opacity="0.4"/></svg></button>
       <button id="toolShape" aria-pressed="false" aria-label="Shapes" title="Shapes (S): rectangles, rounded rectangles, pills and circles, dragged from corner to corner"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="9.5" width="11" height="11" rx="1.5"/><circle cx="15.5" cy="8.5" r="5.8"/></svg></button>
       <button id="toolNote" aria-pressed="false" aria-label="Notes" title="Notes (N): note settings. The right button adds notes"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3" width="19" height="9.5" rx="4.75" fill="currentColor" stroke="none"/><path d="M9.5 12.5L5.5 19.5" stroke-width="1.6"/><circle cx="5.2" cy="20" r="2.2" fill="currentColor" stroke="none"/></svg></button>
+      <button id="toolText" aria-pressed="false" aria-label="Text" title="Text (T): a click puts words on the page, with no shape or leader"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5.5h14M12 5.5v13M9 18.5h6"/></svg></button>
       <button id="toolMeasure" aria-pressed="false" aria-label="Measure" title="Measure (M): the left button draws dimensions"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7.2 12.3l2 2M10.2 9.3l2 2M13.2 6.3l2 2"/></svg></button>
       <button id="toolErase" aria-pressed="false" aria-label="Eraser" title="Eraser (E): the left button erases"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g transform="rotate(-45 12 11)"><rect x="4" y="7" width="16" height="8" rx="2"/><rect x="4" y="7" width="6.5" height="8" rx="2" fill="currentColor"/></g><path d="M10 21h10"/></svg></button>
       <span class="sep" aria-hidden="true"></span>
@@ -775,7 +782,8 @@ body.has-pages #stripGrip { display: block; }
     pill:   { name: "Pill",    title: "Pill",                            icon: '<rect x="1" y="1" width="20" height="10" rx="5"/>' },
     rect:   { name: "Rect",    title: "Rectangle",                       icon: '<rect x="1" y="1" width="20" height="10"/>' },
     round:  { name: "Rounded", title: "Rectangle with rounded corners",  icon: '<rect x="1" y="1" width="20" height="10" rx="2.5"/>' },
-    circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' }
+    circle: { name: "Circle",  title: "Circle",                          icon: '<circle cx="11" cy="6" r="5.5"/>' },
+    text:   { name: "Text",    title: "Text: the words alone, with no shape round them", icon: '<path d="M5 1.5h12v2.4h-4.7V11H9.7V3.9H5z"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
   var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], edits: [], pg: null, sel: -1, picks: [], font: "arial", bold: false, caps: "", style: null,
@@ -841,6 +849,9 @@ body.has-pages #stripGrip { display: block; }
       // a circle round the whole text block, never smaller than a one-line pill is tall
       w = h = Math.max(Math.hypot(lw, blockH) + fs * 0.9, fs + padS * 2);
       cr = w / 2; padL = (w - lw) / 2;
+    } else if (shape === "text") {
+      // the words alone: their box just round them
+      padL = fs * 0.15; h = blockH + fs * 0.3; w = lw + padL * 2; cr = 0;
     } else {
       h = blockH + padS * 2;
       if (shape === "pill") { cr = h / 2; padL = Math.max(cr * 0.8, fs * 0.9); }
@@ -1355,6 +1366,18 @@ body.has-pages #stripGrip { display: block; }
     c.translate(n.px, n.py); c.rotate(L.ang);
     // Filled: the shape in the colour, the words in its ink. Outline: a border in the colour round the words,
     // see outlineLook: white inside, the words in the colour (dark words in a yellow one; a white one dark inside).
+    if (shapeOf(n) === "text") {
+      // the words alone, in the colour, with a faint halo so they read over a busy render
+      c.font = fontStr(L.fs);
+      c.textBaseline = "middle"; c.textAlign = "left"; c.lineJoin = "round";
+      var tx0 = -L.lw / 2, ty0 = -L.blockH / 2 + L.fs / 2;
+      c.strokeStyle = col.halo; c.lineWidth = Math.max(1, L.fs * 0.16);
+      L.lines.forEach(function (line, i) { c.strokeText(line, tx0, ty0 + i * L.lineH); });
+      c.fillStyle = col.fill;
+      L.lines.forEach(function (line, i) { c.fillText(line, tx0, ty0 + i * L.lineH); });
+      c.restore();
+      return;
+    }
     var ow = n.outline ? Math.max(1.5, L.fs * 0.12) : 0, ol = outlineLook(n);
     c.fillStyle = n.outline ? ol.inside : col.fill;
     c.beginPath();
@@ -1813,6 +1836,8 @@ body.has-pages #stripGrip { display: block; }
   // Put the keyboard in the note's text box. The text is selected so typing replaces it, unless keep is set,
   // which leaves the caret where it was (for a note that already has its own text).
   // the note's text box gets the keyboard: all of "New note" selected, to be typed over, or the cursor at the end
+  // a note still with the words it was given (New note, or Text for words alone): those are typed over
+  function freshNote(n) { return !!n && (n.text === "New note" || (shapeOf(n) === "text" && n.text === "Text")); }
   function focusText(keep) {
     setTimeout(function () {
       var ta = $("noteText"); ta.focus();
@@ -1823,7 +1848,7 @@ body.has-pages #stripGrip { display: block; }
   // so typing carries on in the note instead of reaching the shortcuts or the typeface list.
   function backToText() {
     var n = state.picks.length === 1 ? selected() : null;
-    if (n) focusText(n.text !== "New note");
+    if (n) focusText(!freshNote(n));
   }
   $("editor").addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("button");
@@ -1858,6 +1883,11 @@ body.has-pages #stripGrip { display: block; }
     };
     return n;
   }
+  // Words alone, from the Text tool: a note of the shape "text", with no leader (its dot is under it)
+  function textNote(x, y) {
+    var look = selected() && shapeOf(selected()) === "text" ? lookOf(selected()) : nextLook();
+    return { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, vertical: look.vertical, color: look.color, shape: "text", size: look.size };
+  }
   function addNote(x, y, deferFocus, made) {
     snapshot();
     state.notes.push(made || newNote(x, y));
@@ -1875,6 +1905,7 @@ body.has-pages #stripGrip { display: block; }
     if (t !== "move") picSel = null;   // a picture is picked up and resized with Move
     $("toolMove").setAttribute("aria-pressed", String(t === "move"));
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
+    $("toolText").setAttribute("aria-pressed", String(t === "text"));
     $("toolDraw").setAttribute("aria-pressed", String(t === "draw" && !state.pen.hi));
     $("toolHi").setAttribute("aria-pressed", String(t === "draw" && !!state.pen.hi));
     $("toolShape").setAttribute("aria-pressed", String(t === "shape"));
@@ -1882,7 +1913,7 @@ body.has-pages #stripGrip { display: block; }
     $("toolErase").setAttribute("aria-pressed", String(t === "erase"));
     $("penPanel").hidden = t !== "draw" && t !== "shape";
     $("erasePanel").hidden = t !== "erase";
-    $("notesPanel").hidden = t !== "note";
+    $("notesPanel").hidden = t !== "note" && t !== "text";
     $("movePanel").hidden = t !== "move";
     $("measurePanel").hidden = t !== "measure";
     $("hint").textContent = t === "move"
@@ -1904,7 +1935,7 @@ body.has-pages #stripGrip { display: block; }
     render();
   }
   // show the settings for what is being used, without touching anything else
-  function showPanel(t) { if (state.tool !== t) setTool(t); }
+  function showPanel(t) { if (state.tool !== t && !(t === "note" && state.tool === "text")) setTool(t); }   // Text shows the Notes panel
 
   // ---------- sidebar ----------
   function swatchRow(el, current, onPick, palette) {
@@ -2018,7 +2049,7 @@ body.has-pages #stripGrip { display: block; }
     // settings for the next note, so they can be picked before it is placed.
     if (n) state.style = lookOf(n);
     var look = n ? lookOf(n) : nextLook();
-    $("editorTitle").textContent = !n ? "New note" : many ? state.picks.length + " notes selected" : "Selected note";
+    $("editorTitle").textContent = !n ? (state.tool === "text" ? "New text" : "New note") : many ? state.picks.length + " notes selected" : shapeOf(n) === "text" ? "Selected text" : "Selected note";
     $("noteTextWrap").hidden = !n || many;   // text is per note; everything else below applies to all selected
     $("del").hidden = !n;
     $("del").textContent = many ? "Delete " + state.picks.length + " notes" : "Delete note";
@@ -2150,7 +2181,7 @@ body.has-pages #stripGrip { display: block; }
   $("noteSize").addEventListener("change", function () {
     var n = sizeByMouse && state.picks.length === 1 ? selected() : null;
     sizeByMouse = false;
-    if (n) focusText(n.text !== "New note");
+    if (n) focusText(!freshNote(n));
   });
   $("noteSize").addEventListener("input", function (e) {
     var v = parseFloat(e.target.value);
@@ -2281,6 +2312,7 @@ body.has-pages #stripGrip { display: block; }
   $("toolDraw").addEventListener("click", function () { setTool("draw"); setInk(false); });
   $("toolHi").addEventListener("click", function () { setTool("draw"); setInk(true); });
   $("toolShape").addEventListener("click", function () { setInk(false); setTool("shape"); });
+  $("toolText").addEventListener("click", function () { setTool("text"); });
   $("toolMeasure").addEventListener("click", function () { setTool("measure"); });
   $("toolErase").addEventListener("click", function () { setTool("erase"); });
 
@@ -2335,6 +2367,10 @@ body.has-pages #stripGrip { display: block; }
   // note down and drag its pill out. o gives Shift and where on screen the button went down. True if it began.
   function beginTool(p, drawNow, o) {
     var h = hit(p), onImage = p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h;
+    if (state.tool === "text" && !h) {
+      if (onImage) addNote(p.x, p.y, false, textNote(p.x, p.y));
+      return false;
+    }
     if (!h && drawNow) {
       if (!onImage) return false;
       snapshot();
@@ -2376,8 +2412,8 @@ body.has-pages #stripGrip { display: block; }
   // ---------- the tool wheel ----------
   // A click with the wheel button opens the tools in a ring round the pointer. Click one, or hold the button,
   // move towards one and let go. A click in the middle, far outside, with another button, or Esc closes it.
-  var WHEEL_TOOLS = ["toolMove", "toolDraw", "toolHi", "toolShape", "toolNote", "toolMeasure", "toolErase"];
-  var WHEEL_KEYS = ["V", "D", "H", "S", "N", "M", "E"];
+  var WHEEL_TOOLS = ["toolMove", "toolDraw", "toolHi", "toolShape", "toolNote", "toolText", "toolMeasure", "toolErase"];
+  var WHEEL_KEYS = ["V", "D", "H", "S", "N", "T", "M", "E"];
   var WHEEL_STEP = 360 / WHEEL_TOOLS.length;
   var WHEEL_R = 64, WHEEL_REACH = 140, WHEEL_DEAD = 22;
   var wheelEl = $("wheel"), wheelItems = [], wheelOpen = null;
@@ -2393,7 +2429,7 @@ body.has-pages #stripGrip { display: block; }
   });
   function wheelName(k) { return $(WHEEL_TOOLS[k]).getAttribute("aria-label") + " (" + WHEEL_KEYS[k] + ")"; }
   function currentToolIndex() {
-    return state.tool === "move" ? 0 : state.tool === "draw" ? (state.pen.hi ? 2 : 1) : state.tool === "shape" ? 3 : state.tool === "note" ? 4 : state.tool === "measure" ? 5 : 6;
+    return state.tool === "move" ? 0 : state.tool === "draw" ? (state.pen.hi ? 2 : 1) : state.tool === "shape" ? 3 : state.tool === "note" ? 4 : state.tool === "text" ? 5 : state.tool === "measure" ? 6 : 7;
   }
   function setWheelHot(k) {
     if (!wheelOpen) return;
@@ -2445,7 +2481,7 @@ body.has-pages #stripGrip { display: block; }
     // a mouse's left button always draws; a finger or a stylus does what the Draw / Notes switch says
     var byTouch = e.pointerType === "touch" || e.pointerType === "pen";
     // With the tool wheel (Wheel button erases off) a mouse works by tool too: with Notes it places notes.
-    var drawNow = state.wheelErase ? (!byTouch || state.tool === "draw" || state.tool === "shape") : state.tool !== "note";
+    var drawNow = state.tool === "text" ? false : state.wheelErase ? (!byTouch || state.tool === "draw" || state.tool === "shape") : state.tool !== "note";
     if (drag) endDrag(true);
     var wasTyping = document.activeElement === $("noteText");
     // give the page keyboard focus so shortcuts (undo, delete) reach it, not the surrounding app
@@ -2833,7 +2869,7 @@ body.has-pages #stripGrip { display: block; }
       // Ctrl + click without moving. The note button still does its job; the drawing button does nothing.
       if (d.tool === "note" && cancelled !== true) {
         var at = { x: d.last[0], y: d.last[1] }, on = hit(at);
-        if (on) { select(on.i); sync(); render(); if (d.typing) focusText(selected().text !== "New note"); }
+        if (on) { select(on.i); sync(); render(); if (d.typing) focusText(!freshNote(selected())); }
         else if (at.x >= 0 && at.y >= 0 && at.x <= state.w && at.y <= state.h) addNote(at.x, at.y);
       }
       return;
@@ -2871,7 +2907,7 @@ body.has-pages #stripGrip { display: block; }
       sync(); render();
       // one note resized: straight into its text box, so it can be typed at once
       var one = d.what === "notes" && cancelled !== true && state.picks.length === 1 ? selected() : null;
-      if (one) focusText(one.text !== "New note");
+      if (one) focusText(!freshNote(one));
       return;
     }
     if (d.part === "erase") {
@@ -2898,7 +2934,7 @@ body.has-pages #stripGrip { display: block; }
       // a click on a note (not a drag): the keyboard goes to its text, so typing writes in it rather than
       // reaching the shortcuts (D, N, M and E would switch tools)
       var clicked = cancelled !== true && state.picks.length === 1 ? selected() : null;
-      if (clicked) focusText(clicked.text !== "New note");
+      if (clicked) focusText(!freshNote(clicked));
     } else {
       // a dot left under its own pill: the note is a plain comment now, and the dot stays in the middle of it
       picked().forEach(tuck);
@@ -3144,7 +3180,7 @@ body.has-pages #stripGrip { display: block; }
     }
     // Enter (or F2) on the image, with one note selected: into its text, to type
     if ((e.key === "Enter" || e.key === "F2") && (el === canvas || el === document.body) && state.picks.length === 1 && selected()) {
-      e.preventDefault(); focusText(selected().text !== "New note"); return;
+      e.preventDefault(); focusText(!freshNote(selected())); return;
     }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (selectedPic()) deletePic(); else deleteSel(); }
     if (e.key === "Escape") { picSel = null; select(-1); sync(); render(); }
@@ -3155,6 +3191,7 @@ body.has-pages #stripGrip { display: block; }
     if (e.key === "h" || e.key === "H") { setTool("draw"); setInk(true); }
     if (e.key === "s" || e.key === "S") { setInk(false); setTool("shape"); }
     if (e.key === "n" || e.key === "N") setTool("note");
+    if (e.key === "t" || e.key === "T") setTool("text");
     if (e.key === "m" || e.key === "M") setTool("measure");
     if (e.key === "e" || e.key === "E") setTool("erase");
   });
@@ -3462,8 +3499,17 @@ body.has-pages #stripGrip { display: block; }
     });
   }
 
+  // the phone's fold-away strip: its bar says which page this is
+  function setStripFold(folded, save) {
+    state.stripFolded = !!folded;
+    $("pages").classList.toggle("folded", state.stripFolded);
+    $("stripToggle").setAttribute("aria-expanded", String(!state.stripFolded));
+    if (save) saveSettings();
+  }
+  $("stripToggle").addEventListener("click", function () { setStripFold(!state.stripFolded, true); });
   function pageLabel() {
     var pg = doc.pages[doc.cur];
+    $("stripLabel").textContent = "Page " + (doc.cur + 1) + " of " + doc.pages.length;
     $("docname").textContent = doc.label + " · page " + (doc.cur + 1) + " of " + doc.pages.length + " · " + pg.w + " × " + pg.h + " px";
   }
   // ----- the order of the pages, and deleting one: the export follows the strip -----
@@ -5269,7 +5315,7 @@ body.has-pages #stripGrip { display: block; }
         [k("Ctrl/Cmd") + " + wheel, or pinch", "Zoom at the pointer"],
         ["Wheel", "Scroll, when zoomed in; on a PDF, the next or previous page"]
       ]));
-      table("Tools", [[k("V"), "Move"], [k("D"), "Draw"], [k("H"), "Highlighter"], [k("S"), "Shapes"], [k("N"), "Notes"], [k("M"), "Measure"], [k("E"), "Eraser"]]);
+      table("Tools", [[k("V"), "Move"], [k("D"), "Draw"], [k("H"), "Highlighter"], [k("S"), "Shapes"], [k("N"), "Notes"], [k("T"), "Text"], [k("M"), "Measure"], [k("E"), "Eraser"]]);
     });
     col(function () {
       table("Editing", [
@@ -5594,7 +5640,7 @@ body.has-pages #stripGrip { display: block; }
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", end: state.pen.end || "" };
     var text = JSON.stringify({ v: 4, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
-                                ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "", strip: state.stripW || 0 });
+                                ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "", strip: state.stripW || 0, stripFolded: !!state.stripFolded });
     if (text === savedSettings) return;
     try { localStorage.setItem(SETTINGS_KEY, text); savedSettings = text; } catch (err) { /* not kept: fine */ }
   }
@@ -5629,6 +5675,7 @@ body.has-pages #stripGrip { display: block; }
     if (d.dim && typeof d.dim === "object") state.dim = { color: validColor(d.dim.color, "red"), size: num(d.dim.size, 0.25, 4, 1) };
     if (isHex(d.own)) state.ownColor = d.own.toLowerCase();
     if (typeof d.strip === "number" && d.strip >= STRIP_MIN && d.strip <= STRIP_MAX) setStrip(d.strip);
+    if (d.stripFolded === true) setStripFold(true);
     if (UNITS[d.unit]) state.unit = d.unit;
     // Show line length starts on; a choice saved before it did (version 1) is not held to
     if (d.v >= 2 && typeof d.showLen === "boolean") state.showLen = d.showLen;
