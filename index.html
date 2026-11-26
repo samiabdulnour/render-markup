@@ -931,10 +931,16 @@ body.has-pages #stripGrip { display: block; }
              lead: fin(n.lead, 0.8, 3, LEAD), track: fin(n.track, -100, 500, 0),
              bg: own(COLORS, n.bg) || isHex(n.bg) ? n.bg : "" };
   }
+  // a note is 0.25 to 4 per cent of the page width tall, a text 0.1 to 12
+  var TEXT_SIZE = [0.1, 12];
+  function sizeRange(n) { return n && shapeOf(n) === "text" ? TEXT_SIZE : [0.25, 4]; }
   function typeFont(t, fs) { return (t.italic ? "italic " : "") + (t.bold ? 700 : 400) + " " + fs + "px " + FONTS[t.font].family; }
   function cased(s, caps) { return caps === "upper" ? s.toUpperCase() : caps === "lower" ? s.toLowerCase() : s; }
+  // a line's letters as they are seen: an accent typed as a character of its own, or an emoji with a skin tone, is one
+  var graphemer = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+  function letters(s) { return graphemer ? Array.from(graphemer.segment(s), function (g) { return g.segment; }) : Array.from(s); }
   // how wide a line is set with tracking tr (px between letters)
-  function trackedW(c, s, tr) { return s ? c.measureText(s).width + tr * (Array.from(s).length - 1) : 0; }
+  function trackedW(c, s, tr) { return s ? c.measureText(s).width + (tr ? tr * (letters(s).length - 1) : 0) : 0; }
   function layoutText(n, c, fs) {
     var t = typeOf(n), tr = t.track / 1000 * fs;
     c.font = typeFont(t, fs);
@@ -959,7 +965,7 @@ body.has-pages #stripGrip { display: block; }
   // one line, its letters spread by the tracking
   function putText(c, str, x, y, tr, stroke) {
     if (!tr) { if (stroke) c.strokeText(str, x, y); else c.fillText(str, x, y); return; }
-    var ch = Array.from(str);
+    var ch = letters(str);
     for (var i = 0; i < ch.length; i++) {
       var at = x + c.measureText(ch.slice(0, i).join("")).width + tr * i;
       if (stroke) c.strokeText(ch[i], at, y); else c.fillText(ch[i], at, y);
@@ -1997,7 +2003,7 @@ body.has-pages #stripGrip { display: block; }
     var l = state.textStyle, base = nextLook();
     var t = typeOf(l || { font: state.font, bold: !!state.bold, caps: "" });
     t.vertical = l ? !!l.vertical : base.vertical; t.color = l ? validColor(l.color, base.color) : base.color;
-    t.size = l && typeof l.size === "number" ? clamp(l.size, 0.1, 12) : base.size;
+    t.size = l && typeof l.size === "number" ? clamp(l.size, TEXT_SIZE[0], TEXT_SIZE[1]) : base.size;
     return t;
   }
   // change the look of the next note, or with the Text tool on of the next text (nothing on the image changes)
@@ -2121,9 +2127,10 @@ body.has-pages #stripGrip { display: block; }
     saveSettings();
   }
 
-  function shapeRow(el, current, onPick) {
+  function shapeRow(el, current, onPick, noText) {
     el.innerHTML = "";
     Object.keys(SHAPES).forEach(function (k) {
+      if (noText && k === "text") return;
       var b = document.createElement("button");
       b.type = "button"; b.title = SHAPES[k].title;
       b.setAttribute("aria-pressed", String(k === current));
@@ -2194,7 +2201,7 @@ body.has-pages #stripGrip { display: block; }
     ["textType", "txtSpacing", "txtBgWrap", "colorHead", "txtPtWrap"].forEach(function (id) { $(id).hidden = !asText; });
     ["noteShapes", "noteFill", "noteEnd", "noteSizeVal", "allNotes"].forEach(function (id) { $(id).hidden = asText; });
     $("noteSizeHead").textContent = asText ? "Size" : "Text size";
-    $("noteSize").min = asText ? "0.1" : "0.25"; $("noteSize").max = asText ? "8" : "4";
+    $("noteSize").min = asText ? String(TEXT_SIZE[0]) : "0.25"; $("noteSize").max = asText ? String(TEXT_SIZE[1]) : "4";
     if (asText) syncType(look);
     if (n && !many && document.activeElement !== $("noteText")) $("noteText").value = n.text;
     swatchRow($("noteColors"), look.color, function (k) {
@@ -2204,7 +2211,7 @@ body.has-pages #stripGrip { display: block; }
     shapeRow($("noteShapes"), look.shape, function (k) {
       var ps = picked(); if (!ps.length) { setLook(function (l) { l.shape = k; }); return; }
       snapshot(); ps.forEach(function (m) { m.shape = k; }); sync(); render();
-    });
+    }, true);
     if (!asText) $("fillOff").setAttribute("aria-pressed", String(!!look.outline));
     $("endArrow").setAttribute("aria-pressed", String(look.end === "arrow"));
     $("endDot").setAttribute("aria-pressed", String(look.end !== "arrow"));
@@ -2377,7 +2384,7 @@ body.has-pages #stripGrip { display: block; }
     picked().forEach(function (m) { if (shapeOf(m) === "text") { fillType(m); fn(m); } });
     sync(); render(); loadType();
   }
-  function typeNow() { var n = selected(); return n && shapeOf(n) === "text" ? typeOf(n) : nextTextLook(); }
+  function typeNow() { var n = selected(); return n && shapeOf(n) === "text" ? textLookOf(n) : nextTextLook(); }
   // a face, or its bold or italic, may still be on its way: draw again once it is in
   function loadType() { if (document.fonts && document.fonts.load) document.fonts.load(typeFont(typeNow(), 40)).then(render, render); }
   function toggleType(key) { var v = !typeNow()[key]; setType(function (m) { m[key] = v; }); }
@@ -2432,13 +2439,18 @@ body.has-pages #stripGrip { display: block; }
   $("txtPt").addEventListener("change", function (e) {
     var v = parseFloat(String(e.target.value).replace(",", "."));
     if (!(v > 0) || !(ptPerSize() > 0)) { e.target.setAttribute("aria-invalid", "true"); return; }
-    var size = clamp(v / ptPerSize(), 0.1, 12);
+    var size = clamp(v / ptPerSize(), TEXT_SIZE[0], TEXT_SIZE[1]);
     e.target.removeAttribute("aria-invalid");
     setType(function (m) { m.size = size; });
   });
   $("txtPt").addEventListener("keydown", function (e) {
-    if (e.key === "Enter") { e.preventDefault(); e.target.dispatchEvent(new Event("change")); backToText(); }
-    else if (e.key === "Escape") { e.preventDefault(); e.target.removeAttribute("aria-invalid"); e.target.blur(); sync(); }
+    if (e.key === "Enter") { e.preventDefault(); e.target.blur(); backToText(); }      // leaving the box applies it
+    else if (e.key === "Escape") {
+      // as it was: the size shown again before leaving, so nothing changes, and the text stays selected
+      e.preventDefault(); e.stopPropagation();
+      e.target.value = String(Math.round(typeNow().size * ptPerSize() * 10) / 10);
+      e.target.removeAttribute("aria-invalid"); e.target.blur(); backToText();
+    }
   });
   // Ctrl+B, Ctrl+I and Ctrl+U while typing a text
   $("noteText").addEventListener("keydown", function (e) {
@@ -2446,6 +2458,8 @@ body.has-pages #stripGrip { display: block; }
     var key = { b: "bold", i: "italic", u: "under" }[String(e.key).toLowerCase()], n = selected();
     if (!key || !n || shapeOf(n) !== "text") return;
     e.preventDefault(); toggleType(key);
+    textAtFocus = e.target.value;   // the typing so far is in the step just taken, so Ctrl+Z undoes the style first, then the typing
+
   });
   // while either size slider is moved, the pen tip or the eraser ring shows in the middle of the image with its size
   $("penWidth").addEventListener("input", function (e) { state.pen.width = penFromSlider(parseFloat(e.target.value)); sliderPreview = "pen"; sync(); render(); });
@@ -3043,11 +3057,11 @@ body.has-pages #stripGrip { display: block; }
       status("Line width " + penLabel(state.pen.width) + tail);
     } else if (drag.what === "notes") {
       var ps = picked();
-      ps.forEach(function (n, k) { n.size = clamp(step5(drag.from[k] + dx / 100), 0.25, 4); });
+      ps.forEach(function (n, k) { var lo = sizeRange(n); n.size = clamp(step5(drag.from[k] + dx / 100), lo[0], lo[1]); });
       drag.changed = ps.some(function (n, k) { return n.size !== drag.from[k]; });
       status("Text size " + textLabel(ps[0]) + (ps.length > 1 ? " for " + ps.length + " notes" : "") + tail);
     } else {
-      drag.made.size = clamp(step5(drag.from + dx / 100), 0.25, 4);
+      var mr = sizeRange(drag.made); drag.made.size = clamp(step5(drag.from + dx / 100), mr[0], mr[1]);
       status("Text size " + textLabel(drag.made) + tail + " · let go to add the note");
     }
     sync(); render();
@@ -5897,7 +5911,7 @@ body.has-pages #stripGrip { display: block; }
     var tl = d.textStyle;
     if (tl && typeof tl === "object" && validColor(tl.color, "")) {
       var tt = typeOf(tl);
-      tt.vertical = tl.vertical === true; tt.color = validColor(tl.color, "red"); tt.size = num(tl.size, 0.1, 12, 1);
+      tt.vertical = tl.vertical === true; tt.color = validColor(tl.color, "red"); tt.size = num(tl.size, TEXT_SIZE[0], TEXT_SIZE[1], 1);
       state.textStyle = tt;
     }
     if (d.dim && typeof d.dim === "object") state.dim = { color: validColor(d.dim.color, "red"), size: num(d.dim.size, 0.25, 4, 1) };
