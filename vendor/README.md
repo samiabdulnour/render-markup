@@ -5,6 +5,6 @@ These files are copied unchanged from their npm packages so the site can open an
 | Folder | Package | Version | Licence |
 | --- | --- | --- | --- |
 | `pdfjs/` | [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist) (Mozilla PDF.js), `legacy/build` plus `standard_fonts`, `cmaps`, `iccs` and the image-decoder files from `wasm` | 6.5.438 | Apache-2.0; see `pdfjs/LICENSE` and the licence files inside `standard_fonts`, `cmaps`, `iccs` and `wasm` |
-| `pdf-lib/` | [pdf-lib](https://www.npmjs.com/package/pdf-lib), `dist/pdf-lib.min.js` | 1.17.1 | MIT; see `pdf-lib/LICENSE.md` |
+| `pdf-lib/` | [pdf-lib](https://www.npmjs.com/package/pdf-lib), `dist/pdf-lib.min.js` | 1.17.1 | MIT; see `pdf-lib/LICENSE.md`. The file also holds [pako](https://github.com/nodeca/pako) (MIT, `pdf-lib/LICENSE-pako.txt`), [UPNG.js](https://github.com/photopea/UPNG.js) (MIT, `pdf-lib/LICENSE-upng.txt`) and tslib (Apache-2.0, its notice kept at the top of the file) |
 
 To update one, install the new version with npm somewhere outside this repository and copy the same files over.
