@@ -3467,10 +3467,12 @@ body.has-pages #stripGrip { display: block; }
   // markup as it was is caught by the first snapshot taken after this (see snapshot), whatever the history's length.
   function guardTouch() {
     touchGuard = { before: null, future: future.slice(), typing: document.activeElement === $("noteText"),
-                   crop: cropping ? (cropping.r ? cropping.r.slice() : null) : null };
+                   crop: cropping ? (cropping.r ? cropping.r.slice() : null) : null,
+                   taking: taking, takePts: taking ? taking.pts.length : 0 };     // a take-off outline being drawn
   }
-  // take back what the first finger began: the markup, the selection and Redo as they were, and no drag
-  function takeBack() {
+  // take back what the first finger began: the markup, the selection and Redo as they were, a corner it added to a
+  // take-off outline (or the outline it started), and no drag
+  function touchTakeBack() {
     var g = touchGuard; touchGuard = null;
     focusGen++;                                               // a text box about to take the keyboard does not
     if (g && !g.typing && document.activeElement === $("noteText")) $("noteText").blur();
@@ -3480,6 +3482,10 @@ body.has-pages #stripGrip { display: block; }
     if (g && g.before) { var at = history.lastIndexOf(g.before); if (at >= 0) history.length = at; restore(g.before); }
     if (g) future = g.future;
     cancelActs(g);
+    if (g && taking) {
+      if (g.taking !== taking) takeCancel(true);
+      else if (taking.pts.length > g.takePts) { taking.pts.length = g.takePts; taking.last = null; taking.near = false; takeBar(); }
+    }
     setUndoButtons(); sync(); render();
   }
   // a crop frame, a redaction box or an Edit text drag the first finger had begun goes too
@@ -3585,7 +3591,7 @@ body.has-pages #stripGrip { display: block; }
       if (one) clearTimeout(one.hold);
       var long = drag && ((drag.part === "stroke" && !drag.stroke.shape) || drag.part === "erase");
       if (one && long && one.moved >= KEEP_STROKE_PX && now - one.t >= KEEP_STROKE_MS) { touchGuard = null; endDrag(false); }
-      else takeBack();
+      else touchTakeBack();
       startNav(now, t0, moved);
       return;
     }
@@ -3602,7 +3608,7 @@ body.has-pages #stripGrip { display: block; }
     if (!modal()) touchOne.hold = setTimeout(function () {
       if (!touchOne || touchOne.moved > HOLD_SLOP) return;
       var o = touchOne; touchOne = null;
-      takeBack();
+      touchTakeBack();
       holdMenu(o.x, o.y);
     }, HOLD_MS);
   }, true);
@@ -3637,7 +3643,7 @@ body.has-pages #stripGrip { display: block; }
       clearTimeout(touchOne.hold);
       var one = touchOne; touchOne = null;
       // the browser took the touch away: what it began goes, rather than staying half done
-      if (cancel) { e.stopImmediatePropagation(); takeBack(); return; }
+      if (cancel) { e.stopImmediatePropagation(); touchTakeBack(); return; }
       touchGuard = null;
       // typing a note when the finger went down and it did not go to a note's text: the keyboard goes away now
       if (one.typing) setTimeout(function () { if (focusGen === one.fg && document.activeElement === $("noteText")) canvas.focus({ preventScroll: true }); }, 0);
