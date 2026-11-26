@@ -345,6 +345,10 @@ p.credit a, .about a { color: inherit; }
 .about { display: flex; flex-direction: column; gap: 8px; text-transform: none; letter-spacing: normal; }
 .about p { margin: 0; }
 .credits { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.pro { display: flex; flex-direction: column; gap: 8px; }
+.pro p { margin: 0; text-transform: none; letter-spacing: normal; }
+.proacts { display: flex; gap: 8px; flex-wrap: wrap; }
+#proBuy[hidden], #proRemove[hidden], #proBox[hidden] { display: none; }
 .textstyle .seg { flex: 1; }
 #boldBtn { width: 44px; flex: none; justify-content: center; font-weight: 700; text-transform: none; }
 #boldBtn[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
@@ -783,6 +787,14 @@ body.has-pages #stripGrip { display: block; }
     </div>
     <details class="optsub" id="keysBox"><summary id="keysTitle">Shortcuts</summary>
     <div class="keysgrid" id="keysGrid"></div>
+    </details>
+    <details class="optsub" id="proBox" hidden><summary>Pro</summary>
+    <div class="pro">
+      <p id="proState"></p>
+      <label for="proKey">Licence key<input id="proKey" class="entry" type="text" autocomplete="off" spellcheck="false" placeholder="RMPRO-…"></label>
+      <div class="proacts"><button id="proUnlock" class="primary">Unlock</button><button id="proRemove">Remove key</button><a id="proBuy" class="btn" target="_blank" rel="noopener">Buy Pro</a></div>
+      <p class="note">Sold through Polar, which takes the payment and handles VAT. The key is checked with Polar once a session; nothing else about you is kept.</p>
+    </div>
     </details>
     <details class="optsub" id="aboutBox"><summary>About</summary>
     <div class="about">
@@ -6225,6 +6237,68 @@ body.has-pages #stripGrip { display: block; }
   // of the next note (colour, shape, size, orientation), the dimension colour, size and units, the scale, Show line length and the typeface are kept in this browser, so the
   // next visit starts where this one left off. It always opens on Draw. Images, PDFs and notes are never stored.
   // Where the browser keeps nothing (a private window, blocked site data), the page simply starts afresh.
+  // ---------- Pro ----------
+  // Pro is unlocked with a licence key bought through Polar, the merchant of record (it takes the payment, handles
+  // VAT and sends the key). The key is checked with Polar from the browser once a session (no key of ours is needed:
+  // the check is a public one), and kept in this browser with when it last checked out; without a connection, a good
+  // check stands for a fortnight. Nothing else Polar says about the buyer is kept. The code is open, so this is a
+  // receipt, not a lock.
+  var PRO_SHOP = { org: "", checkout: "", api: "https://api.polar.sh" };   // the shop's organisation id and checkout link
+  var PRO_STORE = "render-markup.pro", PRO_GRACE = 14 * 864e5;
+  var pro = { key: "", ok: false, at: 0, live: false, busy: false, said: "" };
+  var PRO_FEATURES = [];        // what Pro unlocks: the Pro section shows once there is something in it
+  function shopOpen() { return !!PRO_SHOP.org; }
+  function isPro() { return pro.ok && (pro.live || Date.now() - pro.at < PRO_GRACE); }
+  function loadPro() {
+    try {
+      var d = JSON.parse(localStorage.getItem(PRO_STORE) || "null");
+      if (d && typeof d.key === "string" && d.key.length < 200) { pro.key = d.key; pro.ok = d.ok === true; pro.at = typeof d.at === "number" ? d.at : 0; }
+    } catch (err) { /* nothing kept */ }
+  }
+  function savePro() {
+    try { if (pro.key) localStorage.setItem(PRO_STORE, JSON.stringify({ key: pro.key, ok: pro.ok, at: pro.at })); else localStorage.removeItem(PRO_STORE); }
+    catch (err) { /* not kept: fine */ }
+  }
+  // Polar's answer about a key: "ok", "no" (unknown, revoked, or its subscription ended) or "offline" (no answer)
+  function checkKey(key) {
+    if (!shopOpen()) return Promise.resolve("closed");
+    return fetch(PRO_SHOP.api + "/v1/customer-portal/license-keys/validate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key, organization_id: PRO_SHOP.org })
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        if (r.ok) return d && d.status === "granted" ? "ok" : "no";
+        return r.status === 404 && d && d.error === "ResourceNotFound" ? "no" : "offline";
+      }, function () { return "offline"; });
+    }, function () { return "offline"; });
+  }
+  function applyCheck(r) {
+    if (r === "ok") { pro.ok = true; pro.at = Date.now(); pro.live = true; pro.said = "Pro is on. Thank you."; }
+    else if (r === "no") { pro.ok = false; pro.live = false; pro.said = "Polar does not know this key, or its subscription has ended."; }
+    else if (r === "offline") pro.said = isPro() ? "Pro is on (no connection to Polar just now)." : "Polar could not be reached. Try again in a moment.";
+    savePro(); syncPro();
+  }
+  function syncPro() {
+    $("proBox").hidden = !PRO_FEATURES.length;
+    $("proState").textContent = pro.said || (isPro() ? "Pro is on." : !shopOpen() ? "Pro opens soon." : "Pro is off: unlock it with your licence key.");
+    if (document.activeElement !== $("proKey")) $("proKey").value = pro.key;
+    $("proUnlock").disabled = pro.busy || !shopOpen();
+    $("proRemove").hidden = !pro.key;
+    $("proBuy").hidden = !PRO_SHOP.checkout;
+    if (PRO_SHOP.checkout) $("proBuy").href = PRO_SHOP.checkout;
+  }
+  $("proUnlock").addEventListener("click", function () {
+    var key = $("proKey").value.trim();
+    if (!key) { pro.said = "Paste the licence key from your Polar receipt."; syncPro(); return; }
+    pro.key = key; pro.busy = true; pro.said = "Checking with Polar…"; syncPro();
+    checkKey(key).then(function (r) { pro.busy = false; applyCheck(r); if (pro.ok) status("Pro is on."); });
+  });
+  $("proKey").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("proUnlock").click(); } });
+  $("proRemove").addEventListener("click", function () { pro = { key: "", ok: false, at: 0, live: false, busy: false, said: "The key is removed from this browser." }; savePro(); syncPro(); });
+  loadPro();
+  syncPro();
+  if (pro.key) checkKey(pro.key).then(function (r) { pro.said = ""; applyCheck(r); if (r !== "no") pro.said = ""; syncPro(); });
+
   var SETTINGS_KEY = "render-markup.settings", savedSettings = null;
   function saveSettings() {
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
