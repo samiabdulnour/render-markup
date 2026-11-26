@@ -9,10 +9,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Mono:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Sans+Condensed:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
 <style>
-/* osifont: the free ISO 3098 lettering that stands in for ISOCPEUR where AutoCAD's is not installed */
-@font-face { font-family: "osifont"; src: url("fonts/osifont-lgpl3fe.ttf") format("truetype"); font-display: swap; }
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
 
    The look is Loriini's (samiabdulnour/loriini, app/theme.py and scripts/make_icons.py): a light grey surround,
@@ -41,9 +39,9 @@
   --accent: #d9442e;        /* marks on the image (the selected note), the drop outline */
   --stage: #dedede;
   /* the whole interface is in Arial (the note typefaces are separate, chosen under All notes) */
-  --font-display: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  --font-body: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  --font-mono: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-display: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-body: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-mono: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
   /* the on/off switch, in Loriini's colours: grey off, ink with a pale lemon knob on */
   --fs: 14px;               /* the one size of the interface's text */
   --switch-off: #cdcdcd; --switch-off-knob: #ffffff; --switch-on: #000000; --switch-on-knob: #fff07a;
@@ -695,12 +693,11 @@ body.has-pages #stripGrip { display: block; }
       <h2>All notes</h2>
       <label for="font">Typeface
         <select id="font">
-          <option value="arial">Arial</option>
-          <option value="narrow">Arial Narrow</option>
-          <option value="verdana">Verdana</option>
+          <option value="arimo">Arimo</option>
           <option value="opensans">Open Sans</option>
-          <option value="menlo">Menlo</option>
-          <option value="isocpeur">ISOCPEUR</option>
+          <option value="condensed">IBM Plex Sans Condensed</option>
+          <option value="roboto">Roboto</option>
+          <option value="mono">IBM Plex Mono</option>
         </select>
       </label>
       <div class="textstyle">
@@ -800,22 +797,20 @@ body.has-pages #stripGrip { display: block; }
 <script>
 (function () {
   "use strict";
-  // The typefaces notes and lengths can be set in: five usual ones, Arial first and by default. Each is the
-  // computer's own where it has it (Menlo on a Mac, Consolas, its like, on Windows); Open Sans comes from
-  // Google Fonts, and a computer without Arial Narrow or a mono gets a web copy of one like it. Bold and the case are switches of their own, for every note.
+  // The typefaces notes, texts and lengths can be set in: open fonts only (SIL Open Font License, or Apache for
+  // Arimo), each from Google Fonts, so every computer sets the words alike. Arimo, with Arial's widths, first and by
+  // default. Bold and the case of the notes are switches of their own.
   var FONTS = {
-    arial:   { family: 'Arial, "Helvetica Neue", Helvetica, sans-serif' },
-    narrow:  { family: '"Arial Narrow", "IBM Plex Sans Condensed", Arial, sans-serif' },
-    verdana: { family: 'Verdana, "DejaVu Sans", Geneva, sans-serif' },
-    opensans: { family: '"Open Sans", Arial, sans-serif' },
-    menlo:   { family: 'Menlo, Consolas, "DejaVu Sans Mono", "IBM Plex Mono", monospace' },
-    // the ISO 3098 lettering of CAD drawings: AutoCAD's own where it is installed, otherwise osifont, served
-    // with the page (fonts/README.md)
-    isocpeur: { family: 'ISOCPEUR, isocpeur, osifont, "Arial Narrow", sans-serif' }
+    arimo:     { family: '"Arimo", sans-serif' },
+    opensans:  { family: '"Open Sans", sans-serif' },
+    condensed: { family: '"IBM Plex Sans Condensed", sans-serif' },
+    roboto:    { family: '"Roboto", sans-serif' },
+    mono:      { family: '"IBM Plex Mono", monospace' }
   };
-  // the typefaces offered before, and what each is now
-  var OLD_FONTS = { arialBold: ["arial", true], cond: ["narrow", false], condBold: ["narrow", true], mono: ["menlo", false],
-                    monoBold: ["menlo", true], hand: ["arial", false], times: ["opensans", false] };
+  // the typefaces offered before, each as the open face nearest it now (and whether it was the bold)
+  var OLD_FONTS = { arial: ["arimo", false], narrow: ["condensed", false], verdana: ["opensans", false], menlo: ["mono", false], isocpeur: ["condensed", false],
+                    arialBold: ["arimo", true], cond: ["condensed", false], condBold: ["condensed", true], mono: ["mono", false],
+                    monoBold: ["mono", true], hand: ["arimo", false], times: ["opensans", false] };
   var COLORS = {
     black: { name: "Black", fill: "#111214", ink: "#ffffff", halo: "rgba(255,255,255,0.45)" },
     white: { name: "White", fill: "#ffffff", ink: "#111214", halo: "rgba(0,0,0,0.35)" },
@@ -860,7 +855,7 @@ body.has-pages #stripGrip { display: block; }
     text:   { name: "Text",    title: "Text: the words alone, with no shape round them", icon: '<path d="M5 1.5h12v2.4h-4.7V11H9.7V3.9H5z"/>' }
   };
   function shapeOf(n) { return SHAPES[n.shape] ? n.shape : "pill"; }
-  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], edits: [], pg: null, sel: -1, picks: [], font: "arial", bold: false, caps: "", style: null,
+  var state = { img: null, blank: false, w: 0, h: 0, name: "markup", notes: [], strokes: [], pics: [], edits: [], pg: null, sel: -1, picks: [], font: "arimo", bold: false, caps: "", style: null,
                 tool: "draw", pen: { color: "red", width: 1, hi: false, tip: "round" }, eraser: 50, nextId: 1,
                 // scale: real millimetres per image pixel, for this image or page (null until it is set)
                 // dpi: how many pixels of an image make an inch on paper, which turns a scale such as 1:100 into lengths
@@ -944,7 +939,7 @@ body.has-pages #stripGrip { display: block; }
   function own(o, k) { return typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k); }
   function typeOf(n) {
     var fin = function (v, lo, hi, d) { return typeof v === "number" && isFinite(v) ? clamp(v, lo, hi) : d; };
-    return { font: own(FONTS, n.font) ? n.font : state.font, bold: typeof n.bold === "boolean" ? n.bold : !!state.bold,
+    return { font: own(FONTS, n.font) ? n.font : own(OLD_FONTS, n.font) ? OLD_FONTS[n.font][0] : state.font, bold: typeof n.bold === "boolean" ? n.bold : !!state.bold,
              italic: n.italic === true, under: n.under === true, strike: n.strike === true,
              caps: n.caps === "" || n.caps === "upper" || n.caps === "lower" ? n.caps : state.caps,
              align: n.align === "center" || n.align === "right" ? n.align : "left",
@@ -2133,6 +2128,7 @@ body.has-pages #stripGrip { display: block; }
   // the same either way. A finger or a stylus has no other buttons, so for those it also says what a touch does.
   var COARSE = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   function setTool(t) {
+    backTool = null;                   // a tool chosen is the left button's tool from now on
     state.tool = t;
     if (t !== "move") picSel = null;   // a picture is picked up and resized with Move
     $("toolMove").setAttribute("aria-pressed", String(t === "move"));
@@ -2171,7 +2167,15 @@ body.has-pages #stripGrip { display: block; }
     render();
   }
   // show the settings for what is being used, without touching anything else
-  function showPanel(t) { if (state.tool !== t) setTool(t); }
+  // A note made or picked up (with the right button, or with the left while another tool is on) brings up the
+  // Notes panel; the left button then goes back to the tool it had, the next time it is used off a note.
+  var backTool = null;
+  function showPanel(t) {
+    if (state.tool === t) return;
+    var was = state.tool, keep = backTool;
+    setTool(t);
+    if (t === "note" || t === "text") backTool = keep || was;
+  }
   function panelOf(n) { return n && shapeOf(n) === "text" ? "text" : "note"; }     // a text is shown in the Text panel
 
   // ---------- sidebar ----------
@@ -2880,6 +2884,12 @@ body.has-pages #stripGrip { display: block; }
     if (!state.img) return;
     var rightBtn = isRightButton(e), wheelBtn = !rightBtn && e.button === 1, penEraser = e.button === 5;
     if (!rightBtn && !wheelBtn && !penEraser && e.button !== 0) return;
+    // the left button off a note, after a note was made or picked up: the tool it was using before, as the pen
+    // and the highlighter always were
+    if (backTool && e.button === 0 && !rightBtn && !spaceDown && !wheelOpen && (state.tool === "note" || state.tool === "text")) {
+      var bp = toImg(e);
+      if (!hit(bp) && !textHandle(bp, e.pointerType === "touch")) setTool(backTool);
+    }
     // a mouse's left button always draws; a finger or a stylus does what the Draw / Notes switch says
     var byTouch = e.pointerType === "touch" || e.pointerType === "pen";
     // With the tool wheel (Wheel button erases off) a mouse works by tool too: with Notes it places notes.
@@ -6144,10 +6154,10 @@ body.has-pages #stripGrip { display: block; }
       // not "text": a text's look was kept here once, and the next note would have come out as a text
       state.style = { vertical: st.vertical === true, color: validColor(st.color, "red"), shape: SHAPES[st.shape] && st.shape !== "text" ? st.shape : "pill", size: num(st.size, 0.25, 4, 1), outline: st.outline === true, end: st.end === "arrow" ? "arrow" : "" };
     }
-    // Arial is the default since version 3: the old default (Condensed sans) saved before then is not held to
+    // Arial (Arimo now) is the default since version 3: the old default (Condensed sans) saved before then is not held to
     if (d.font === "cond" && !(d.v >= 3)) { /* a condensed face saved before Arial was the default: Arial */ }
-    else if (OLD_FONTS[d.font]) { state.font = OLD_FONTS[d.font][0]; state.bold = OLD_FONTS[d.font][1]; }
-    else if (FONTS[d.font]) state.font = d.font;
+    else if (own(OLD_FONTS, d.font)) { state.font = OLD_FONTS[d.font][0]; state.bold = OLD_FONTS[d.font][1]; }
+    else if (own(FONTS, d.font)) state.font = d.font;
     if (typeof d.bold === "boolean") state.bold = d.bold;
     if (d.caps === "" || d.caps === "upper" || d.caps === "lower") state.caps = d.caps;
     $("font").value = state.font;
