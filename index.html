@@ -454,6 +454,7 @@ body.has-pages #stripGrip { display: block; }
   <input type="file" id="addFile" accept="image/*,application/pdf,.pdf">
   <input type="file" id="pagesFile" accept="image/*,application/pdf,.pdf" multiple hidden>
   <input type="file" id="cmpFile" accept="image/*,application/pdf,.pdf" hidden>
+  <button id="editBtn" aria-haspopup="menu" title="Edit the PDF: its text, a form, its pages; compare with another version">Edit ▾</button>
   <button id="undo" title="Undo (Ctrl/Cmd+Z)">Undo</button>
   <button id="export" class="primary" title="Save as PNG, JPG or PDF (Ctrl/Cmd+S)">Export</button>
 </header>
@@ -2077,6 +2078,7 @@ body.has-pages #stripGrip { display: block; }
     $("undo").disabled = history.length === 0;
     $("clearDraw").disabled = state.strokes.length === 0;
     $("grammar").disabled = state.notes.length === 0;
+    $("editBtn").disabled = !state.img;
     if (doc) markPage(doc.cur);
     $("export").disabled = !state.img;
     saveSettings();
@@ -3040,12 +3042,6 @@ body.has-pages #stripGrip { display: block; }
       add(menuItem("Export…", "Ctrl+S", function () { $("export").click(); }, { disabled: !state.img }));
       add(menuItem(doc ? "Save this page as an image" : "Save image", "", savePng, { disabled: !state.img }));
       add(menuItem("Copy to clipboard", "Ctrl+C", copyImage, { disabled: !state.img }));
-      rule();
-      // the page tools are the page's own menu, as in the page strip
-      if (canEditText()) add(menuItem("Edit text…", "", startEditText));
-      add(menuItem("Page", "▸", function () { openPageMenu(doc ? doc.cur : null, cx, cy); }, { disabled: !state.img }));
-      add(menuItem("Compare with…", "", startCompare, { disabled: !state.img }));
-      if (doc && doc.sources.some(function (src) { return src.fields; })) add(menuItem("Fill in form…", "", openForm));
     }
     showMenuAt(cx, cy);
   }
@@ -3061,6 +3057,7 @@ body.has-pages #stripGrip { display: block; }
   }
   function closeMenu() {
     var m = $("menu");
+    editMenuOpen = false;
     if (m.hidden) return;
     var hadFocus = m.contains(document.activeElement);
     m.hidden = true; m.innerHTML = "";
@@ -3291,7 +3288,8 @@ body.has-pages #stripGrip { display: block; }
         return lib.getDocument({
           data: bytes.slice(),          // PDF.js takes this copy over; the original is kept for the export
           standardFontDataUrl: VENDOR + "pdfjs/standard_fonts/", cMapUrl: VENDOR + "pdfjs/cmaps/", cMapPacked: true,
-          iccUrl: VENDOR + "pdfjs/iccs/", wasmUrl: VENDOR + "pdfjs/wasm/", disableWorkerRendering: true
+          iccUrl: VENDOR + "pdfjs/iccs/", wasmUrl: VENDOR + "pdfjs/wasm/", disableWorkerRendering: true,
+          fontExtraProperties: true     // each font's own name, so Edit text can find it in the PDF and write with it
         }).promise;
       }).then(function (pdf) {
         var jobs = [];
@@ -3508,6 +3506,35 @@ body.has-pages #stripGrip { display: block; }
     m.appendChild(menuItem("Delete page", "", function () { deletePage(at); }, { danger: true, disabled: n < 2 }));
     showMenuAt(cx, cy);
   }
+  // Edit, in the header: the PDF's text and form, the page on screen, and comparing with another version
+  var editMenuOpen = false, editWasOpen = false;
+  function openEditMenu() {
+    if (!state.img) return;
+    var m = $("menu"), i = doc ? doc.cur : null, pg = doc ? doc.pages[doc.cur] : null, n = doc ? doc.pages.length : 1;
+    var add = function (el) { m.appendChild(el); }, hr = function () { add(document.createElement("hr")); };
+    m.innerHTML = "";
+    if (canEditText()) add(menuItem("Edit text…", "", startEditText));
+    if (doc && doc.sources.some(function (src) { return src.fields; })) add(menuItem("Fill in form…", "", openForm));
+    if (m.children.length) hr();
+    add(menuItem("Rotate right", "", function () { turnPage(i, 1); }));
+    add(menuItem("Rotate left", "", function () { turnPage(i, -1); }));
+    add(menuItem(pg && pg.crop ? "Crop again…" : "Crop page…", "", startCrop));
+    if (pg && pg.crop) add(menuItem("Remove crop", "", function () { uncrop(i); }));
+    add(menuItem("Redact…", "", startRedact));
+    if (pg && redacted(pg)) add(menuItem("Remove redactions", "", function () { unredact(i); }));
+    hr();
+    add(menuItem("Add pages…", "", function () { pickPages(i); }));
+    add(menuItem("Duplicate page", "", function () { duplicatePage(i); }));
+    add(menuItem("Delete page", "", function () { deletePage(doc.cur); }, { danger: true, disabled: n < 2 }));
+    hr();
+    add(menuItem("Compare with…", "", startCompare));
+    var r = $("editBtn").getBoundingClientRect();
+    showMenuAt(r.left, r.bottom + 4);
+    editMenuOpen = true;
+  }
+  // a second click on Edit closes its menu
+  $("editBtn").addEventListener("pointerdown", function () { editWasOpen = editMenuOpen && !$("menu").hidden; });
+  $("editBtn").addEventListener("click", function () { if (editWasOpen) { editWasOpen = false; closeMenu(); return; } openEditMenu(); });
   // A copy of a page, turned and cropped as it is, with a copy of its markup, put in after it.
   function duplicatePage(i) {
     ensureDoc();
@@ -3914,24 +3941,30 @@ body.has-pages #stripGrip { display: block; }
   function paintEdits(c, only) {
     var pg = state.pg;
     if (!pg || !pg.proxy || !state.edits || !state.edits.length) return;
-    var vp = pageViewport(pg);
-    state.edits.forEach(function (ed) {
-      if (only && !only(ed)) return;
+    var vp = pageViewport(pg), sig = pfSig(state.edits), pre = sig && pg.pfPrev && pg.pfPrev.sig === sig && pg.pfPrev.gen === pg.gen ? pg.pfPrev.canvas : null;
+    if (sig && !pre && pg === (doc && doc.pages[doc.cur])) pfPreview(pg, state.edits);
+    var mine = state.edits.filter(function (ed) { return !only || only(ed); });
+    mine.forEach(function (ed) {
+      if (!ed.cover) return;
+      var q = coverQuad(ed.cover).map(function (p) { return vp.convertToViewportPoint(p[0], p[1]); });
       c.save();
-      if (ed.cover) {
-        var q = coverQuad(ed.cover).map(function (p) { return vp.convertToViewportPoint(p[0], p[1]); });
-        c.beginPath(); c.moveTo(q[0][0], q[0][1]); for (var i = 1; i < 4; i++) c.lineTo(q[i][0], q[i][1]); c.closePath();
-        c.fillStyle = ed.bg || "#ffffff"; c.fill();
-      }
-      if (ed.text) {
-        var o = vp.convertToViewportPoint(ed.x, ed.y), o2 = vp.convertToViewportPoint(ed.x + Math.cos(ed.angle || 0), ed.y + Math.sin(ed.angle || 0));
-        c.translate(o[0], o[1]); c.rotate(Math.atan2(o2[1] - o[1], o2[0] - o[0]));
-        c.font = editFont(ed, ed.size * Math.hypot(o2[0] - o[0], o2[1] - o[1]));
-        c.fillStyle = ed.color || "#111214"; c.textBaseline = "alphabetic";
-        c.fillText(ed.text, 0, 0);
-      }
+      c.beginPath(); c.moveTo(q[0][0], q[0][1]); for (var i = 1; i < 4; i++) c.lineTo(q[i][0], q[i][1]); c.closePath();
+      c.fillStyle = ed.bg || "#ffffff"; c.fill();
       c.restore();
     });
+    var anyPf = false;
+    mine.forEach(function (ed) {
+      if (!ed.text) return;
+      if (ed.pf && pre) { anyPf = true; return; }        // drawn by PDF.js, below
+      var o = vp.convertToViewportPoint(ed.x, ed.y), o2 = vp.convertToViewportPoint(ed.x + Math.cos(ed.angle || 0), ed.y + Math.sin(ed.angle || 0));
+      c.save();
+      c.translate(o[0], o[1]); c.rotate(Math.atan2(o2[1] - o[1], o2[0] - o[0]));
+      c.font = editFont(ed, ed.size * Math.hypot(o2[0] - o[0], o2[1] - o[1]));
+      c.fillStyle = ed.color || "#111214"; c.textBaseline = "alphabetic";
+      c.fillText(ed.text, 0, 0);
+      c.restore();
+    });
+    if (anyPf) c.drawImage(pre, 0, 0, pg.w, pg.h);
   }
   // The words on a PDF page, as PDF.js reads them: each run with where it starts, its size, angle, width and face
   function pageText(pg) {
@@ -3946,8 +3979,9 @@ body.has-pages #stripGrip { display: block; }
         var fam = /mono/i.test(st.fontFamily || "") ? "mono" : /^serif/i.test(st.fontFamily || "") ? "serif" : "sans", f = null;
         try { if (pg.proxy.commonObjs.has(it.fontName)) f = pg.proxy.commonObjs.get(it.fontName); } catch (e) { f = null; }
         var name = (f && (f.name || f.loadedName)) || "";
-        if (/Courier|Mono|Consol/i.test(name)) fam = "mono"; else if (/Times|Georgia|Garamond|Serif/i.test(name) && !/Sans/i.test(name)) fam = "serif";
-        items.push({ i: i, str: it.str, x: tr[4], y: tr[5], size: sy, angle: Math.atan2(tr[1], tr[0]), width: it.width || sx * it.str.length * 0.5,
+        if (/Courier|Mono|Consol/i.test(name) || (f && f.isMonospace)) fam = "mono";
+        else if (((f && f.isSerifFont) || /Times|Georgia|Garamond|Cambria|Caladea|Palatino|Book ?Antiqua|Minion|Serif/i.test(name)) && !/Sans/i.test(name)) fam = "serif";
+        items.push({ i: i, str: it.str, font: it.fontName, x: tr[4], y: tr[5], size: sy, angle: Math.atan2(tr[1], tr[0]), width: it.width || sx * it.str.length * 0.5,
                      asc: st.ascent || 0.8, desc: st.descent || -0.2, family: fam,
                      bold: !!(f && (f.bold || f.black)) || /Bold|Black|Heavy|Semibold|Demi/i.test(name), italic: !!(f && f.italic) || /Italic|Oblique/i.test(name) });
       });
@@ -3993,6 +4027,129 @@ body.has-pages #stripGrip { display: block; }
     if (inkPx.length) out.ink = hex([med(inkPx, 0), med(inkPx, 1), med(inkPx, 2)]);
     return out;
   }
+  // The fonts of a PDF page as the PDF has them: for each, its name on the page (its resource), how long its
+  // character codes are, and which code writes each letter (from its ToUnicode map, or WinAnsi for a simple font
+  // without one). Matched to PDF.js's fonts by name, this lets changed words be written in the PDF's own font.
+  var WIN_ANSI_HIGH = [0x20AC, 0, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017D, 0,
+                       0, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0, 0x017E, 0x0178];
+  function baseName(n) { return String(n || "").replace(/^\/?/, "").replace(/^[A-Z]{6}\+/, ""); }
+  function parseToUnicode(text) {
+    var map = new Map(), len = 1, cs = /begincodespacerange\s*<([0-9a-fA-F]+)>/.exec(text);
+    if (cs) len = Math.max(1, cs[1].length >> 1);
+    var str = function (h) { var t = ""; for (var i = 0; i + 4 <= h.length; i += 4) t += String.fromCharCode(parseInt(h.substr(i, 4), 16)); if (h.length === 2) t = String.fromCharCode(parseInt(h, 16)); return t; };
+    text.replace(/beginbfchar([\s\S]*?)endbfchar/g, function (_, body) {
+      body.replace(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]*)>/g, function (__, a, b) { map.set(parseInt(a, 16), str(b)); if (!cs) len = Math.max(1, a.length >> 1); return ""; });
+      return "";
+    });
+    text.replace(/beginbfrange([\s\S]*?)endbfrange/g, function (_, body) {
+      body.replace(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*(?:<([0-9a-fA-F]*)>|\[([^\]]*)\])/g, function (__, lo, hi, dst, arr) {
+        var a = parseInt(lo, 16), b = parseInt(hi, 16), k;
+        if (arr != null) { var list = arr.match(/<[0-9a-fA-F]*>/g) || []; for (k = 0; k <= b - a && k < list.length; k++) map.set(a + k, str(list[k].slice(1, -1))); }
+        else { var base = str(dst), last = base.charCodeAt(base.length - 1); for (k = 0; k <= b - a && k < 65536; k++) map.set(a + k, base.slice(0, -1) + String.fromCharCode(last + k)); }
+        return "";
+      });
+      return "";
+    });
+    return { map: map, len: len };
+  }
+  function pageFonts(pg) {
+    if (pg.fontsInfo) return pg.fontsInfo;
+    var src = pg.source;
+    pg.fontsInfo = pdfLib().then(function (L) {
+      if (!src.libDoc) src.libDoc = L.PDFDocument.load(src.bytes, { updateMetadata: false });
+      return src.libDoc.then(function (ld) {
+        var out = [], N = function (n) { return L.PDFName.of(n); };
+        var res = ld.getPage(pg.n - 1).node.Resources(), fonts = res && res.lookup(N("Font"));
+        if (!fonts || !fonts.entries) return out;
+        fonts.entries().forEach(function (kv) {
+          try {
+            var key = kv[0].asString().replace(/^\//, ""), fd = fonts.lookup(kv[0]);
+            if (!fd || !fd.lookup) return;
+            var sub = fd.lookup(N("Subtype")), two = sub === N("Type0"), rev = new Map(), tu = fd.lookup(N("ToUnicode")), widths = null, first = 0;
+            if (tu && tu.contents) {
+              var raw = tu instanceof L.PDFRawStream ? L.decodePDFRawStream(tu).decode() : tu.getContents ? tu.getContents() : tu.contents;
+              var cm = parseToUnicode(new TextDecoder("latin1").decode(raw));
+              if (two && cm.len !== 2) return;
+              if (!two && cm.len !== 1) return;
+              cm.map.forEach(function (u, code) { if (u.length === 1 && !rev.has(u)) rev.set(u, code); });
+            } else if (!two && fd.lookup(N("Encoding")) === N("WinAnsiEncoding")) {
+              for (var c = 32; c < 256; c++) { var u = c >= 0x80 && c < 0xA0 ? WIN_ANSI_HIGH[c - 0x80] : c; if (u && c !== 127) rev.set(String.fromCharCode(u), c); }
+            } else return;
+            if (!two) {
+              // an embedded simple font has only the glyphs it was given widths for
+              var wa = fd.lookup(N("Widths")), fc = fd.lookup(N("FirstChar")), desc = fd.lookup(N("FontDescriptor"));
+              var embedded = desc && desc.lookup && (desc.lookup(N("FontFile")) || desc.lookup(N("FontFile2")) || desc.lookup(N("FontFile3")));
+              if (embedded && wa && wa.asArray) { widths = wa.asArray().map(function (w) { return w.asNumber ? w.asNumber() : 0; }); first = fc && fc.asNumber ? fc.asNumber() : 0; }
+            }
+            out.push({ key: key, base: baseName(fd.lookup(N("BaseFont")) && fd.lookup(N("BaseFont")).asString()), two: two, rev: rev, widths: widths, first: first });
+          } catch (e) { /* a font that cannot be read is written over in a standard face */ }
+        });
+        return out;
+      });
+    }).catch(function () { return []; });
+    return pg.fontsInfo;
+  }
+  // How some words are written in a run's own font: the codes for the PDF. Null if a letter is not in that font as
+  // the PDF has it (it usually holds only the letters it uses). Of the page's fonts with the run's font name, the
+  // one used is one that has all the letters the run had.
+  function inPdfFont(pg, fontId, was, text, fonts) {
+    if (!fontId || !text || !fonts || !fonts.length || !pg.proxy) return null;
+    var fo = null;
+    try { if (pg.proxy.commonObjs.has(fontId)) fo = pg.proxy.commonObjs.get(fontId); } catch (e) { fo = null; }
+    if (!fo || fo.missingFile) return null;
+    var want = baseName(fo.name), has = function (f, t) {
+      for (var i = 0; i < t.length; i++) { var code = f.rev.get(t[i]); if (code == null || (f.widths && !(f.widths[code - f.first] > 0))) return false; }
+      return true;
+    };
+    var f = null;
+    fonts.forEach(function (x) { if (!f && x.base === want && has(x, was || "") && has(x, text)) f = x; });
+    if (!f) return null;
+    var hex = "";
+    for (var i = 0; i < text.length; i++) hex += ("000" + f.rev.get(text[i]).toString(16)).slice(f.two ? -4 : -2);
+    return { key: f.key, base: f.base, hex: hex };
+  }
+  // On screen, words in the PDF's own fonts are drawn by PDF.js itself, as the page is: a page of their own, made
+  // with those fonts (copied from the PDF) and the words alone, drawn see-through over the page. One a page,
+  // made again when its words change.
+  function pfSig(edits) { var a = (edits || []).filter(function (e) { return e.pf && e.text; }).map(function (e) { return [e.pf.key, e.pf.hex, e.x, e.y, e.size, e.angle || 0, e.color]; }); return a.length ? JSON.stringify(a) : ""; }
+  function pfPreview(pg, edits) {
+    var sig = pfSig(edits);
+    if (!sig || !pg.proxy) return Promise.resolve(null);
+    if (pg.pfPrev && pg.pfPrev.sig === sig && pg.pfPrev.gen === pg.gen) return pg.pfPrev.promise;
+    var src = pg.source, eds = edits.filter(function (e) { return e.pf && e.text; });
+    var promise = Promise.all([pdfLib(), pdfjs()]).then(function (r) {
+      var L = r[0], lib = r[1], N = function (n) { return L.PDFName.of(n); };
+      if (!src.libDoc) src.libDoc = L.PDFDocument.load(src.bytes, { updateMetadata: false });
+      return src.libDoc.then(function (ld) {
+        return L.PDFDocument.create().then(function (out) {
+          var sp = ld.getPage(pg.n - 1), fonts = sp.node.Resources().lookup(N("Font")), copier = L.PDFObjectCopier.for(ld.context, out.context), fd = out.context.obj({});
+          eds.forEach(function (e) { if (!fd.get(N(e.pf.key))) fd.set(N(e.pf.key), copier.copy(fonts.get(N(e.pf.key)))); });
+          var mb = sp.getMediaBox(), cb = sp.getCropBox(), page = out.addPage([mb.width, mb.height]);
+          page.setMediaBox(mb.x, mb.y, mb.width, mb.height); page.setCropBox(cb.x, cb.y, cb.width, cb.height); page.setRotation(sp.getRotation());
+          page.node.set(N("Resources"), out.context.obj({ Font: fd }));
+          eds.forEach(function (e) {
+            page.pushOperators(L.pushGraphicsState(), L.beginText(), L.setFontAndSize(e.pf.key, e.size),
+              L.rotateAndSkewTextRadiansAndTranslate(e.angle || 0, 0, 0, e.x, e.y), L.setFillingColor(hexRgb(L, e.color || "#111214")),
+              L.showText(L.PDFHexString.of(e.pf.hex)), L.endText(), L.popGraphicsState());
+          });
+          return out.save();
+        });
+      }).then(function (bytes) {
+        return lib.getDocument({ data: bytes, standardFontDataUrl: VENDOR + "pdfjs/standard_fonts/", cMapUrl: VENDOR + "pdfjs/cmaps/", cMapPacked: true, disableWorkerRendering: true }).promise;
+      }).then(function (pdf) {
+        return pdf.getPage(1).then(function (proxy) {
+          var t = turnedCrop(pg), k = pg.k, c = document.createElement("canvas");
+          c.width = pg.w; c.height = pg.h;
+          var vp = proxy.getViewport({ scale: k, rotation: ((proxy.rotate || 0) + pg.rot) % 360, offsetX: -t.x * k, offsetY: -t.y * k });
+          return proxy.render({ canvas: c, viewport: vp, background: "rgba(0,0,0,0)" }).promise.then(function () { pdf.destroy(); return c; });
+        });
+      });
+    }).catch(function () { return null; });
+    pg.pfPrev = { sig: sig, gen: pg.gen, promise: promise, canvas: null };
+    var mine = pg.pfPrev;
+    promise.then(function (c) { mine.canvas = c; if (c && doc && doc.pages[doc.cur] === pg) render(); });
+    return promise;
+  }
   function canEditText() { return !!(doc && doc.pages[doc.cur] && doc.pages[doc.cur].proxy); }
   function startEditText() {
     if (!canEditText()) { status("Edit text works on a PDF's pages."); return; }
@@ -4003,9 +4160,10 @@ body.has-pages #stripGrip { display: block; }
     if (comparing) endCompare();
     var pg = doc.pages[doc.cur];
     status("Reading the words on this page…");
-    renderPage(pg).then(function () { return pageText(pg); }).then(function (items) {
+    renderPage(pg).then(function () { return Promise.all([pageText(pg), pageFonts(pg)]); }).then(function (r) {
+      var items = r[0];
       if (!doc || doc.pages[doc.cur] !== pg) return;
-      editing = { pg: pg, items: items, act: null, hover: null, open: null };
+      editing = { pg: pg, items: items, fonts: r[1], act: null, hover: null, open: null };
       $("editBar").hidden = false;
       render();
       status(items.length ? "Edit text: click words to change them (empty deletes them), click a clear spot to add words, or drag over an area to white it out. Each change can be undone." : "This page has no words PDF.js can read (it may be a scan): click to add words, or drag to white out an area.");
@@ -4066,13 +4224,15 @@ body.has-pages #stripGrip { display: block; }
     if (t && t.edit) { ed = t.edit; box = editBox(vp, ed); }
     else if (t && t.item) {
       var it = t.item, cols = sampleColours(pg, t.box);
-      ed = { src: it.i, x: it.x, y: it.y, size: it.size, angle: it.angle, family: it.family, bold: it.bold, italic: it.italic, color: cols.ink, bg: cols.bg, text: it.str, cover: itemCover(it, 0.12), fresh: true };
+      ed = { src: it.i, font: it.font, was: it.str, x: it.x, y: it.y, size: it.size, angle: it.angle, family: it.family, bold: it.bold, italic: it.italic, color: cols.ink, bg: cols.bg, text: it.str, cover: itemCover(it, 0.12), fresh: true };
       box = t.box;
     } else {
-      // new words: upright on screen, as large as the words on this page mostly are (12 pt failing that)
-      var sizes = editing.items.map(function (x) { return x.size; }).sort(function (a, b) { return a - b; }), size = sizes.length ? sizes[sizes.length >> 1] : 12;
+      // new words: upright on screen, like the words nearest to the click (their font, size and colour), or 12 pt
+      var near = null, best = Infinity;
+      editing.items.forEach(function (x) { var b = boxOf(vp, itemCover(x, 0)), d = Math.hypot(clamp(p.x, b[0], b[2]) - p.x, clamp(p.y, b[1], b[3]) - p.y); if (d < best) { best = d; near = x; } });
+      var size = near ? near.size : 12, nc = near ? sampleColours(pg, boxOf(vp, itemCover(near, 0.05))).ink : "#111214";
       var a0 = vp.convertToPdfPoint(p.x, p.y + size * pg.k * 0.35), a1 = vp.convertToPdfPoint(p.x + 10, p.y + size * pg.k * 0.35);
-      ed = { src: null, x: a0[0], y: a0[1], size: size, angle: Math.atan2(a1[1] - a0[1], a1[0] - a0[0]), family: "sans", bold: false, italic: false, color: "#111214", text: "", cover: null, fresh: true };
+      ed = { src: null, font: near ? near.font : null, was: near ? near.str : "", x: a0[0], y: a0[1], size: size, angle: Math.atan2(a1[1] - a0[1], a1[0] - a0[0]), family: near ? near.family : "sans", bold: near ? near.bold : false, italic: near ? near.italic : false, color: nc, text: "", cover: null, fresh: true };
       box = editBox(vp, ed);
     }
     var el = $("txtEdit"), o = vp.convertToViewportPoint(ed.x, ed.y), o2 = vp.convertToViewportPoint(ed.x + Math.cos(ed.angle || 0), ed.y + Math.sin(ed.angle || 0));
@@ -4117,8 +4277,10 @@ body.has-pages #stripGrip { display: block; }
     } else if (!text && ed.src == null && !ed.cover) {
       state.edits.splice(state.edits.indexOf(ed), 1);
     } else ed.text = text;
+    var pf = text && ed.font ? inPdfFont(editing.pg, ed.font, ed.was, text, editing.fonts) : null;
+    if (pf) ed.pf = pf; else delete ed.pf;
     sync(); render();
-    status(!text ? "Words taken off the page. Undo brings them back." : "Changed. In the exported PDF the old words are covered over, not deleted: to take words out for good, use Redact. Undo brings them back.");
+    status(!text ? "Words taken off. Undo brings them back." : pf ? "Changed, in the PDF's own font." : ed.font ? "Changed. The PDF's font lacks some of these letters, so a standard face is used." : "Changed.");
   }
   $("txtEdit").addEventListener("keydown", function (e) {
     e.stopPropagation();
@@ -4642,6 +4804,18 @@ body.has-pages #stripGrip { display: block; }
       chain = chain.then(function () {
         if (ed.cover) page.drawRectangle({ x: ed.cover.x, y: ed.cover.y, width: ed.cover.w, height: ed.cover.h, rotate: L.degrees((ed.cover.angle || 0) * 180 / Math.PI), color: hexRgb(L, ed.bg || "#ffffff"), borderWidth: 0 });
         if (!ed.text) return;
+        if (ed.pf) {
+          // the PDF's own font, by its name on this page, if it is still there as it was
+          var fonts = page.node.Resources() && page.node.Resources().lookup(L.PDFName.of("Font")), fd = fonts && fonts.lookup && fonts.lookup(L.PDFName.of(ed.pf.key));
+          var bf = fd && fd.lookup && fd.lookup(L.PDFName.of("BaseFont"));
+          if (bf && baseName(bf.asString()) === ed.pf.base) {
+            var col = hexRgb(L, ed.color || "#111214");
+            page.pushOperators(L.pushGraphicsState(), L.beginText(), L.setFontAndSize(ed.pf.key, ed.size),
+              L.rotateAndSkewTextRadiansAndTranslate(ed.angle || 0, 0, 0, ed.x, ed.y), L.setFillingColor(col),
+              L.showText(L.PDFHexString.of(ed.pf.hex)), L.endText(), L.popGraphicsState());
+            return;
+          }
+        }
         var name = (STD_FACES[ed.family] || STD_FACES.sans)[(ed.bold ? 1 : 0) + (ed.italic ? 2 : 0)];
         if (!out.__faces[name]) out.__faces[name] = out.embedFont(L.StandardFonts[name]);
         return out.__faces[name].then(function (font) {
