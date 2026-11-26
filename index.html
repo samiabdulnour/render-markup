@@ -1957,6 +1957,12 @@ body.has-pages #stripGrip { display: block; }
     }
     // Show length: while a line is drawn with Shift its length shows along it, in the scale and units set under
     // Measure. It is only a read-out: it goes when the button is let go and is never part of the image.
+    // a text frame being drawn
+    if (drag && drag.part === "textFrame" && drag.moved) {
+      ctx.save(); ctx.strokeStyle = accent(); ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([6 / view.s, 4 / view.s]);
+      ctx.strokeRect(Math.min(drag.a[0], drag.b[0]), Math.min(drag.a[1], drag.b[1]), Math.abs(drag.b[0] - drag.a[0]), Math.abs(drag.b[1] - drag.a[1]));
+      ctx.restore();
+    }
     var ls = drag && drag.part === "stroke" && state.showLen && (drag.stroke.straight || drag.stroke.shape === "arrow") && (!drag.stroke.shape || drag.stroke.shape === "arrow") ? drag.stroke : null;
     if (ls && ls.points.length === 2) writeLength(ctx, ls.points[0], ls.points[1], colorDef(ls.color, "red"), 15 / view.s, penPx(ls) / 2 + 6 / view.s);
     placeHud(hud, r);
@@ -2761,9 +2767,11 @@ body.has-pages #stripGrip { display: block; }
   // note down and drag its pill out. o gives Shift and where on screen the button went down. True if it began.
   function beginTool(p, drawNow, o) {
     var h = hit(p), onImage = p.x >= 0 && p.y >= 0 && p.x <= state.w && p.y <= state.h;
-    if (state.tool === "text" && !h) {
-      if (onImage) addNote(p.x, p.y, false, textNote(p.x, p.y));
-      return false;
+    if (state.tool === "text" && !h && !o.right) {
+      // a click puts words there, the frame just round them; a drag draws the frame they go in, as in InDesign
+      if (!onImage) return false;
+      drag = { part: "textFrame", a: [p.x, p.y], b: [p.x, p.y], sx: o.sx, sy: o.sy, moved: false };
+      return true;
     }
     if (!h && drawNow) {
       if (!onImage) return false;
@@ -3006,6 +3014,13 @@ body.has-pages #stripGrip { display: block; }
       render();
       return;
     }
+    if (drag.part === "textFrame") {
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+      drag.moved = true;
+      drag.b = [clamp(p.x, 0, state.w), clamp(p.y, 0, state.h)];
+      render();
+      return;
+    }
     if (drag.part === "textBox" || drag.part === "textTurn") {
       var tn = drag.n, f = drag.f, unit = refW() / 100;
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
@@ -3050,7 +3065,7 @@ body.has-pages #stripGrip { display: block; }
         if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
         var was = drag;
         drag = null;
-        if (!beginTool({ x: was.last[0], y: was.last[1] }, false, { shift: e.shiftKey, sx: was.sx, sy: was.sy })) drag = { part: "idle" };
+        if (!beginTool({ x: was.last[0], y: was.last[1] }, false, { shift: e.shiftKey, sx: was.sx, sy: was.sy, right: true })) drag = { part: "idle" };
         drag.right = true;
       }
     }
@@ -3316,6 +3331,20 @@ body.has-pages #stripGrip { display: block; }
       return;
     }
     if (d.part === "textBox" || d.part === "textTurn") { if (!d.moved) history.pop(); sync(); render(); return; }
+    if (d.part === "textFrame") {
+      if (cancelled === true) { render(); return; }
+      var made = textNote(d.a[0], d.a[1]);
+      if (d.moved) {
+        // the frame as drawn, its words from its top left; never smaller than two ems across and a line down
+        var fx0 = Math.min(d.a[0], d.b[0]), fy0 = Math.min(d.a[1], d.b[1]), unit = refW() / 100, F0 = layout(made, ctx), fz = fontPx(made);
+        made.boxW = Math.max(fz * 2, Math.abs(d.b[0] - d.a[0]) - F0.padL * 2) / unit;
+        made.boxH = Math.max(fz, Math.abs(d.b[1] - d.a[1]) - F0.padV * 2) / unit;
+        var F1 = layout(made, ctx);
+        made.px = made.tx = fx0 + F1.w / 2; made.py = made.ty = fy0 + F1.h / 2;
+      }
+      addNote(made.px, made.py, false, made);
+      return;
+    }
     if (d.part === "picMove" || d.part === "picSize" || d.part === "picTurn") {
       if (!d.moved) history.pop();
       sync(); render();
