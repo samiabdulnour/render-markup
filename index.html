@@ -2417,12 +2417,14 @@ body.has-pages #stripGrip { display: block; }
   // the day a stamp was placed, as this browser writes a date, and its second line: the day and the initials
   function stampDay(t) { return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t)); }
   function subLine(day, ini) { return [day, String(ini || "").trim()].filter(Boolean).join(" · "); }
+  // iniFresh: the stamp just placed with no initials, and the undo step its placing made (see the Initials field)
+  var iniFresh = null;
   // Place a stamp in the middle of the view, Move on and the stamp selected. Its second line is written in now and
   // kept, so a stamp keeps its day.
   function placeStamp(st, text, color) {
     var at = Date.now(), q = { id: picId(), kind: "stamp", st: st, text: text, sub: subLine(stampDay(at), state.office.initials), color: color, at: at };
-    var b = stampBox(q);
-    placePic(q, b.w, b.h);
+    var b = stampBox(q), o = placePic(q, b.w, b.h);
+    iniFresh = String(state.office.initials || "").trim() ? null : { id: o.id, top: history[history.length - 1] };
     status("Stamp placed, and Move is on: drag it into place, or a corner to resize it. Its words, date and colour are in the panel.");
   }
   // Place a title block: 180 by 45 mm on paper (at most 90% of the page across), 10 mm in from the bottom right corner
@@ -5483,7 +5485,7 @@ body.has-pages #stripGrip { display: block; }
         add(menuItem("Bring forward", "Ctrl+]", function () { movePicTo(pq, state.pics.indexOf(pq) + 1); }, { disabled: state.pics.indexOf(pq) === state.pics.length - 1 }));
         add(menuItem("Send backward", "Ctrl+[", function () { movePicTo(pq, state.pics.indexOf(pq) - 1); }, { disabled: state.pics.indexOf(pq) === 0 }));
         add(menuItem("Delete picture", pq.id === picSel ? "Del" : "", function () { deletePic(pq); }, { danger: true }));
-        var pqn = pq.set ? setCount(pq.set) : 0;
+        var pqn = inSets(pq) ? setCount(setKey(pq)) : 0;
         if (pqn > 1) add(menuItem("Delete from all pages (" + pqn + ")", "", function () { deleteSet(pq); }, { danger: true }));
         rule();
       }
@@ -7877,9 +7879,23 @@ body.has-pages #stripGrip { display: block; }
   // name are settings: kept as they are typed, and not undone. picField is the field being typed in, with its value
   // when it got the keyboard (or was last put there), so that Ctrl/Cmd+Z undoes the typing first, as in a note's text.
   var picField = null;
+  // A field left for a click elsewhere in the panel (a picture in the list, an Outline colour) brings the panel up to
+  // date only once that click has landed: the panel is built afresh, and a button taken away between the press and
+  // the release would never get the click. A mouse or pen button held down waits until it is let go; a tap, whose
+  // press and click come together, and a key wait only until what is happening now is done.
+  var pressing = false, letGo = [];
+  window.addEventListener("pointerdown", function (e) { if (e.pointerType !== "touch") pressing = true; }, true);
+  function pressEnd() {
+    pressing = false;
+    var l = letGo; letGo = [];
+    if (l.length) setTimeout(function () { l.forEach(function (f) { f(); }); }, 0);
+  }
+  window.addEventListener("pointerup", pressEnd, true);
+  window.addEventListener("pointercancel", pressEnd, true);
+  function whenLetGo(f) { if (pressing) { if (letGo.indexOf(f) < 0) letGo.push(f); } else setTimeout(f, 0); }
   function fieldKeys(el) {
     el.addEventListener("focus", function () { picField = { el: el, v: el.value, snapped: false }; });
-    el.addEventListener("blur", function () { if (picField && picField.el === el) picField = null; sync(); });
+    el.addEventListener("blur", function () { if (picField && picField.el === el) picField = null; whenLetGo(sync); });
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); el.blur(); canvas.focus({ preventScroll: true }); } });
   }
   // the first change in a field of the selected stamp or title block makes the step to undo
@@ -7906,15 +7922,18 @@ body.has-pages #stripGrip { display: block; }
       render();
     });
   });
-  // The initials are for the stamps placed from now on. The selected stamp's second line follows them while it still
-  // reads as it was placed: its day, and the initials as they were.
+  // The initials are for the stamps placed from now on: a stamp keeps the second line it was given, so changing them
+  // never puts another name on a stamp already placed. One exception: the stamp just placed with no initials yet,
+  // while it is still selected and nothing else has been done, takes the initials typed then, as if they had been
+  // there when it was placed (the first stamp, with the initials typed in after it). That is no step to undo of its
+  // own: Undo takes the stamp off, initials and all.
   fieldKeys($("stInit"));
   $("stInit").addEventListener("input", function () {
     var el = $("stInit"), was = state.office.initials, q = selectedPic();
     state.office.initials = el.value.slice(0, 8);
-    if (q && q.kind === "stamp" && q.at) {
+    if (q && q.kind === "stamp" && q.at && iniFresh && iniFresh.id === q.id && iniFresh.top === history[history.length - 1]) {
       var day = stampDay(q.at), now = subLine(day, state.office.initials);
-      if ((q.sub || "") === subLine(day, was) && now !== q.sub) { fieldStep(el); var two = !!stampSub(q); q.sub = now; fitStamp(q, two); }
+      if ((q.sub || "") === subLine(day, was) && now !== q.sub) { var two = !!stampSub(q); q.sub = now; fitStamp(q, two); }
     }
     saveSettings(); render();
   });
@@ -7936,6 +7955,7 @@ body.has-pages #stripGrip { display: block; }
   // the Selected picture card for a stamp or a title block: its fields, and All pages and Delete from all pages
   function syncStampFields(q) {
     var k = q && q.kind;
+    if (iniFresh && (!q || q.id !== iniFresh.id)) iniFresh = null;   // let go of, it is no longer the stamp just placed
     $("stampFields").hidden = k !== "stamp";
     $("titleFields").hidden = k !== "title";
     if (k === "stamp") {
@@ -7954,7 +7974,7 @@ body.has-pages #stripGrip { display: block; }
       $("tfScale").placeholder = r ? "1:" + ratioText(r) : "—";
       $("tfFill").disabled = !doc || doc.cur >= doc.pages.length - 1;
     }
-    var n = q && q.set ? setCount(q.set) : 0;
+    var n = inSets(q) ? setCount(setKey(q)) : 0;
     $("picAll").hidden = !(k === "stamp" || k === "title") || !doc || doc.pages.length < 2;
     $("picDelAll").hidden = !(k === "stamp" || k === "title") || n < 2;
     $("picDelAll").title = "Delete from all pages (" + n + ")";
@@ -7962,43 +7982,66 @@ body.has-pages #stripGrip { display: block; }
   }
 
   // ---------- on every page: All pages, Delete from all pages, Fill down ----------
+  // A set is named after the stamp or title block All pages was first pressed on: the copies carry its id as their
+  // set, and it is found by its own id as well, so an Undo on its page that brings back a step from before All pages
+  // still leaves it in the set.
+  function setKey(x) { return x.set || x.id; }
+  function inSets(x) { return !!x && (x.kind === "stamp" || x.kind === "title"); }
   // how many copies of a set there are, on every page
   function setCount(set) {
-    var n = 0, mine = function (x) { if (x.set === set) n++; };
+    var n = 0, mine = function (x) { if (inSets(x) && setKey(x) === set) n++; };
     state.pics.forEach(mine);
     if (doc) doc.pages.forEach(function (pg, i) { if (i !== doc.cur) (pg.pics || []).forEach(mine); });
     return n;
   }
   // All pages: a copy of the selected stamp or title block on every other page, as far in paper millimetres from the
   // same corner of the page as it is here from the corner nearest it, and as big on paper, so it lines up on sheets of
-  // different sizes (a title block 10 mm in from the bottom right of an A1, an A3 and an A4 alike). The copies share
-  // a set id; a page that has one of the set already is left as it is. Each page has its own step to undo.
+  // different sizes (a title block 10 mm in from the bottom right of an A1, an A3 and an A4 alike). The nearest corner
+  // is the one on the side of its middle. A title block across nearly the whole page (over 80% of it, as one placed
+  // on a page under 200 mm across is, at 90%) is only a few millimetres nearer one edge than the other, which says
+  // nothing of the corner it was put in, so it keeps to the right (and so to the bottom), where title blocks belong.
+  // A copy is made smaller to fit its page, and one whose corner would be further away than a smaller page is wide or
+  // tall is moved in onto it. A title block's copy starts with this sheet's own fields empty (Drawing, No., Rev and
+  // Scale), so each sheet shows its own scale and Fill down can number them. The copies share the set; a page that has
+  // one of the set already is left as it is. Each other page has a step to undo; this one none, as nothing on it changes.
   function allPages() {
     var q = selectedPic();
-    if (!q || !doc || doc.pages.length < 2 || (q.kind !== "stamp" && q.kind !== "title")) return;
+    if (!q || !doc || doc.pages.length < 2 || !inSets(q)) return;
     stashPage();
-    var here = doc.pages[doc.cur], mm = paperMmPerPx(), right = q.x + q.w / 2 > state.w / 2, below = q.y + q.h / 2 > state.h / 2;
-    var dx = (right ? state.w - q.x - q.w : q.x) * mm, dy = (below ? state.h - q.y - q.h : q.y) * mm, n = 0;
-    if (!q.set) { snapshot(); q.set = "set" + (state.nextId++) + Date.now().toString(36); stashPage(); }
+    // what it covers on the page as it lies (turned, a quarter turn makes it as wide as it was tall), and its middle
+    var here = doc.pages[doc.cur], mm = paperMmPerPx(), tb = q.kind === "title", key = setKey(q), n = 0, moved = 0;
+    var r = rotOf(q), co = Math.abs(Math.cos(r)), si = Math.abs(Math.sin(r)), vw = co * q.w + si * q.h, vh = si * q.w + co * q.h;
+    var cx = q.x + q.w / 2, cy = q.y + q.h / 2;
+    var right = (tb && vw > 0.8 * state.w) || cx > state.w / 2, below = (tb && vh > 0.8 * state.h) || cy > state.h / 2;
+    var dx = (right ? state.w - cx - vw / 2 : cx - vw / 2) * mm, dy = (below ? state.h - cy - vh / 2 : cy - vh / 2) * mm;
+    q.set = key;
     doc.pages.forEach(function (pg) {
-      if (pg === here || (pg.pics || []).some(function (x) { return x.set === q.set; })) return;
-      var k = 25.4 / 72 / pg.k, s = Math.min(1, 0.9 * pg.w / (q.w * mm / k)), o = JSON.parse(JSON.stringify(q));
-      o.id = picId(); o.at = Date.now();
+      if (pg === here || (pg.pics || []).some(function (x) { return inSets(x) && setKey(x) === key; })) return;
+      // as big on paper, but no more than 90% of the page across or down
+      var k = 25.4 / 72 / pg.k, s = Math.min(1, 0.9 * pg.w * k / (vw * mm), 0.9 * pg.h * k / (vh * mm)), o = JSON.parse(JSON.stringify(q));
+      var hw = vw * mm / k * s / 2, hh = vh * mm / k * s / 2;
+      o.id = picId(); o.at = Date.now(); o.set = key;
+      if (tb) o.f = { drawing: "", no: "", rev: "", scale: "" };
       o.n = (pg.pics || []).reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1;
       o.w = q.w * mm / k * s; o.h = q.h * mm / k * s;
-      o.x = right ? pg.w - dx / k - o.w : dx / k; o.y = below ? pg.h - dy / k - o.h : dy / k;
+      // its middle as far from that corner, and kept on the page: no nearer the edges than half of what it covers
+      var mx = right ? pg.w - dx / k - hw : dx / k + hw, my = below ? pg.h - dy / k - hh : dy / k + hh;
+      var mx2 = clamp(mx, Math.min(hw, pg.w / 2), Math.max(pg.w - hw, pg.w / 2)), my2 = clamp(my, Math.min(hh, pg.h / 2), Math.max(pg.h - hh, pg.h / 2));
+      if (Math.abs(mx2 - mx) > 0.05 / k || Math.abs(my2 - my) > 0.05 / k) moved++;
+      o.x = mx2 - o.w / 2; o.y = my2 - o.h / 2;
       pageSnap(pg);
       pg.pics = (pg.pics || []).concat([o]);
       n++;
     });
     doc.pages.forEach(function (p, i) { markPage(i); });
     sync(); render();
-    status(n ? "Placed on " + n + (n === 1 ? " page" : " pages") + ". Undo on a page takes it off that page." : "It is on every page already.");
+    var where = !moved ? "" : moved === n ? (n === 1 ? ", moved in to stay on it" : ", moved in to stay on each") : ", on " + moved + " moved in to stay on the page";
+    status(n ? "Placed on " + n + (n === 1 ? " page" : " pages") + where + ". Undo on a page takes it off that page." : "It is on every page already.");
   }
   // Delete from all pages: every copy of the set, from every page, a step to undo on each
   function deleteSet(which) {
-    var q = which && which.id ? which : selectedPic(); if (!q || !q.set) return;
-    var set = q.set, keep = function (x) { return x.set !== set; }, pages = 0;
+    var q = which && which.id ? which : selectedPic(); if (!inSets(q)) return;
+    var set = setKey(q), keep = function (x) { return !inSets(x) || setKey(x) !== set; }, pages = 0;
     if (doc) stashPage();
     if (!state.pics.every(keep)) { snapshot(); state.pics = state.pics.filter(keep); pages++; }
     if (doc) {
