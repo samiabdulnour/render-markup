@@ -3834,13 +3834,20 @@ body.has-pages #stripGrip { display: block; }
     if (live.length) { state.takeSel[kind] = live[live.length - 1].id; return live[live.length - 1]; }
     return newGroup(kind);
   }
+  // A new group's id: the next number not in use. Ids keep to the nine digits the settings and a file's markup may
+  // hold, so the count starts again from 1 should it ever get there.
+  function nextGroupId() {
+    var id;
+    do { if (state.groupSeq >= 999999999) state.groupSeq = 0; id = "g" + (++state.groupSeq); } while (groupOf(id));
+    return id;
+  }
   function newGroup(kind) {
     if (liveGroups().length >= TAKE_MAX) { status(TAKE_MAX + " groups at most: delete one to make room."); return null; }
     // numbered within its kind; coloured in the first colour no group has yet, so groups side by side stay apart
     var used = liveGroups(kind), all = liveGroups(), k = 1;
     while (used.some(function (g) { return g.name === TAKE_NAMES[kind] + " " + k; })) k++;
     var free = TAKE_COLORS.filter(function (c) { return !all.some(function (g) { return g.color === c; }); });
-    var g = { id: "g" + (++state.groupSeq), name: TAKE_NAMES[kind] + " " + k, kind: kind, color: free.length ? free[0] : TAKE_COLORS[all.length % TAKE_COLORS.length] };
+    var g = { id: nextGroupId(), name: TAKE_NAMES[kind] + " " + k, kind: kind, color: free.length ? free[0] : TAKE_COLORS[all.length % TAKE_COLORS.length] };
     if (kind === "count") g.mark = "circle";
     state.groups.push(g);
     state.takeSel[kind] = g.id;
@@ -4823,7 +4830,9 @@ body.has-pages #stripGrip { display: block; }
   // A PDF is a list of pages. Each page keeps its own notes, drawing, selection and undo history. The page on
   // screen lives in `state` like any image and is swapped in and out as you move between pages. Pages are
   // drawn to a bitmap only when needed and only a few are kept, so a long document does not fill the memory.
-  var doc = null, loadToken = 0;
+  // docGen counts the documents opened (or New): a Save started on one checks it when it is done, so it never points
+  // Save, or the saved mark, at whatever was opened while it was being written
+  var doc = null, loadToken = 0, docGen = 0;
   var VENDOR = new URL("vendor/", document.baseURI).href;
   var PAGE_LONG = 4000, PAGE_MAX_PX = 16e6, PAGE_MAX_SCALE = 3, PAGE_KEEP = 3, THUMB_PX = 192;   // THUMB_PX grows with a wider page strip
   var pdfjsReady = null, pdfjsLib = null, pdfLibReady = null, useClock = 0, whiteCanvas = null;
@@ -5009,7 +5018,7 @@ body.has-pages #stripGrip { display: block; }
       parts.forEach(function (p) { pages = pages.concat(p.pages); });
       doc = { name: (files[0].name || "document").replace(/\.[^.]+$/, ""), label: label, sources: parts.map(function (p) { return p.source; }), cur: 0, pages: pages };
       state.name = doc.name; state.blank = false; stage.classList.add("has-image");
-      aimSave(files, handles);
+      aimSave(files, handles, parts);
       buildPageList();
       showPage(0, true, said || (doc.sources.some(function (src) { return src.fields; }) ? "This PDF has a form: right-click and choose Fill in form… to fill it in." : null));
       markSaved();
@@ -5055,6 +5064,7 @@ body.has-pages #stripGrip { display: block; }
   }
   // Leave document mode: called when an image is opened, or another document replaces this one.
   function closeDoc() {
+    docGen++;          // what was open is let go, whatever comes next
     takeEnd();
     if (!doc) return;
     if (cropping) endCrop();
@@ -5597,12 +5607,13 @@ body.has-pages #stripGrip { display: block; }
     if (first) first.focus();
   }
   $("formClose").addEventListener("click", function () { closeModal("formModal"); });
-  // The values filled in, set in the PDF being written (pdf-lib); the fields' looks are made again to match.
+  // The values filled in, set in the PDF being written (pdf-lib); the fields' looks are made again to match. Returns
+  // the names of the fields that could not take theirs, so Save can say so rather than seem to have kept them.
   function fillForm(L, pdfDoc, src) {
-    var vals = src && src.values, names = vals ? Object.keys(vals) : [];
-    if (!names.length) return;
+    var vals = src && src.values, names = vals ? Object.keys(vals) : [], missed = [];
+    if (!names.length) return missed;
     var form;
-    try { form = pdfDoc.getForm(); } catch (e) { return; }
+    try { form = pdfDoc.getForm(); } catch (e) { return names; }
     names.forEach(function (name) {
       try {
         var f = form.getField(name), v = vals[name];
@@ -5610,9 +5621,10 @@ body.has-pages #stripGrip { display: block; }
         else if (f instanceof L.PDFCheckBox) { if (v) f.check(); else f.uncheck(); }
         else if (f instanceof L.PDFRadioGroup) { if (v) f.select(v); else f.clear(); }
         else if (f instanceof L.PDFDropdown || f instanceof L.PDFOptionList) { if (v) f.select(v); else f.clear(); }
-      } catch (e) { /* a field that cannot take the value is left as it was */ }
+      } catch (e) { missed.push(name); }      // a field that cannot take the value is left as it was
     });
     try { form.updateFieldAppearances(); } catch (e) { /* the old looks stay */ }
+    return missed;
   }
 
   // ----- Edit text: change the words already in a PDF, add words, or white out an area -----
@@ -6669,67 +6681,202 @@ body.has-pages #stripGrip { display: block; }
       page.setCropBox(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
     } else page.setCropBox(c.x, pg.bh - c.y - c.h, c.w, c.h);
   }
+  // The pages of a PDF being written, in the document's order: a page `own` gives (one that PDF has already), a page
+  // of another PDF copied in, a redacted page as the picture of it, an image as a page of its own size, a blank page
+  // white. Those it does not have yet are added at its end. Resolves to the pages, in order.
+  function pagesInto(L, out, d, pages, flat, own, fill) {
+    // the pages wanted from each PDF are copied in one go, so what they share (fonts and the like) is copied once
+    var wanted = [];
+    pages.forEach(function (pg) { if (pg.source.kind === "pdf" && !flat.has(pg) && !own(pg) && wanted.indexOf(pg.source) < 0) wanted.push(pg.source); });
+    var copied = new Map(), list = [];
+    var chain = Promise.resolve();
+    wanted.forEach(function (src) {
+      chain = chain.then(function () { return L.PDFDocument.load(src.bytes); }).then(function (sd) {
+        fill(sd, src);
+        var mine = pages.filter(function (pg) { return pg.source === src && !flat.has(pg) && !own(pg); }), rounds = [];
+        // a page wanted twice (duplicated) is copied again in a later round: each copy can go in only once
+        mine.forEach(function (pg) {
+          var r = 0;
+          while (rounds[r] && rounds[r].some(function (q) { return q.n === pg.n; })) r++;
+          (rounds[r] = rounds[r] || []).push(pg);
+        });
+        var go = Promise.resolve();
+        rounds.forEach(function (round) {
+          go = go.then(function () {
+            return out.copyPages(sd, round.map(function (pg) { return pg.n - 1; })).then(function (cp) { round.forEach(function (pg, i) { copied.set(pg, cp[i]); }); });
+          });
+        });
+        return go;
+      });
+    });
+    pages.forEach(function (pg) {
+      chain = chain.then(function () {
+        var mine = own(pg);
+        if (mine) { list.push(mine); return; }
+        if (copied.has(pg)) { list.push(out.addPage(copied.get(pg))); return; }
+        if (flat.has(pg)) {
+          // the page as shown (turned, cropped, blacked out), as a picture: nothing under the black is left
+          var fp = out.addPage([pg.wPt, pg.hPt]);
+          list.push(fp);
+          status("Redacting page " + (d.pages.indexOf(pg) + 1) + "…");
+          return renderPage(pg).then(function (img) {
+            var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
+            var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, pg.w, pg.h); g.drawImage(img, 0, 0);
+            withPage(pg, function () { paintEdits(g); });
+            return canvasBytes(c, "image/jpeg", 0.92);
+          }).then(function (bytes) { return out.embedJpg(bytes); }).then(function (jpg) { fp.drawImage(jpg, { x: 0, y: 0, width: pg.wPt, height: pg.hPt }); });
+        }
+        var page = out.addPage([pg.bw, pg.bh]);
+        list.push(page);
+        if (pg.source.kind !== "img") return;           // a blank page stays white
+        return embedSource(L, out, pg.source).then(function (im) { page.drawImage(im, { x: 0, y: 0, width: pg.bw, height: pg.bh }); });
+      });
+    });
+    return chain.then(function () { return list; });
+  }
+  // Save into the PDF the document came from (home), after pages were deleted, moved, duplicated, added or redacted:
+  // what the PDF holds besides its pages stays (its form, bookmarks, page labels, attached files, layers and metadata).
+  // Its page tree is made again in the document's order (orig: its pages as loaded; list: the pages wanted, in order).
+  // Then whatever pointed at a page that is gone points at the picture that took its place (a redacted page) or at
+  // nothing, the form loses the fields that were only on such pages, and every object the file no longer reaches is
+  // dropped, so nothing of a deleted or redacted page stays in the bytes.
+  function keepHome(L, out, home, pages, orig, list) {
+    if (list.length === orig.length && list.every(function (p, i) { return p === orig[i]; })) return;
+    var N = function (n) { return L.PDFName.of(n); }, used = new Set(list), instead = new Map();
+    var gone = orig.filter(function (p) { return !used.has(p); });
+    pages.forEach(function (pg, i) { var o = pg.source === home ? orig[pg.n - 1] : null; if (o && !used.has(o) && !instead.has(o)) instead.set(o, list[i]); });
+    // a page keeps what it took from the page tree above it (its size, turn and resources), as it moves to the top
+    orig.forEach(function (p) {
+      if (!used.has(p)) return;
+      ["Resources", "MediaBox", "CropBox", "Rotate"].forEach(function (k) {
+        var v = p.node.has(N(k)) ? null : p.node.getInheritableAttribute(N(k));
+        if (v) p.node.set(N(k), v);
+      });
+    });
+    for (var i = out.getPageCount() - 1; i >= 0; i--) out.removePage(i);
+    list.forEach(function (p) { out.addPage(p); });
+    relabel(L, out, list.map(function (p) { return orig.indexOf(p); }));
+    // the tagged structure (for screen readers) no longer matches, and could still hold words of a page taken out
+    if (gone.length) { out.catalog.delete(N("StructTreeRoot")); out.catalog.delete(N("MarkInfo")); }
+    dropGone(L, out, gone, instead);
+    sweepPdf(L, out);
+  }
+  // Page labels (i, ii, 1, 2…) as the pages now are: each page of the PDF keeps its own (from[j], its place in the PDF
+  // as it was), and a page put in from elsewhere (-1) carries on from the page before it
+  function relabel(L, out, from) {
+    var cx = out.context, N = function (n) { return L.PDFName.of(n); }, root = out.catalog.lookup(N("PageLabels")), nums = [];
+    if (!(root instanceof L.PDFDict)) return;
+    var walk = function (node, depth) {
+      if (!(node instanceof L.PDFDict) || depth > 20) return;
+      var a = node.lookup(N("Nums")), kids = node.lookup(N("Kids")), i;
+      if (a instanceof L.PDFArray) for (i = 0; i + 1 < a.size(); i += 2) { var k = a.lookup(i), v = a.lookup(i + 1); if (k instanceof L.PDFNumber && v instanceof L.PDFDict) nums.push([k.asNumber(), v]); }
+      if (kids instanceof L.PDFArray) for (i = 0; i < kids.size(); i++) walk(kids.lookup(i), depth + 1);
+    };
+    walk(root, 0);
+    nums.sort(function (a, b) { return a[0] - b[0]; });
+    var text = function (v) { return v && typeof v.decodeText === "function" ? v.decodeText() : ""; };
+    var labelOf = function (i) {
+      var at = null;
+      for (var k = 0; k < nums.length && nums[k][0] <= i; k++) at = nums[k];
+      if (!at) return { S: null, P: "", n: 1 };
+      var st = at[1].lookup(N("St")), sty = at[1].lookup(N("S"));
+      return { S: sty instanceof L.PDFName ? sty : null, P: text(at[1].lookup(N("P"))), n: (st instanceof L.PDFNumber ? st.asNumber() : 1) + i - at[0] };
+    };
+    var list = [], prev = null;
+    from.forEach(function (i, j) {
+      var cur = i >= 0 ? labelOf(i) : prev ? { S: prev.S, P: prev.P, n: prev.n + 1 } : { S: N("D"), P: "", n: 1 };
+      if (!prev || cur.S !== prev.S || cur.P !== prev.P || (cur.S && cur.n !== prev.n + 1)) {
+        var dict = cx.obj({});
+        if (cur.S) dict.set(N("S"), cur.S);
+        if (cur.P) dict.set(N("P"), L.PDFHexString.fromText(cur.P));
+        if (cur.S && cur.n !== 1) dict.set(N("St"), cx.obj(Math.max(1, cur.n)));
+        list.push(cx.obj(j), dict);
+      }
+      prev = cur;
+    });
+    out.catalog.set(N("PageLabels"), cx.obj({ Nums: list }));
+  }
+  // Pages taken out of a PDF (gone), some replaced by another page (instead): the form's fields that were only on them
+  // go, and whatever else pointed at them (bookmarks, links, named places) points at the page that replaced one, or at
+  // nothing
+  function dropGone(L, out, gone, instead) {
+    var cx = out.context, N = function (n) { return L.PDFName.of(n); }, was = new Set(), annots = new Set(), to = new Map();
+    gone.forEach(function (p) {
+      was.add(p.ref.tag);
+      to.set(p.ref.tag, instead.has(p) ? instead.get(p).ref : L.PDFNull);
+      var a = p.node.lookup(N("Annots"));
+      if (a instanceof L.PDFArray) a.asArray().forEach(function (r) { if (r instanceof L.PDFRef) annots.add(r.tag); });
+    });
+    if (!gone.length) return;
+    var prune = function (arr, depth) {
+      for (var i = arr.size() - 1; i >= 0; i--) {
+        var r = arr.get(i);
+        if (r instanceof L.PDFRef && annots.has(r.tag)) { arr.remove(i); continue; }
+        var f = cx.lookup(r), kids = f instanceof L.PDFDict ? f.lookup(N("Kids")) : null;
+        if (kids instanceof L.PDFArray && kids.size() && depth < 32) { prune(kids, depth + 1); if (!kids.size()) arr.remove(i); }
+      }
+    };
+    var af = out.catalog.lookup(N("AcroForm")), fields = af instanceof L.PDFDict ? af.lookup(N("Fields")) : null;
+    if (fields instanceof L.PDFArray) prune(fields, 0);
+    var fix = function (o, depth) {
+      if (o instanceof L.PDFStream) o = o.dict;
+      if (depth > 64) return;
+      var v, i;
+      if (o instanceof L.PDFDict) {
+        o.entries().forEach(function (e) { v = e[1]; if (v instanceof L.PDFRef) { if (to.has(v.tag)) o.set(e[0], to.get(v.tag)); } else fix(v, depth + 1); });
+      } else if (o instanceof L.PDFArray) {
+        for (i = 0; i < o.size(); i++) { v = o.get(i); if (v instanceof L.PDFRef) { if (to.has(v.tag)) o.set(i, to.get(v.tag)); } else fix(v, depth + 1); }
+      }
+    };
+    cx.enumerateIndirectObjects().forEach(function (pair) { if (!was.has(pair[0].tag)) fix(pair[1], 0); });
+    // a PDF that opened at a page now gone opens at its start
+    var oa = out.catalog.lookup(N("OpenAction"));
+    if (oa instanceof L.PDFArray && oa.get(0) === L.PDFNull) out.catalog.delete(N("OpenAction"));
+  }
+  // Drop every object a PDF no longer reaches from its catalog or its information: a page taken out, and all only it used
+  function sweepPdf(L, out) {
+    var cx = out.context, seen = new Set(), todo = [cx.trailerInfo.Root, cx.trailerInfo.Info], i;
+    while (todo.length) {
+      var o = todo.pop();
+      if (o instanceof L.PDFRef) { if (seen.has(o.tag)) continue; seen.add(o.tag); o = cx.lookup(o); }
+      if (o instanceof L.PDFStream) o = o.dict;
+      if (o instanceof L.PDFDict) { var vs = o.values(); for (i = 0; i < vs.length; i++) todo.push(vs[i]); }
+      else if (o instanceof L.PDFArray) { for (i = 0; i < o.size(); i++) todo.push(o.get(i)); }
+    }
+    cx.enumerateIndirectObjects().forEach(function (pair) { if (!seen.has(pair[0].tag)) cx.delete(pair[0]); });
+  }
   // The full-quality PDF of some pages of the document: each PDF page as it is (still sharp, its text still text),
   // an image as a page of its own size, a blank page white; turned and cropped as shown, the markup on top.
-  // One whole PDF, untouched apart from that, is kept as it is (its links, outline and form fields with it).
+  // One whole PDF, untouched apart from that, is kept as it is (its links, outline and form fields with it). Save
+  // (keep) writes the document itself, so whatever was done to its pages it starts from the PDF it came from (the
+  // first with a page still in it, as shown), and the rest of that PDF stays (keepHome). An export of some pages is a
+  // new PDF of just those pages.
   function redacted(pg) { return !!(pg.redact && pg.redact.length); }
-  function fullPdf(L, d, pages, compact) {
+  function fullPdf(L, d, pages, compact, keep) {
     var src0 = d.sources[0], flat = new Set(pages.filter(redacted));   // redacted pages go in as pictures
     var whole = d.sources.length === 1 && src0.kind === "pdf" && pages.length === src0.count && !flat.size && pages.every(function (pg, k) { return pg.n === k + 1; });
+    var home = keep && !whole ? d.sources.filter(function (src) { return src.kind === "pdf" && pages.some(function (pg) { return pg.source === src && !flat.has(pg); }); })[0] : null;
+    // the form fields that could not take what was filled in
+    var unfilled = [], fill = function (pd, src) { fillForm(L, pd, src).forEach(function (n) { if (unfilled.indexOf(n) < 0) unfilled.push(n); }); };
     var base;
     if (whole) base = L.PDFDocument.load(src0.bytes).then(function (src) {
       if (src.getPageCount() !== src0.count) throw new Error("page count differs");
-      fillForm(L, src, src0);
+      fill(src, src0);
       return { out: src, pages: src.getPages() };
     });
+    else if (home) base = L.PDFDocument.load(home.bytes).then(function (out) {
+      if (out.getPageCount() !== home.count) throw new Error("page count differs");
+      fill(out, home);
+      // each of its pages where the document first has it; a page shown twice is copied for its second place
+      var orig = out.getPages(), first = {};
+      pages.forEach(function (pg) { if (pg.source === home && !flat.has(pg) && !first[pg.n]) first[pg.n] = pg; });
+      return pagesInto(L, out, d, pages, flat, function (pg) { return pg.source === home && first[pg.n] === pg ? orig[pg.n - 1] : null; }, fill).then(function (list) {
+        keepHome(L, out, home, pages, orig, list);
+        return { out: out, pages: list };
+      });
+    });
     else base = L.PDFDocument.create().then(function (out) {
-      // the pages wanted from each PDF are copied in one go, so what they share (fonts and the like) is copied once
-      var wanted = [];
-      pages.forEach(function (pg) { if (pg.source.kind === "pdf" && !flat.has(pg) && wanted.indexOf(pg.source) < 0) wanted.push(pg.source); });
-      var copied = new Map();
-      var chain = Promise.resolve();
-      wanted.forEach(function (src) {
-        chain = chain.then(function () { return L.PDFDocument.load(src.bytes); }).then(function (sd) {
-          fillForm(L, sd, src);
-          var mine = pages.filter(function (pg) { return pg.source === src && !flat.has(pg); }), rounds = [];
-          // a page wanted twice (duplicated) is copied again in a later round: each copy can go in only once
-          mine.forEach(function (pg) {
-            var r = 0;
-            while (rounds[r] && rounds[r].some(function (q) { return q.n === pg.n; })) r++;
-            (rounds[r] = rounds[r] || []).push(pg);
-          });
-          var go = Promise.resolve();
-          rounds.forEach(function (round) {
-            go = go.then(function () {
-              return out.copyPages(sd, round.map(function (pg) { return pg.n - 1; })).then(function (cp) { round.forEach(function (pg, i) { copied.set(pg, cp[i]); }); });
-            });
-          });
-          return go;
-        });
-      });
-      var list = [];
-      pages.forEach(function (pg) {
-        chain = chain.then(function () {
-          if (copied.has(pg)) { list.push(out.addPage(copied.get(pg))); return; }
-          if (flat.has(pg)) {
-            // the page as shown (turned, cropped, blacked out), as a picture: nothing under the black is left
-            var fp = out.addPage([pg.wPt, pg.hPt]);
-            list.push(fp);
-            status("Redacting page " + (d.pages.indexOf(pg) + 1) + "…");
-            return renderPage(pg).then(function (img) {
-              var c = document.createElement("canvas"); c.width = pg.w; c.height = pg.h;
-              var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, pg.w, pg.h); g.drawImage(img, 0, 0);
-              withPage(pg, function () { paintEdits(g); });
-              return canvasBytes(c, "image/jpeg", 0.92);
-            }).then(function (bytes) { return out.embedJpg(bytes); }).then(function (jpg) { fp.drawImage(jpg, { x: 0, y: 0, width: pg.wPt, height: pg.hPt }); });
-          }
-          var page = out.addPage([pg.bw, pg.bh]);
-          list.push(page);
-          if (pg.source.kind !== "img") return;           // a blank page stays white
-          return embedSource(L, out, pg.source).then(function (im) { page.drawImage(im, { x: 0, y: 0, width: pg.bw, height: pg.bh }); });
-        });
-      });
-      return chain.then(function () { return { out: out, pages: list }; });
+      return pagesInto(L, out, d, pages, flat, function () { return null; }, fill).then(function (list) { return { out: out, pages: list }; });
     });
     return base.then(function (b) {
       var marked = pages.filter(hasMarkup), chain = Promise.resolve(), made = [];
@@ -6748,18 +6895,20 @@ body.has-pages #stripGrip { display: block; }
           return b.out.embedPng(o.bytes).then(function (img) { made[at].xo = placeOverlay(L, b.out, b.pages[at], img, pg, o); });
         });
       });
-      // and the markup itself, to edit again when the file is opened here
-      chain = chain.then(function () { return keepMarkup(L, b.out, pages, made); });
-      if (!compact) return chain.then(function () { return b.out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false }; });
+      // and the markup itself, to edit again when the file is opened here (fixed: the pages whose markup could not all
+      // be kept, which keep it drawn in)
+      var fixed = [];
+      chain = chain.then(function () { return keepMarkup(L, b.out, pages, made); }).then(function (f) { fixed = f || []; });
+      if (!compact) return chain.then(function () { return b.out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false, fixed: fixed, unfilled: unfilled }; });
       return chain.then(function () { status("Making the pictures in it lighter…"); return compactPdf(L, b.out); })
-        .then(function () { return b.out.save({ useObjectStreams: true }); }).then(function (bytes) { return { bytes: bytes, flat: false, compact: true }; });
+        .then(function () { return b.out.save({ useObjectStreams: true }); }).then(function (bytes) { return { bytes: bytes, flat: false, compact: true, fixed: fixed, unfilled: unfilled }; });
     });
   }
   // A PDF of some pages: full quality, or smaller (pages as pictures) when that does come out smaller.
   // A PDF that cannot be edited is saved as pictures of its pages instead.
   function buildPdf(L, d, pages, mode) {
     var small = mode === "small";
-    var full = function () { return fullPdf(L, d, pages, mode === "compact").catch(function () { return flattenPdf(L, pages); }); };
+    var full = function () { return fullPdf(L, d, pages, mode === "compact", mode === "save").catch(function () { return flattenPdf(L, pages); }); };
     if (!small) return full();
     // about what these pages take up in what was opened: when the pictures come in under that, they are smaller
     var est = 0;
@@ -7266,15 +7415,19 @@ body.has-pages #stripGrip { display: block; }
   var CAN_SAVE = typeof window.showOpenFilePicker === "function" && typeof window.showSaveFilePicker === "function" && !COARSE &&
                  !(navigator.userAgentData && navigator.userAgentData.mobile);
   // Where Save writes: { handle, name, from: "open" (the PDF the document was opened from) or "save" (made by Save as),
-  // seen: { t, n } (the file's time and size when opened or last saved here, to tell when something else changed it) }
+  // seen: { t, n } (the file's time and size when opened or last saved here, to tell when something else changed it),
+  // unread: the file carries markup of its own that could not be read here (saving would draw it in for good) }
   var saveTo = null, saving = false;
   function stampOf(f) { return f ? { t: f.lastModified, n: f.size } : null; }
   // The file to write to, from the files just opened: the first PDF that came with a handle. A document opened from
   // pictures alone has no PDF to write into, so its first Save is Save as.
-  function aimSave(files, handles) {
+  function aimSave(files, handles, parts) {
     saveTo = null;
     for (var i = 0; i < files.length; i++) {
-      if (handles && handles[i] && isPdf(files[i])) { saveTo = { handle: handles[i], name: files[i].name || handles[i].name, from: "open", seen: stampOf(files[i]) }; return; }
+      if (handles && handles[i] && isPdf(files[i])) {
+        saveTo = { handle: handles[i], name: files[i].name || handles[i].name, from: "open", seen: stampOf(files[i]), unread: !!(parts && parts[i] && parts[i].badMarkup) };
+        return;
+      }
     }
   }
   // Open with the browser's own picker, which hands over a handle for each file to write back to
@@ -7346,14 +7499,15 @@ body.has-pages #stripGrip { display: block; }
   }
   function busySaying() { status(saving ? "Saving…" : "Still making the export: save once it is done."); }
   function failure(name) { var e = new Error(name); e.name = name; return e; }
-  // Build the full-quality PDF and write it into the file. Chromium writes to a copy and swaps it in only once it is
-  // all there, so a write that fails leaves the file as it was. A PDF that could only be made as pictures of its pages
-  // (an encrypted one, or one pdf-lib cannot read) is never written over the PDF it came from.
+  // Build the full-quality PDF of the document itself (built on the PDF it came from, whatever was done to its pages:
+  // fullPdf, keepHome) and write it into the file. Chromium writes to a copy and swaps it in only once it is all there,
+  // so a write that fails leaves the file as it was. A PDF that could only be made as pictures of its pages (an
+  // encrypted one, or one pdf-lib cannot read) is never written over the PDF it came from.
   function writeTo(t) {
     var set = saveSet(), sig = docSig();
     exporting = true;
     status("Saving " + t.name + "…");
-    return pdfLib().then(function (L) { return buildPdf(L, set.d, set.pages, "full"); }).then(function (res) {
+    return pdfLib().then(function (L) { return buildPdf(L, set.d, set.pages, "save"); }).then(function (res) {
       if (res.flat && t.from === "open") { var e = failure("Flat"); e.flat = true; throw e; }
       return t.handle.createWritable().then(function (w) {
         return w.write(res.bytes).then(function () { return w.close(); }, function (err) {
@@ -7361,20 +7515,26 @@ body.has-pages #stripGrip { display: block; }
         });
       }).then(function () {
         return Promise.resolve().then(function () { return t.handle.getFile(); }).then(stampOf, function () { return null; });
-      }).then(function (seen) { t.seen = seen; return { flat: !!res.flat, sig: sig }; });
+      }).then(function (seen) { t.seen = seen; return { flat: !!res.flat, sig: sig, fixed: res.fixed || [], unfilled: res.unfilled || [] }; });
     }).then(function (r) { exporting = false; return r; }, function (err) { exporting = false; throw err; });
   }
-  function saved(t, r) {
-    saving = false; t.saved = true; saveTo = t;
-    markSaved(r.sig); checkSaved();            // a change made while it was being written is still to save
-    status("Saved to " + t.name + (r.flat ? ", as pictures of its pages: this PDF cannot be edited" : ""));
+  // Written. If the document saved is still the one open (gen, its docGen when Save began), Save goes on writing to
+  // that file and the unsaved mark goes, though a change made while it was being written is still to save. If another
+  // was opened meanwhile, that one keeps its own file and its own mark: it only says where the other went.
+  function saved(t, r, gen) {
+    saving = false; t.saved = true; t.unread = false;
+    if (gen === docGen) { saveTo = t; markSaved(r.sig); checkSaved(); }
+    var f = r.fixed || [], u = r.unfilled || [];
+    status("Saved to " + t.name + (r.flat ? ", as pictures of its pages: this PDF cannot be edited" : "") +
+           (f.length ? ". The markup on page" + (f.length > 1 ? "s " : " ") + f.join(", ") + " is drawn in for good: it could not be kept to edit" : "") +
+           (u.length ? ". Not filled in: " + u.join(", ") : ""));
   }
   // Save: into the file the document came from (or was last saved as); with none, Save as
   function saveDoc() {
     if (!CAN_SAVE || !state.img) return;
     if (saving || exporting) { busySaying(); return; }
     if (!saveTo) { saveAs(); return; }
-    var t = saveTo;
+    var t = saveTo, gen = docGen;
     saving = true;
     canWrite(t.handle).then(function (ok) {
       if (!ok) throw failure("NotAllowedError");
@@ -7385,32 +7545,41 @@ body.has-pages #stripGrip { display: block; }
         return askSave("Changed on disk", t.name + " has changed since it was " + (t.saved ? "saved" : "opened") + " here. Save replaces it with this.", "Replace");
       }, function () { return "go"; });
     }).then(function (how) {
+      // markup in the file that could not be read here (a newer version's, or damaged) would be drawn into its pages
+      // for good, so that is asked once too; Save as leaves the file as it is
+      if (how !== "go" || !t.unread) return how;
+      return askSave("Markup not read", "The markup already in " + t.name + " could not be read here: saving draws it into the pages for good.", "Replace");
+    }).then(function (how) {
+      if (gen !== docGen) { saving = false; status("Not saved: another file was opened."); return; }
       if (how === "saveas") { saving = false; saveAs(); return; }
       if (how !== "go") { saving = false; status("Not saved."); return; }
-      return writeTo(t).then(function (r) { saved(t, r); });
-    }).catch(function (err) { saving = false; notSaved(t, err); });
+      return writeTo(t).then(function (r) { saved(t, r, gen); });
+    }).catch(function (err) { saving = false; notSaved(t, err, gen); });
   }
   // Save as: a new file, named after this one (a picture's name with .pdf), which Save then writes to
   function saveAs() {
     if (!CAN_SAVE || !state.img) return;
     if (saving || exporting) { busySaying(); return; }
     saving = true;
-    var name = pdfName(saveTo ? saveTo.name : doc ? doc.name : state.name);
+    var name = pdfName(saveTo ? saveTo.name : doc ? doc.name : state.name), gen = docGen;
     Promise.resolve().then(function () {
       return window.showSaveFilePicker({ suggestedName: name, types: [{ description: "PDF", accept: { "application/pdf": [".pdf"] } }] });
     }).then(function (h) {
+      // the name was picked for the document open when Save as began: another opened meanwhile is not written there
+      if (gen !== docGen) { saving = false; status("Not saved: another file was opened."); return; }
       var t = { handle: h, name: h.name || name, from: "save", seen: null };
       return writeTo(t).then(function (r) {
-        if (doc) { doc.label = t.name; doc.name = t.name.replace(/\.[^.]+$/, ""); state.name = doc.name; pageLabel(); }
-        saved(t, r);
-      }, function (err) { saving = false; notSaved(t, err); });
+        if (doc && gen === docGen) { doc.label = t.name; doc.name = t.name.replace(/\.[^.]+$/, ""); state.name = doc.name; pageLabel(); }
+        saved(t, r, gen);
+      }, function (err) { saving = false; notSaved(t, err, gen); });
     }, function (err) {
       saving = false;
       status(err && err.name === "AbortError" ? "Not saved." : "Save as could not open here: use Export.");
     });
   }
-  // Not written: said plainly, with Save as offered; the document stays open as it is, nothing of it lost
-  function notSaved(t, err) {
+  // Not written: said plainly, with Save as offered; the document stays open as it is, nothing of it lost. If another
+  // document was opened meanwhile, only the message: Save as would be for that one.
+  function notSaved(t, err, gen) {
     var n = (err && err.name) || "", name = t ? t.name : "the file";
     var why = err && err.flat ? "This PDF can only be saved as pictures of its pages (it is locked, or made in a way this app cannot edit), so " + name + " was left as it is."
             : n === "NotAllowedError" || n === "SecurityError" ? "No permission to write to " + name + "."
@@ -7419,6 +7588,7 @@ body.has-pages #stripGrip { display: block; }
             : n === "QuotaExceededError" ? "The disk is full: " + name + " could not be written."
             : name + " could not be written.";
     status("Not saved. " + why);
+    if (gen !== undefined && gen !== docGen) return;
     askSave("Not saved", why + " The markup is still here: Save as puts it in a new file.", "").then(function (how) { if (how === "saveas") saveAs(); });
   }
   // The question Save asks (changed on disk, or not saved): the usual small box; resolves "go", "saveas" or "cancel"
@@ -7466,57 +7636,201 @@ body.has-pages #stripGrip { display: block; }
   // overlay picture. Nothing that is part of the page for good goes in: no page content, nothing redacted, no changed
   // words written into the page as text, no form values; only what is in the overlay, which can be taken off again.
   var MARKUP_FILE = "render-markup.json", MARKUP_V = 1;
-  // what a file's markup may hold at most, read back: past any of it, the file opens as a plain PDF
-  var MK = { bytes: 64 * 1048576, notes: 5000, strokes: 50000, points: 2000000, pics: 1000, edits: 5000, text: 20000, images: 1000, image: 48 * 1048576, groups: 200 };
+  // what a file's markup may hold at most, read back: past any of it, the file opens as a plain PDF. The writer keeps
+  // within the same (markupJson), so what is saved here always opens here again.
+  var MK = { bytes: 64 * 1048576, notes: 5000, strokes: 50000, points: 2000000, pics: 1000, edits: 5000, text: 1000000, images: 1000, image: 48 * 1048576, groups: 200 };
   var DATA_IMG = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/]+={0,2}$/;
-  function markupJson(pages, made) {
-    var images = [], imgAt = new Map(), any = false, used = {};
-    var data = function (id) {
-      var im = picStore[id];
-      if (!im || !im.complete || !im.naturalWidth) return -1;
-      if (imgAt.has(im)) return imgAt.get(im);
-      var src = im.src || "";
-      if (!DATA_IMG.test(src)) {
-        // a picture of another kind (a GIF, an SVG) goes in as a PNG of itself
-        try { var c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext("2d").drawImage(im, 0, 0); src = c.toDataURL("image/png"); }
-        catch (e) { return -1; }
+  // pictures read back from a file here: already as picData makes them, so they go in again as they are; and those
+  // made for a Save before, kept so the next Save does not draw them again
+  var cleanPics = new WeakSet(), picMade = new WeakMap();
+  // A picture as it goes into the file: drawn afresh through a canvas, which keeps its pixels and nothing else (a
+  // photo's EXIF, with where and when it was taken and on what, stays behind), at no more than `need` times its own
+  // size (twice the largest it is placed at) and within what the reader takes (MK.image, 1e8 pixels). A JPEG stays a
+  // JPEG, anything else becomes a PNG. "" if it cannot be drawn.
+  function picData(im, need) {
+    var w = im.naturalWidth, h = im.naturalHeight, s = Math.min(1, need > 0 ? need : 1, 16384 / Math.max(w, h), Math.sqrt(1e8 / (w * h)));
+    if (s >= 1 && cleanPics.has(im) && im.src.length <= MK.image) return im.src;
+    var was = picMade.get(im);
+    if (was && was.s === s && was.cap === MK.image) return was.url;
+    var jpg = /^data:image\/jpeg[;,]/.test(im.src || ""), url = "", at = s;
+    for (var k = 0; k < 8 && !url; k++, at *= 0.7) {
+      try {
+        var c = document.createElement("canvas"), g;
+        c.width = Math.max(1, Math.round(w * at)); c.height = Math.max(1, Math.round(h * at));
+        g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(im, 0, 0, c.width, c.height);
+        url = c.toDataURL(jpg ? "image/jpeg" : "image/png", 0.92);
+        if (url.length > MK.image || !DATA_IMG.test(url)) url = "";
+      } catch (e) { return ""; }
+    }
+    if (url) picMade.set(im, { s: s, cap: MK.image, url: url });
+    return url;
+  }
+  // A page's strokes as the file keeps them, with what was rubbed out gone for good, not just painted over: a line the
+  // eraser cut through goes in as the pieces left of it (each drawn as before, an arrow head only on the piece that
+  // still ends where the line did), and an erase stroke only where it still takes something off the ink drawn before
+  // it. A shape and a revision cloud stay whole, as their look comes from the whole line (and they are not writing);
+  // so does ink only trimmed along its edge, under the erase stroke that trims it. Run with the page as state (withPage).
+  function bakedStrokes(strokes) {
+    var out = [];
+    strokes.forEach(function (s) {
+      if (s.erase) { if (rubsOut(s, out)) out.push(s); return; }
+      if (!s.left || s.dim || s.take || s.shape || s.dash === "cloud") { out.push(s); return; }
+      var last = s.points[s.points.length - 1];
+      s.left.forEach(function (run) {
+        var piece = {}, e = run[run.length - 1];
+        for (var k in s) if (k !== "left" && k !== "end" && k !== "straight" && k !== "closed") piece[k] = s[k];
+        piece.points = run.map(function (q) { return [q[0], q[1]]; }); piece.flat = true;
+        if (s.end && Math.hypot(e[0] - last[0], e[1] - last[1]) < 0.01) piece.end = s.end;
+        out.push(piece);
+      });
+    });
+    return out;
+  }
+  // Whether an erase stroke still takes anything off the ink drawn before it (dimensions and take-offs are not under
+  // it). Its path's points go in a grid, so each point of the ink only looks at those near it; a shape, a cloud or an
+  // arrow, whose look reaches past its points, counts once it is anywhere near.
+  function rubsOut(e, before) {
+    var path = flatten(e), r = (e.r || 0) * Math.SQRT2, gap = 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, i;
+    for (i = 0; i < path.length; i++) {
+      var p = path[i];
+      if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
+      if (i) gap = Math.max(gap, Math.hypot(p[0] - path[i - 1][0], p[1] - path[i - 1][1]));
+    }
+    var size = Math.max(1, r), grid = new Map();
+    path.forEach(function (q) { var key = Math.floor(q[0] / size) + "," + Math.floor(q[1] / size); if (!grid.has(key)) grid.set(key, []); grid.get(key).push(q); });
+    return before.some(function (s) {
+      if (s.erase || s.dim || s.take) return false;
+      var lw = penPx(s), wide = !!(s.shape || s.dash === "cloud" || s.end), reach = r + lw / 2 + gap / 2 + 1;
+      var pad = reach + (wide ? Math.max(lw * 8, refMin() / 20) : 0), pts = flatten(s), j, near = false;
+      for (j = 0; j < pts.length && !near; j++) near = pts[j][0] >= x0 - pad && pts[j][0] <= x1 + pad && pts[j][1] >= y0 - pad && pts[j][1] <= y1 + pad;
+      if (!near || wide) return near;
+      var span = Math.ceil(reach / size);
+      for (j = 0; j < pts.length; j++) {
+        var cx = Math.floor(pts[j][0] / size), cy = Math.floor(pts[j][1] / size);
+        for (var gx = cx - span; gx <= cx + span; gx++) for (var gy = cy - span; gy <= cy + span; gy++) {
+          var cell = grid.get(gx + "," + gy);
+          if (cell && cell.some(function (q) { return Math.hypot(q[0] - pts[j][0], q[1] - pts[j][1]) <= reach; })) return true;
+        }
       }
-      images.push(src); imgAt.set(im, images.length - 1);
-      return images.length - 1;
-    };
+      return false;
+    });
+  }
+  // The scale a page reads at, as the file keeps it: its own, or for a page with something measured that follows the
+  // scale set last, that scale (0 for none), so its lengths read the same wherever it is opened; null when nothing on
+  // it is measured
+  function ratioOf(pg) {
+    if (pg.pageRatio != null) return pg.pageRatio;
+    return pg.strokes.some(function (s) { return s.dim || (s.take && s.take !== "count"); }) ? state.ratio || 0 : null;
+  }
+  // a page's points as the reader counts them (MK.points is for the whole file)
+  function pointsIn(p) {
+    var n = 0, add = function (r) { n += r.length; };
+    p.strokes.forEach(function (st) { n += st.points.length; (st.left || []).forEach(add); (st.holes || []).forEach(add); });
+    return n;
+  }
+  // The markup of the pages being written, as the bytes of render-markup.json (null when there is none), and fixed:
+  // the numbers of the pages whose markup could not all go in, which keep it drawn into the page for good (their
+  // overlay is not named, so it never comes off) while the other pages stay editable. A page goes in only if the
+  // reader itself takes it, and the whole is kept within the reader's limits (the pages with most in them drawn in
+  // first), so a file saved here always opens here again.
+  function markupJson(pages, made) {
+    var need = new Map(), urls = new Map();
+    pages.forEach(function (pg) {
+      (pg.pics || []).forEach(function (q) {
+        var im = picStore[q.id];
+        if (im && im.naturalWidth) need.set(im, Math.max(need.get(im) || 0, 2 * Math.max(q.w / im.naturalWidth, q.h / im.naturalHeight)));
+      });
+    });
+    var url = function (im) { if (!urls.has(im)) urls.set(im, picData(im, need.get(im))); return urls.get(im); };
+    var top = { app: "render-markup", v: MARKUP_V };
+    if (own(FONTS, state.font)) top.type = { font: state.font, bold: !!state.bold, caps: state.caps === "upper" || state.caps === "lower" ? state.caps : "" };
+    if (own(UNITS, state.unit)) top.unit = state.unit;
+    if (["value", "none", "both"].indexOf(state.takeLab) >= 0) top.takeLab = state.takeLab;
+    // a page with no markup to edit: its overlay, if it has one, holds nothing to lose and comes off; a page whose
+    // markup cannot go in keeps it (xo null)
+    var bare = function (e) { var pg = e.pg; return { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: null, xo: e.has ? null : e.xo, notes: [], strokes: [], pics: [], edits: [] }; };
     var list = pages.map(function (pg, i) {
-      var m = made[i] || { raster: [], xo: null }, whole = true;
+      var m = made[i] || { raster: [], xo: null }, ims = [], whole = true;
       var pics = (pg.pics || []).map(function (q) {
-        var at = data(q.id); if (at < 0) { whole = false; return null; }
-        var o = { img: at, x: q.x, y: q.y, w: q.w, h: q.h };
+        var im = picStore[q.id];
+        // a picture that cannot go in (none to read back): the page keeps its overlay rather than lose the picture
+        if (!im || !im.complete || !im.naturalWidth || !url(im)) { whole = false; return null; }
+        if (ims.indexOf(im) < 0) ims.push(im);
+        var o = { img: ims.indexOf(im), x: q.x, y: q.y, w: q.w, h: q.h };
         if (q.n != null) o.n = q.n; if (q.rot) o.rot = q.rot; if (q.line) o.line = { w: q.line.w, c: q.line.c };
         return o;
       });
-      // a picture that cannot be kept here (none to read back): the page keeps its overlay for good and comes back as
-      // drawn, not to edit, rather than losing that picture when the overlay comes off
-      if (!whole) return { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: null, xo: null, notes: [], strokes: [], pics: [], edits: [] };
       // changed words that could only go in as a picture are in the overlay: they come back without their cover,
       // which is in the page itself
       var edits = (m.raster || []).map(function (ed) {
         return { x: ed.x, y: ed.y, size: ed.size, angle: ed.angle || 0, family: ed.family || "sans", bold: !!ed.bold, italic: !!ed.italic, color: isHex(ed.color) ? ed.color : "#111214", text: ed.text, src: typeof ed.src === "number" ? ed.src : null };
       });
-      pg.strokes.forEach(function (s) { if (s.take) used[s.g] = true; });
-      if (pg.notes.length || pg.strokes.length || pics.length || edits.length) any = true;
-      return { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: pg.pageRatio != null ? pg.pageRatio : null, xo: m.xo || null,
-               notes: pg.notes, strokes: pg.strokes, pics: pics, edits: edits };
+      var e = { pg: pg, ims: ims, page: null, points: 0, xo: m.xo || null, has: !!(pg.notes.length || pg.strokes.length || pics.length || edits.length) };
+      if (!whole || !e.has) return e;
+      e.page = { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: ratioOf(pg), xo: m.xo || null,
+                 notes: pg.notes, strokes: withPage(pg, function () { return bakedStrokes(pg.strokes); }), pics: pics, edits: edits };
+      // the page as the reader takes it, on its own (its pictures stood in for: they are checked once, below)
+      var test = { app: top.app, v: top.v, images: ims.map(function () { return "data:image/png;base64,AAAA"; }), pages: [e.page] };
+      if (readMarkup(test, [e.page])) e.points = pointsIn(e.page); else e.page = null;
+      return e;
     });
-    if (!any) return null;
-    return { app: "render-markup", v: MARKUP_V, type: { font: state.font, bold: !!state.bold, caps: state.caps || "" }, unit: state.unit, takeLab: state.takeLab,
-             groups: state.groups.filter(function (g) { return used[g.id]; }).map(function (g) { var o = { id: g.id, name: g.name, kind: g.kind, color: g.color }; if (g.kind === "count") o.mark = g.mark || "circle"; return o; }),
-             images: images, pages: list };
+    var total = 0, kept = function () { return list.filter(function (e) { return e.page; }); };
+    kept().forEach(function (e) { total += e.points; });
+    while (total > MK.points) {
+      var most = kept().sort(function (a, b) { return b.points - a.points; })[0];
+      total -= most.points; most.page = null;
+    }
+    var bytes = null, json = null;
+    for (;;) {
+      var images = [], at = new Map(), used = {};
+      var out = list.map(function (e) {
+        if (!e.page) return bare(e);
+        var o = {}, k;
+        for (k in e.page) o[k] = e.page[k];
+        o.pics = e.page.pics.map(function (q) {
+          var im = e.ims[q.img], c = {};
+          if (!at.has(im)) { at.set(im, images.length); images.push(url(im)); }
+          for (k in q) c[k] = q[k];
+          c.img = at.get(im);
+          return c;
+        });
+        o.strokes.forEach(function (st) { if (st.take) used[st.g] = true; });
+        return o;
+      });
+      if (!images.length && !kept().length) break;
+      var groups = state.groups.filter(function (g) { return used[g.id] && /^g\d{1,9}$/.test(g.id) && own(TAKE_NAMES, g.kind) && validColor(g.color, ""); }).slice(0, MK.groups).map(function (g) {
+        var o = { id: g.id, name: String(g.name || "").slice(0, 60), kind: g.kind, color: validColor(g.color, "red") };
+        if (g.kind === "count") o.mark = TAKE_MARKS.indexOf(g.mark) >= 0 ? g.mark : "circle";
+        return o;
+      });
+      json = { app: top.app, v: top.v, groups: groups, images: images, pages: out };
+      if (top.type) json.type = top.type; if (top.unit) json.unit = top.unit; if (top.takeLab) json.takeLab = top.takeLab;
+      bytes = new TextEncoder().encode(JSON.stringify(json));
+      if (bytes.length <= MK.bytes) break;
+      // too big for the reader: the page with most in it keeps its overlay, and the rest are tried again
+      var big = null, size = -1;
+      kept().forEach(function (e) {
+        var n = JSON.stringify(e.page).length + e.ims.reduce(function (t, im) { return t + url(im).length; }, 0);
+        if (n > size) { size = n; big = e; }
+      });
+      if (!big) { bytes = json = null; break; }
+      big.page = null; bytes = null; json = null;
+    }
+    // and the whole, read back as the reader will: should it not take it after all, nothing goes in and every page
+    // keeps its overlay as drawn
+    if (json && !readMarkup(json, json.pages)) { list.forEach(function (e) { e.page = null; }); bytes = null; }
+    var fixed = [];
+    list.forEach(function (e, i) { if (e.has && !e.page) fixed.push(i + 1); });
+    return { bytes: bytes, fixed: fixed };
   }
-  // Put the markup into the PDF being written, in place of any it had before
+  // Put the markup into the PDF being written, in place of any it had before. Resolves to the pages that keep theirs
+  // drawn in (markupJson).
   function keepMarkup(L, out, pages, made) {
     dropMarkupFile(L, out);
-    var json = markupJson(pages, made);
-    if (!json) return;
+    var m = markupJson(pages, made);
+    if (!m.bytes) return Promise.resolve(m.fixed);
     var now = new Date();
-    return out.attach(new TextEncoder().encode(JSON.stringify(json)), MARKUP_FILE, { mimeType: "application/json", description: "Render Markup: the markup on these pages, to edit again", creationDate: now, modificationDate: now });
+    return out.attach(m.bytes, MARKUP_FILE, { mimeType: "application/json", description: "Render Markup: the markup on these pages, to edit again", creationDate: now, modificationDate: now }).then(function () { return m.fixed; });
   }
   // Take render-markup.json out of a PDF (pdf-lib): from its list of attached files, and the objects themselves
   function dropMarkupFile(L, pd) {
@@ -7717,7 +8031,7 @@ body.has-pages #stripGrip { display: block; }
         var im = new Image();
         im.onload = function () {
           var w = im.naturalWidth, h = im.naturalHeight;
-          if (!w || !h || w > 30000 || h > 30000 || w * h > 1e8) reject(new Error("picture")); else { m.imgs[i] = im; resolve(); }
+          if (!w || !h || w > 30000 || h > 30000 || w * h > 1e8) reject(new Error("picture")); else { m.imgs[i] = im; cleanPics.add(im); resolve(); }
         };
         im.onerror = function () { reject(new Error("picture")); };
         im.src = src;
@@ -7788,16 +8102,16 @@ body.has-pages #stripGrip { display: block; }
     if (m.takeLab && m.takeLab !== state.takeLab) { state.takeLab = m.takeLab; changed = true; }
     if (changed) saveSettings();
   }
-  // A file's groups among those here: the same group (kind, name, colour and marker) is used as it is; another takes
-  // its id, or a new one if that is taken. Returns the file's ids to the ids here.
+  // A file's groups among those here: the same group (kind, name, colour and marker) is used as it is; another gets a
+  // new id of its own here (the file's numbers are never taken over, so a file cannot push the count past what ids
+  // may hold). Returns the file's ids to the ids here.
   function joinGroups(list) {
     var ids = {}, changed = false;
     list.forEach(function (g) {
       var mark = g.mark || "circle";
       var same = state.groups.filter(function (h) { return h.kind === g.kind && h.name === g.name && h.color === g.color && (g.kind !== "count" || (h.mark || "circle") === mark); })[0];
       if (same) { if (same.gone) { delete same.gone; changed = true; } ids[g.id] = same.id; return; }
-      var id = groupOf(g.id) ? "g" + (++state.groupSeq) : g.id;
-      state.groupSeq = Math.max(state.groupSeq, +id.slice(1));
+      var id = nextGroupId();
       ids[g.id] = id;
       if (liveGroups().length >= TAKE_MAX) return;        // no room for it: its take-offs show as a deleted group's
       var o = { id: id, name: g.name, kind: g.kind, color: g.color };
@@ -7814,7 +8128,7 @@ body.has-pages #stripGrip { display: block; }
     pg.notes = mp.notes.map(function (n) { n.id = state.nextId++; return n; });
     pg.strokes = mp.strokes.map(function (st) {
       if (st.erase) st.r *= s;
-      if (st.take) st.g = ids[st.g] || (ids[st.g] = "g" + (++state.groupSeq));   // a group the file did not name: a deleted one
+      if (st.take) st.g = ids[st.g] || (ids[st.g] = nextGroupId());   // a group the file did not name: a deleted one
       return st;
     });
     pg.pics = mp.pics.map(function (q) {
@@ -7939,6 +8253,7 @@ body.has-pages #stripGrip { display: block; }
       state.blank = true; stage.classList.add("has-image");
       $("docname").textContent = "Blank canvas · 1920 × 1080 px";
       sync(); render();
+      showTitle();         // New is named once its canvas is there, not after what was open before
     };
     im.src = c.toDataURL("image/png");
   }
@@ -8270,7 +8585,7 @@ body.has-pages #stripGrip { display: block; }
         if (g.kind === "count") o.mark = TAKE_MARKS.indexOf(g.mark) >= 0 ? g.mark : "circle";
         return o;
       });
-      state.groupSeq = Math.max(seq, num(d.groupSeq, 0, 1e9, 0));
+      state.groupSeq = Math.max(seq, num(d.groupSeq, 0, 999999999, 0));
     }
     var sel = d.takeSel && typeof d.takeSel === "object" ? d.takeSel : {};
     ["area", "len", "count"].forEach(function (k) { var g = groupOf(sel[k]); state.takeSel[k] = g && g.kind === k ? g.id : null; });
