@@ -2284,7 +2284,8 @@ body.has-pages #stripGrip { display: block; }
   // A table of the take-offs, placed on the page as a picture is: a row for each group with take-offs on the page it
   // is on (scope page) or on every page (scope doc), always as they are now. On a page being exported it is drawn
   // through withPage, so "this page" is that page (state.pg, its take-offs in state.strokes) and the others are read
-  // from what they keep, which an export puts away first.
+  // from what they keep, which an export puts away first. A table of its page that came from a file of some pages
+  // of a set keeps the page number it was drawn with (page) in its heading.
   function legendData(q) {
     var pg = doc ? state.pg || doc.pages[doc.cur] : null, no = doc ? doc.pages.indexOf(pg) + 1 : 1, all = q.scope === "doc";
     var tot = takeTotals(), rows = [];
@@ -2297,7 +2298,7 @@ body.has-pages #stripGrip { display: block; }
                     unit: TAKE_UNITS[kind], der: g && g.h > 0 && kind !== "count" ? (none ? "—" : d.toFixed(2)) : "", derUnit: TAKE_DER[kind] || "" });
       });
     });
-    return { head: "TAKE-OFFS · " + (all ? "ALL PAGES" : "PAGE " + no), rows: rows };
+    return { head: "TAKE-OFFS · " + (all ? "ALL PAGES" : "PAGE " + (q.page || no)), rows: rows };
   }
   // How the table is laid out, in ems of its type: the width of each column and of the whole, and its height. Its
   // type is then sized to fit the box, so a table resized, or grown by a row, keeps everything inside it.
@@ -2456,12 +2457,13 @@ body.has-pages #stripGrip { display: block; }
     status("Title block placed bottom right, and Move is on: fill it in in the panel" + (doc && doc.pages.length > 1 ? ". All pages puts it on every page." : "."));
   }
   // What a title block says now: its own fields, the shared ones, the scale (its own, or else the page's) and the sheet
-  // number from the page strip. A report reads it as the drawing does.
+  // number from the page strip, or the one it came with from a file of some pages of a set (sheet), as that is its
+  // number in the set. A report reads it as the drawing does.
   function titleData(q) {
     var f = q.f || {}, t = state.title, r = pageRatio(), pg = doc ? state.pg || doc.pages[doc.cur] : null;
     return { project: t.project, client: t.client, drawing: f.drawing || "", no: f.no || "", rev: f.rev || "",
              scale: f.scale || (r ? "1:" + ratioText(r) : "—"), date: t.date, drawn: t.drawn, checked: t.checked, status: t.status,
-             sheet: pg ? (doc.pages.indexOf(pg) + 1) + " / " + doc.pages.length : "", office: state.office.name };
+             sheet: q.sheet != null ? q.sheet : pg ? (doc.pages.indexOf(pg) + 1) + " / " + doc.pages.length : "", office: state.office.name };
   }
   // The cells right of the logo cell, row by row: each its field, its label and its share of the row. The drawing's
   // name has a taller row of its own. A single image has no sheet number, so there Status takes that cell too.
@@ -3546,6 +3548,7 @@ body.has-pages #stripGrip { display: block; }
     e.target.style.fontFamily = FONTS[state.font].family;
     backToText();
     saveSettings();
+    touchDoc();     // the file carries the typeface: a change to save
     document.fonts.load(fontStr(40)).then(render, render);
   });
   // A text's type: each button changes the selected texts, or with none selected the next text
@@ -6144,6 +6147,7 @@ body.has-pages #stripGrip { display: block; }
     m.notes.forEach(function (n) { n.id = state.nextId++; });
     m.pics.forEach(function (q) {   // the copy's pictures are pictures of their own, showing the same image
       var id = "pic" + (state.nextId++) + Date.now().toString(36);
+      delete q.sheet; delete q.page;   // a title block or a totals table on it says the copy's own sheet and page
       picStore[id] = picStore[q.id]; if (picThumb[q.id]) picThumb[id] = picThumb[q.id]; q.id = id;
     });
     cp.notes = m.notes; cp.strokes = m.strokes; cp.pics = m.pics; cp.edits = m.edits;
@@ -7799,7 +7803,7 @@ body.has-pages #stripGrip { display: block; }
       // and the markup itself, to edit again when the file is opened here (fixed: the pages whose markup could not all
       // be kept, which keep it drawn in)
       var fixed = [];
-      chain = chain.then(function () { return keepMarkup(L, b.out, pages, made); }).then(function (f) { fixed = f || []; });
+      chain = chain.then(function () { return keepMarkup(L, b.out, pages, made, d.pages); }).then(function (f) { fixed = f || []; });
       if (!compact) return chain.then(function () { return b.out.save(); }).then(function (bytes) { return { bytes: bytes, flat: false, fixed: fixed, unfilled: unfilled }; });
       return chain.then(function () { status("Making the pictures in it lighter…"); return compactPdf(L, b.out); })
         .then(function () { return b.out.save({ useObjectStreams: true }); }).then(function (bytes) { return { bytes: bytes, flat: false, compact: true, fixed: fixed, unfilled: unfilled }; });
@@ -8244,8 +8248,9 @@ body.has-pages #stripGrip { display: block; }
   // nothing of the corner it was put in, so it keeps to the right (and so to the bottom), where title blocks belong.
   // A copy is made smaller to fit its page, and one whose corner would be further away than a smaller page is wide or
   // tall is moved in onto it. A title block's copy starts with this sheet's own fields empty (Drawing, No., Rev and
-  // Scale), so each sheet shows its own scale and Fill down can number them. The copies share the set; a page that has
-  // one of the set already is left as it is. Each other page has a step to undo; this one none, as nothing on it changes.
+  // Scale), so each sheet shows its own scale and Fill down can number them, and the sheet number of its own page (not
+  // one this one kept from a file). The copies share the set; a page that has one of the set already is left as it
+  // is. Each other page has a step to undo; this one none, as nothing on it changes.
   function allPages() {
     var q = selectedPic();
     if (!q || !doc || doc.pages.length < 2 || !inSets(q)) return;
@@ -8264,6 +8269,7 @@ body.has-pages #stripGrip { display: block; }
       var hw = vw * mm / k * s / 2, hh = vh * mm / k * s / 2;
       o.id = picId(); o.at = Date.now(); o.set = key;
       if (tb) o.f = { drawing: "", no: "", rev: "", scale: "" };
+      delete o.sheet;
       o.n = (pg.pics || []).reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1;
       o.w = q.w * mm / k * s; o.h = q.h * mm / k * s;
       // its middle as far from that corner, and kept on the page: no nearer the edges than half of what it covers
@@ -8923,21 +8929,24 @@ body.has-pages #stripGrip { display: block; }
   // closing the window then asks first, if there is a file to save into. What counts is the markup on every page, the
   // pages themselves (their order, turns, crops and redactions) and what a form has filled in: undone back to where it
   // was saved, it is unchanged again. So does what the markup shows that is kept as a setting: the take-off groups it
-  // uses (a name, a colour, a height changed relabels them and their totals) and, once there is a title block, the
-  // words every title block shares (typed in its panel, as the file's title blocks are saved with them). Only where
-  // Save is offered.
+  // uses (a name, a colour, a height changed relabels them and their totals), once there is a title block the words
+  // every title block shares (typed in its panel, as the file's title blocks are saved with them), the scale each page
+  // is saved at (a scale typed changes it for every page that follows the scale set last, a title block's empty Scale
+  // too), and, once there is any markup, the typeface, units and take-off labels the file carries (fileLook). Only
+  // where Save is offered.
   var savedSig = null, unsaved = false, sigTimer = null;
   function docSig() {
-    var cur = doc ? doc.pages[doc.cur] : null, used = {}, titled = false;
+    var cur = doc ? doc.pages[doc.cur] : null, used = {}, titled = false, any = false;
     var mk = function (o) {
       o.strokes.forEach(function (s) { if (s.take) used[s.g] = true; });
       (o.pics || []).forEach(function (q) { if (q.kind === "title") titled = true; });
-      return [o.notes, o.strokes, o.pics || [], o.edits || [], o.pageRatio != null ? o.pageRatio : null];
+      if (o.notes.length || o.strokes.length || (o.pics || []).length || (o.edits || []).length) any = true;
+      return [o.notes, o.strokes, o.pics || [], o.edits || [], ratioOf(o)];
     };
     var marks = !doc ? mk(state) : [doc.pages.map(function (pg) {
       return [doc.sources.indexOf(pg.source), pg.n, pg.rot, pg.crop, pg.redact || null].concat(mk(pg === cur ? state : pg));   // the page on screen keeps its markup in state
     }), doc.sources.map(function (src) { return src.values || null; })];
-    return JSON.stringify([marks, state.groups.filter(function (g) { return used[g.id]; }), titled ? [state.title, state.office.name] : null]);
+    return JSON.stringify([marks, state.groups.filter(function (g) { return used[g.id]; }), titled ? [state.title, state.office.name] : null, any ? fileLook() : null]);
   }
   function touchDoc() { if (CAN_SAVE && !sigTimer) sigTimer = setTimeout(checkSaved, 250); }
   function checkSaved() { clearTimeout(sigTimer); sigTimer = null; unsaved = savedSig !== null && docSig() !== savedSig; showTitle(); }
@@ -9036,26 +9045,32 @@ body.has-pages #stripGrip { display: block; }
       return writeTo(t).then(function (r) { saved(t, r, gen); });
     }).catch(function (err) { saving = false; notSaved(t, err, gen); });
   }
-  // Save as: a new file, named after this one (a picture's name with .pdf), which Save then writes to
+  // Save as: a new file, named after this one (a picture's name with .pdf), which Save then writes to. pdf-lib, which
+  // writes it, is in before the picker opens, as Chrome makes the file the moment a name is picked (or empties the one
+  // picked to replace): with no connection to fetch it, and no copy kept, nothing is picked and nothing is made, and
+  // the status says it needs a connection. A copy kept comes at once, while the press still counts for the picker; one
+  // fetched on a slow connection can take longer than that, and then the next press opens it.
   function saveAs() {
     if (!CAN_SAVE || !state.img) return;
     if (saving || exporting) { busySaying(); return; }
     saving = true;
-    var name = pdfName(saveTo ? saveTo.name : doc ? doc.name : state.name), gen = docGen;
-    Promise.resolve().then(function () {
-      return window.showSaveFilePicker({ suggestedName: name, types: [{ description: "PDF", accept: { "application/pdf": [".pdf"] } }] });
-    }).then(function (h) {
-      // the name was picked for the document open when Save as began: another opened meanwhile is not written there
-      if (gen !== docGen) { saving = false; status("Not saved: another file was opened."); return; }
-      var t = { handle: h, name: h.name || name, from: "save", seen: null };
-      return writeTo(t).then(function (r) {
-        if (doc && gen === docGen) { doc.label = t.name; doc.name = t.name.replace(/\.[^.]+$/, ""); state.name = doc.name; pageLabel(); }
-        saved(t, r, gen);
-      }, function (err) { saving = false; notSaved(t, err, gen); });
-    }, function (err) {
-      saving = false;
-      status(err && err.name === "AbortError" ? "Not saved." : "Save as could not open here: use Export.");
-    });
+    var name = pdfName(saveTo ? saveTo.name : doc ? doc.name : state.name), gen = docGen, had = !!window.PDFLib;
+    pdfLib().then(function () {
+      return Promise.resolve().then(function () {
+        return window.showSaveFilePicker({ suggestedName: name, types: [{ description: "PDF", accept: { "application/pdf": [".pdf"] } }] });
+      }).then(function (h) {
+        // the name was picked for the document open when Save as began: another opened meanwhile is not written there
+        if (gen !== docGen) { saving = false; status("Not saved: another file was opened."); return; }
+        var t = { handle: h, name: h.name || name, from: "save", seen: null };
+        return writeTo(t).then(function (r) {
+          if (doc && gen === docGen) { doc.label = t.name; doc.name = t.name.replace(/\.[^.]+$/, ""); state.name = doc.name; pageLabel(); }
+          saved(t, r, gen);
+        }, function (err) { saving = false; notSaved(t, err, gen); });
+      }, function (err) {
+        saving = false;
+        status(err && err.name === "AbortError" ? "Not saved." : !had && err && err.name === "SecurityError" ? "Not saved yet: save again." : "Save as could not open here: use Export.");
+      });
+    }, function (err) { saving = false; notSaved(null, err, gen); });
   }
   // Not written: said plainly, with Save as offered; the document stays open as it is, nothing of it lost. If another
   // document was opened meanwhile, only the message: Save as would be for that one.
@@ -9066,9 +9081,11 @@ body.has-pages #stripGrip { display: block; }
             : n === "NoModificationAllowedError" || n === "InvalidModificationError" || n === "InvalidStateError" ? name + " is read-only, or in use by another app."
             : n === "NotFoundError" ? name + " is no longer there."
             : n === "QuotaExceededError" ? "The disk is full: " + name + " could not be written."
+            : n === "NotLoaded" ? "Saving a PDF needs a connection the first time. Connect, then save again."
             : name + " could not be written.";
     status("Not saved. " + why);
-    if (gen !== undefined && gen !== docGen) return;
+    // with no connection, Save as would want the same: the status alone says so
+    if (n === "NotLoaded" || (gen !== undefined && gen !== docGen)) return;
     askSave("Not saved", why + " The markup is still here: Save as puts it in a new file.", "").then(function (how) { if (how === "saveas") saveAs(); });
   }
   // The question Save asks (changed on disk, or not saved): the usual small box; resolves "go", "saveas" or "cancel"
@@ -9118,7 +9135,9 @@ body.has-pages #stripGrip { display: block; }
   // is part of the page for good goes in: no page content, nothing redacted, no changed words written into the page as
   // text, no form values; only what is in the overlay, which can be taken off again. Version 2 is version 1 with
   // those (take-off cut-outs and moved labels, heights and depths, totals tables, stamps, title blocks, and when and by
-  // whom each thing was made); a file of version 1 is read as it always was.
+  // whom each thing was made); a file of version 1 is read as it always was. A file of some pages of a set (Export of
+  // some pages, or one file a page) keeps what those read in the set: a title block its sheet number, a table of its
+  // page that page's number, and a table of every page, whose other pages are not in the file, a picture of it.
   var MARKUP_FILE = "render-markup.json", MARKUP_V = 2;
   // what a file's markup may hold at most, read back: past any of it, the file opens as a plain PDF. The writer keeps
   // within the same (markupJson), so what is saved here always opens here again.
@@ -9214,13 +9233,29 @@ body.has-pages #stripGrip { display: block; }
     p.strokes.forEach(function (st) { n += st.points.length + (st.lab ? 1 : 0); (st.left || []).forEach(add); (st.holes || []).forEach(add); });
     return n;
   }
+  // The settings a file carries with its markup, as it writes them: the notes' typeface, the units and what a take-off's
+  // label says. Opened again, they become this browser's (markupLook), so a change to one is a change to save.
+  function fileLook() {
+    return { type: own(FONTS, state.font) ? { font: state.font, bold: !!state.bold, caps: state.caps === "upper" || state.caps === "lower" ? state.caps : "" } : null,
+             unit: own(UNITS, state.unit) ? state.unit : null,
+             takeLab: ["value", "none", "both"].indexOf(state.takeLab) >= 0 ? state.takeLab : null };
+  }
   // The markup of the pages being written, as the bytes of render-markup.json (null when there is none), and fixed:
   // the numbers of the pages whose markup could not all go in, which keep it drawn into the page for good (their
   // overlay is not named, so it never comes off) while the other pages stay editable. A page goes in only if the
   // reader itself takes it, and the whole is kept within the reader's limits (the pages with most in them drawn in
-  // first), so a file saved here always opens here again.
-  function markupJson(pages, made) {
+  // first), so a file saved here always opens here again. all: every page of the document they are written from.
+  function markupJson(pages, made, all) {
     var need = new Map(), urls = new Map();
+    // Pages written apart from the rest of the document (some pages, or one file a page) are a set of their own when
+    // the file is opened again: a sheet number, a page number in a table's heading, or a table of every page would
+    // read otherwise there. So a title block keeps the sheet it says now, a table of its page that page's number, and
+    // a table of every page goes in as a picture of what it says, when a page left out has take-offs it adds up. The
+    // stamps and title blocks named as a set (All pages) are found too, so one whose set was undone off it stays in.
+    var wholeDoc = pages.length === all.length && pages.every(function (pg, i) { return pg === all[i]; });
+    var others = !wholeDoc && all.some(function (pg) { return pages.indexOf(pg) < 0 && pg.strokes.some(function (s) { return s.take; }); });
+    var named = {};
+    pages.forEach(function (pg) { (pg.pics || []).forEach(function (q) { if (inSets(q) && q.set != null) named[q.set] = true; }); });
     pages.forEach(function (pg) {
       (pg.pics || []).forEach(function (q) {
         var im = picStore[q.id];
@@ -9228,18 +9263,25 @@ body.has-pages #stripGrip { display: block; }
       });
     });
     var url = function (im) { if (!urls.has(im)) urls.set(im, picData(im, need.get(im))); return urls.get(im); };
-    var top = { app: "render-markup", v: MARKUP_V };
-    if (own(FONTS, state.font)) top.type = { font: state.font, bold: !!state.bold, caps: state.caps === "upper" || state.caps === "lower" ? state.caps : "" };
-    if (own(UNITS, state.unit)) top.unit = state.unit;
-    if (["value", "none", "both"].indexOf(state.takeLab) >= 0) top.takeLab = state.takeLab;
+    var top = { app: "render-markup", v: MARKUP_V }, look = fileLook();
+    if (look.type) top.type = look.type;
+    if (look.unit) top.unit = look.unit;
+    if (look.takeLab) top.takeLab = look.takeLab;
     // a page with no markup to edit: its overlay, if it has one, holds nothing to lose and comes off; a page whose
     // markup cannot go in keeps it (xo null)
     var bare = function (e) { var pg = e.pg; return { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: null, xo: e.has ? null : e.xo, notes: [], strokes: [], pics: [], edits: [] }; };
     var list = pages.map(function (pg, i) {
-      var m = made[i] || { raster: [], xo: null }, ims = [], whole = true;
+      var m = made[i] || { raster: [], xo: null }, ims = [], whole = true, here = all.indexOf(pg) + 1;
+      var fix = { page: here !== i + 1 ? here : null, sheet: here !== i + 1 || pages.length !== all.length ? here + " / " + all.length : null };
       var pics = (pg.pics || []).map(function (q) {
-        var o;
-        if (q.kind) o = kindData(q);
+        var o, shot = null;
+        if (q.kind === "legend" && q.scope === "doc" && others) {
+          shot = tableShot(pg, q);
+          if (!shot) { whole = false; return null; }
+          var key = { shot: true };
+          urls.set(key, shot); ims.push(key);
+          o = { img: ims.length - 1, x: q.x, y: q.y, w: q.w, h: q.h };
+        } else if (q.kind) o = kindData(q, fix, named);
         else {
           var im = picStore[q.id];
           // a picture that cannot go in (none to read back): the page keeps its overlay rather than lose the picture
@@ -9247,7 +9289,7 @@ body.has-pages #stripGrip { display: block; }
           if (ims.indexOf(im) < 0) ims.push(im);
           o = { img: ims.indexOf(im), x: q.x, y: q.y, w: q.w, h: q.h };
         }
-        if (q.n != null) o.n = q.n; if (q.rot) o.rot = q.rot; if (q.line) o.line = { w: q.line.w, c: q.line.c };
+        if (q.n != null) o.n = q.n; if (q.rot) o.rot = q.rot; if (q.line && !shot) o.line = { w: q.line.w, c: q.line.c };
         if (q.at != null) o.at = q.at; if (q.by != null) o.by = q.by;
         return o;
       });
@@ -9328,20 +9370,48 @@ body.has-pages #stripGrip { display: block; }
   // A picture drawn by code as the file keeps it: where it is and what it says, and no picture of it. A totals table
   // keeps whether it adds up this page or every page; a stamp which one of the Library it is, its words, its second
   // line and its colour; a title block this sheet's own fields (the shared ones go once, for the whole file); a stamp
-  // or a title block put on every page, the set its copies share.
-  function kindData(q) {
+  // or a title block put on every page, the set its copies share. In a file of some pages of a set (fix, from
+  // markupJson), a table of its page keeps that page's number and a title block its sheet number, as they read in the
+  // set; once kept, they stay. A stamp or title block that other pictures written name as their set, but that has no
+  // set of its own (an Undo on its page went back past All pages), goes in as the set named after it, so it is still
+  // one of them when the file is opened again and every picture has a new id.
+  function kindData(q, fix, named) {
     var o = { kind: q.kind, x: q.x, y: q.y, w: q.w, h: q.h };
-    if (q.kind === "legend") o.scope = q.scope === "doc" ? "doc" : "page";
+    if (q.kind === "legend") {
+      o.scope = q.scope === "doc" ? "doc" : "page";
+      var no = q.page != null ? q.page : fix.page;
+      if (o.scope === "page" && no != null) o.page = no;
+    }
     if (q.kind === "stamp") { if (q.st != null) o.st = q.st; o.text = q.text; if (q.sub != null) o.sub = q.sub; o.color = q.color; }
-    if (q.kind === "title") { var f = q.f || {}; o.f = { drawing: f.drawing || "", no: f.no || "", rev: f.rev || "", scale: f.scale || "" }; }
-    if (q.set != null) o.set = q.set;
+    if (q.kind === "title") {
+      var f = q.f || {}, sheet = q.sheet != null ? q.sheet : fix.sheet;
+      o.f = { drawing: f.drawing || "", no: f.no || "", rev: f.rev || "", scale: f.scale || "" };
+      if (sheet != null) o.sheet = sheet;
+    }
+    var set = q.set != null ? q.set : inSets(q) && named[q.id] ? q.id : null;
+    if (set != null) o.set = set;
     return o;
+  }
+  // A totals table as a picture of what it says now on its page (withPage), drawn as on the page at twice the size it
+  // is placed at (within what a canvas and the reader take), not turned (the picture is turned as the table was).
+  // Its data URL, or null if it cannot be drawn.
+  function tableShot(pg, q) {
+    var k = Math.min(2, 16384 / Math.max(q.w, q.h), Math.sqrt(1e8 / (q.w * q.h)));
+    try {
+      var c = document.createElement("canvas"), g;
+      c.width = Math.max(1, Math.round(q.w * k)); c.height = Math.max(1, Math.round(q.h * k));
+      g = c.getContext("2d");
+      g.scale(c.width / q.w, c.height / q.h); g.translate(q.w / 2, q.h / 2);
+      withPage(pg, function () { drawKindPic(g, q); });
+      var url = c.toDataURL("image/png");
+      return url.length <= MK.image && DATA_IMG.test(url) ? url : null;
+    } catch (e) { return null; }
   }
   // Put the markup into the PDF being written, in place of any it had before. Resolves to the pages that keep theirs
   // drawn in (markupJson).
-  function keepMarkup(L, out, pages, made) {
+  function keepMarkup(L, out, pages, made, all) {
     dropMarkupFile(L, out);
-    var m = markupJson(pages, made);
+    var m = markupJson(pages, made, all);
     if (!m.bytes) return Promise.resolve(m.fixed);
     var now = new Date();
     return out.attach(m.bytes, MARKUP_FILE, { mimeType: "application/json", description: "Render Markup: the markup on these pages, to edit again", creationDate: now, modificationDate: now }).then(function () { return m.fixed; });
@@ -9499,7 +9569,11 @@ body.has-pages #stripGrip { display: block; }
       if (has(q, "kind")) {
         o.kind = oneOf(q.kind, ["legend", "stamp", "title"]);
         if (has(q, "img")) bad();
-        if (o.kind === "legend") o.scope = has(q, "scope") ? oneOf(q.scope, ["page", "doc"]) : "page";
+        if (o.kind === "legend") {
+          o.scope = has(q, "scope") ? oneOf(q.scope, ["page", "doc"]) : "page";
+          // the page number a table of its page read in the set the file's pages came from
+          if (has(q, "page")) { if (o.scope !== "page") bad(); o.page = int(q.page, 1, 1e6); }
+        }
         if (o.kind === "stamp") {
           if (has(q, "st")) o.st = oneOf(q.st, Object.keys(STAMPS).concat(["own"]));
           o.text = str(q.text, 120);
@@ -9510,6 +9584,8 @@ body.has-pages #stripGrip { display: block; }
           var f = obj(q.f);
           o.f = {};
           ["drawing", "no", "rev", "scale"].forEach(function (k) { o.f[k] = has(f, k) ? str(f[k], 120) : ""; });
+          // and the sheet number it read in that set
+          if (has(q, "sheet")) o.sheet = str(q.sheet, 40);
         }
         // the set the copies All pages made share: named after a picture's id
         if (has(q, "set")) { if (o.kind === "legend") bad(); o.set = str(q.set, 48); if (!/^pic[0-9a-z]+$/.test(o.set)) bad(); }
@@ -9682,7 +9758,7 @@ body.has-pages #stripGrip { display: block; }
     pg.pics = mp.pics.map(function (q) {
       var id = picId(), o = { id: id, x: q.x * s, y: q.y * s, w: q.w * s, h: q.h * s };
       // one drawn by code takes what it says (read as kindData wrote it); a picture its pixels
-      if (q.kind) ["kind", "scope", "st", "text", "sub", "color", "f", "set"].forEach(function (k) { if (q[k] !== undefined) o[k] = q[k]; });
+      if (q.kind) ["kind", "scope", "page", "st", "text", "sub", "color", "f", "sheet", "set"].forEach(function (k) { if (q[k] !== undefined) o[k] = q[k]; });
       else picStore[id] = m.imgs[q.img];
       if (q.n != null) o.n = q.n; if (q.rot != null) o.rot = q.rot; if (q.line) o.line = q.line;
       if (q.at != null) o.at = q.at; if (q.by != null) o.by = q.by;
