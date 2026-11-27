@@ -89,7 +89,7 @@ Installed as an app, Render Markup can be the app your computer opens PDFs and p
 - **Android:** install it from Chrome, then Share a PDF or a picture to Render Markup.
 - **iPhone, iPad, Safari and Firefox** cannot hand a file to a web app: use **Open file**.
 
-The first time, the browser asks whether Render Markup may open that kind of file. Files open in a new window, so work in another is never replaced; on Android, where the app has one window, a share asks before it replaces markup. Several opened at once become one document, as with Open. The file is only read: the copy on your computer is never changed (Export saves a new one). When the app moves to its own domain, it has to be installed again from there.
+The first time, the browser asks whether Render Markup may open that kind of file. Files open in a new window, so work in another is never replaced; on Android, where the app has one window, a share asks before it replaces markup. Several opened at once become one document, as with Open. A PDF opened this way on a computer is the one **Save** writes back into, as one picked with Open is; until you Save, the copy on your computer is not changed. A file shared on Android is only read: Export saves a new one. When the app moves to its own domain, it has to be installed again from there.
 
 ## Shortcuts
 

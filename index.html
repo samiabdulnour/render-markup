@@ -8908,9 +8908,9 @@ body.has-pages #stripGrip { display: block; }
       if (err && err.name !== "AbortError") status("The files could not be opened.");
     });
   }
-  // Files given as handles (FileSystemFileHandle): from Open, a drop, or the system (an installed app's Open with, once
-  // its launch queue is pointed here). Each is read and they open as Open opens files; the first PDF's handle is kept
-  // as where Save writes.
+  // Files given as handles (FileSystemFileHandle): from Open, a drop, or the system (an installed app's Open with, by
+  // its launch queue). Each is read and they open as Open opens files; the first PDF's handle is kept as where Save
+  // writes.
   function openHandles(handles) {
     handles = Array.prototype.filter.call(handles || [], function (h) { return h && h.kind === "file" && typeof h.getFile === "function"; });
     if (!handles.length) return Promise.resolve();
@@ -10085,8 +10085,10 @@ body.has-pages #stripGrip { display: block; }
   // ---------- opened from the system ----------
   // Installed from Chrome or Edge, the app is offered for PDFs and pictures (Open with, or a double-click once it is
   // the default), and on Android a file can be shared to it. Either way the files open just as the Open button opens
-  // them, once the blank canvas is up: opened before, the blank canvas would replace them. Each file is read once
-  // and let go; nothing is kept of it, and nothing is ever written back to the copy on the computer.
+  // them, once the blank canvas is up: opened before, the blank canvas would replace them. What the system hands over
+  // from Open with is a handle to each file, as Open's own picker gives, so they go through openHandles and the first
+  // PDF among them is where Save writes, back into the file that was double-clicked. A share on Android brings the
+  // files alone, with nothing to write back to; nothing of a shared file is kept once it is open.
   var booted = false, onBoot = [];
   function whenBooted(fn) { if (booted) fn(); else onBoot.push(fn); }
   function bootDone() { if (booted) return; booted = true; onBoot.splice(0).forEach(function (fn) { fn(); }); }
@@ -10094,11 +10096,7 @@ body.has-pages #stripGrip { display: block; }
     window.launchQueue.setConsumer(function (params) {
       var handles = Array.prototype.slice.call((params && params.files) || []);
       if (!handles.length) return;   // the app was started on its own, with nothing to open
-      Promise.all(handles.map(function (h) { return h.getFile(); })).then(function (files) {
-        whenBooted(function () { openMany(files); });
-      }, function () {
-        whenBooted(function () { status("That file could not be read."); });
-      });
+      whenBooted(function () { openHandles(handles); });
     });
   }
   // A share on Android: the service worker (sw.js) has put the files aside and opened the app at ./?shared=1.
