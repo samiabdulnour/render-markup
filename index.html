@@ -1336,21 +1336,53 @@ body.has-pages #stripGrip { display: block; }
   // leader with a landing does: it leaves the middle of the side that faces the spot level, along the note's own
   // across (so a note set on end has its shoulder upright), runs a shoulder n.shoulder text heights long (1.5 until
   // its bend is dragged), then goes straight to the spot. Both are plain fields, and a straight leader has neither.
-  var SHOULDER = 1.5, SHOULDER_MIN = 0.5, SHOULDER_MAX = 10, BACK = Math.tan(Math.PI / 6);
+  var SHOULDER = 1.5, SHOULDER_MIN = 0.5, SHOULDER_MAX = 10, SHOULDER_PUSH = 3, BACK = Math.tan(Math.PI / 6);
   function angledLead(n) { return n.leader === "angled"; }
   function shoulderOf(n) { return typeof n.shoulder === "number" && isFinite(n.shoulder) ? clamp(n.shoulder, SHOULDER_MIN, SHOULDER_MAX) : SHOULDER; }
+  // How long the arrowhead on a note's leader is (see drawNote). The slanted part of an angled leader is never shorter,
+  // so its head is always whole, and a dot end keeps the same room.
+  function headLen(L) { return Math.max(Math.max(2, L.fs * 0.3) * 3.2, Math.max(1.2, L.fs * 0.1) * 5); }
+  // How far out from the middle of side s a shoulder can run and stay on the page (0 if that side is already off it),
+  // so exports, which stop at the page's edge, show the whole leader
+  function roomOut(n, L, s) {
+    var a = toGlobal(n, L, s * L.w / 2, 0), ux = s * Math.cos(L.ang), uy = s * Math.sin(L.ang), r = Infinity;
+    if (ux > 1e-9) r = Math.min(r, (state.w - a.x) / ux); else if (ux < -1e-9) r = Math.min(r, -a.x / ux);
+    if (uy > 1e-9) r = Math.min(r, (state.h - a.y) / uy); else if (uy < -1e-9) r = Math.min(r, -a.y / uy);
+    return Math.max(0, r);
+  }
   // Where an angled leader bends, in the note's own axes: the side it leaves (s: 1 the right, -1 the left), the
-  // shoulder's length in px (sh) and the spot (t); null for a plain comment. The side is the one facing the spot, so
-  // it changes over by itself when the spot goes past the note's middle. The shoulder is as long as it is set, but
-  // never so long that the slanted part turns back towards the note more than 30° past upright (a spot just beside
-  // the note gets a shorter one, and a spot level with the side's middle a plain level line), and never so short
-  // that the slanted part cuts across the note (a spot above or below it pushes the bend out until the line clears
-  // the corner, as far as ten text heights).
+  // shoulder's length in px (sh), the spot (t), and the shortest and longest shoulder the spot allows (lo, hi, px);
+  // null for a plain comment, and straight: true where it goes straight from the pill instead. The side is the one
+  // facing the spot, so it changes over by itself when the spot goes past the note's middle. The shoulder is as long
+  // as it is set, but it ends on the page, it never turns the slanted part back towards the note more than 30° past
+  // upright, and it leaves the slanted part as long as the arrowhead at least: a spot close beside the note gets a
+  // shorter one, or none (a line straight from the side's middle). A spot above or below the note pushes the bend
+  // out until the slanted part clears the corner, but no further than three text heights (or the shoulder set, if
+  // that is longer) and never off the page: a spot that would need more, mostly one just over the note's top or
+  // bottom, gets a straight leader from the edge of the pill instead, as a long hook back would only get in the way.
   function bendOf(n, L) {
     var t = toLocal(n, L, n.tx, n.ty);
     if (outside(L, t.x, t.y) <= 0) return null;
-    var s = t.x < 0 ? -1 : 1, sh = Math.min(shoulderOf(n) * L.fs, Math.max(0, s * t.x - L.w / 2) + Math.abs(t.y) * BACK);
-    return { s: s, sh: clearBend(L, s, t, sh), t: t };
+    var s = t.x < 0 ? -1 : 1, d = s * t.x - L.w / 2, ay = Math.abs(t.y), hl = headLen(L), room = roomOut(n, L, s);
+    // how much further out than the spot the bend may go (less than nothing: how much short of it it must stop)
+    var past = ay < hl ? -Math.sqrt(hl * hl - ay * ay) : Math.min(ay * BACK, Math.sqrt(ay * ay - hl * hl));
+    var S = shoulderOf(n) * L.fs, hi = Math.max(0, Math.min(Math.max(0, d) + past, room));
+    var g = { s: s, t: t, sh: Math.min(S, hi), lo: 0, hi: hi };
+    if (d >= 0) return g;                          // the slanted part lies wholly beyond the side: it cannot cut the note
+    var m = Math.min(L.fs * 0.3, outside(L, t.x, t.y) / 2), far = Math.min(Math.max(S, SHOULDER_PUSH * L.fs), room);
+    var off = function (len) { return lineOff(L, { x: s * (L.w / 2 + len), y: 0 }, t); };
+    // the shortest shoulder that clears the note by a third of the text height (or half the spot's own way off,
+    // when the spot is closer than that), its slanted part as long as the arrowhead
+    var lo = Math.max(0, d + Math.sqrt(Math.max(0, hl * hl - ay * ay)));
+    if (lo > far) return { s: s, t: t, straight: true };
+    if (off(lo) < m) {
+      if (off(far) < m) return { s: s, t: t, straight: true };
+      var a = lo, b = far;
+      for (var i = 0; i < 24; i++) { var mid = (a + b) / 2; if (off(mid) >= m) b = mid; else a = mid; }
+      lo = b;
+    }
+    g.lo = lo; g.sh = Math.max(g.sh, lo);
+    return g;
   }
   // How far a straight line from a to b passes from a note's shape, in its own axes; less than nothing if it goes
   // through it. The shape is a box with rounded corners: a smaller box grown all round by the corner's radius.
@@ -1369,29 +1401,24 @@ body.has-pages #stripGrip { display: block; }
     [[-ax, -ay], [ax, -ay], [ax, ay], [-ax, ay]].forEach(function (k) { d = Math.min(d, distToSeg(k, [a.x, a.y], [b.x, b.y])); });
     return d - L.cr;
   }
-  // The shortest shoulder, from sh, whose slanted part keeps clear of the note: by a third of the text height, or
-  // by half the spot's own way off when the spot is closer than that
-  function clearBend(L, s, t, sh) {
-    var m = Math.min(L.fs * 0.3, outside(L, t.x, t.y) / 2);
-    var off = function (len) { return lineOff(L, { x: s * (L.w / 2 + len), y: 0 }, t); };
-    if (off(sh) >= m) return sh;
-    var lo = sh, hi = SHOULDER_MAX * L.fs;
-    if (hi <= lo || off(hi) < m) return Math.max(lo, hi);
-    for (var i = 0; i < 24; i++) { var mid = (lo + hi) / 2; if (off(mid) >= m) hi = mid; else lo = mid; }
-    return hi;
-  }
   // A leader's corners, from the note's edge to the spot: two for a straight one, three for an angled one (two when
-  // its bend comes to nothing: on the spot, or right at the side); null for a plain comment.
-  function leaderPts(n, L) {
-    if (!angledLead(n)) { var a = leaderStart(n, L); return a ? [a, { x: n.tx, y: n.ty }] : null; }
-    var g = bendOf(n, L); if (!g) return null;
-    var x1 = g.s * (L.w / 2 + g.sh), pts = [toGlobal(n, L, g.s * L.w / 2, 0)], tiny = L.fs * 0.01;
-    if (g.sh > tiny && Math.hypot(g.t.x - x1, g.t.y) > tiny) pts.push(toGlobal(n, L, x1, 0));
-    pts.push({ x: n.tx, y: n.ty });
-    return pts;
+  // its bend comes to nothing, right at the side, or when it goes straight from the pill); null for a plain comment.
+  // g: the bend, if it is already worked out.
+  function leaderPts(n, L, g) {
+    if (angledLead(n)) {
+      g = g || bendOf(n, L); if (!g) return null;
+      if (!g.straight) {
+        var x1 = g.s * (L.w / 2 + g.sh), pts = [toGlobal(n, L, g.s * L.w / 2, 0)];
+        if (g.sh > L.fs * 0.01) pts.push(toGlobal(n, L, x1, 0));
+        pts.push({ x: n.tx, y: n.ty });
+        return pts;
+      }
+    }
+    var a = leaderStart(n, L);
+    return a ? [a, { x: n.tx, y: n.ty }] : null;
   }
   // the bend of an angled leader, on the image, or null
-  function bendAt(n, L) { var pts = angledLead(n) ? leaderPts(n, L) : null; return pts && pts.length === 3 ? pts[1] : null; }
+  function bendAt(n, L, g) { var pts = angledLead(n) ? leaderPts(n, L, g) : null; return pts && pts.length === 3 ? pts[1] : null; }
 
   // ---------- drawing ----------
   function penPx(s) { return s.erase ? s.r * 2 : s.dim ? dimLine(s) : s.take ? (s.take === "count" ? fontPx(s) * 1.1 : 1.5 * dimLine(s)) : Math.max(1, refW() / 100 * 0.22 * s.width); }
@@ -2244,6 +2271,22 @@ body.has-pages #stripGrip { display: block; }
     if (alongY && near(-q.x, hw, inX)) return { n: n, k: 7, L: L };
     return null;
   }
+  // The handle on the bend of the one note selected, or null: where it is, how far a press reaches it (r), how big it
+  // is drawn (half its side, hs), the dot's ring (ring), and the shortest and longest shoulder it can set, in text
+  // heights (lo, hi). It reaches no further than half the shoulder, so a press beside it still takes the pill, and it
+  // is left out where it could not move the bend (the spot holds the shoulder as it is) or would sit on the dot's
+  // ring, which then stays the dot's to pick up.
+  function bendHandle(n, L) {
+    if (!n || state.picks.length !== 1 || n !== selected() || !angledLead(n)) return null;
+    var g = bendOf(n, L), b = g && !g.straight ? bendAt(n, L, g) : null;
+    if (!b) return null;
+    var lo = Math.ceil(Math.max(g.lo / L.fs, SHOULDER_MIN) * 100) / 100, hi = Math.floor(Math.min(g.hi / L.fs, SHOULDER_MAX) * 100) / 100;
+    if (hi - lo < 0.05) return null;
+    var r = Math.min(lastTouch ? 16 : 7, Math.max(5, g.sh * view.s / 2)) / view.s, hs = Math.min((lastTouch ? 7 : 5) / view.s, r);
+    var ring = Math.max(L.fs * 0.6, 9 / view.s);
+    if (Math.hypot(b.x - n.tx, b.y - n.ty) < ring + hs * Math.SQRT2) return null;
+    return { x: b.x, y: b.y, r: r, hs: hs, ring: ring, lo: lo, hi: hi, s: g.s, sh: g.sh };
+  }
   function drawSelection(c, n, L) {
     c.save();
     c.translate(n.px, n.py); c.rotate(L.ang);
@@ -2272,9 +2315,9 @@ body.has-pages #stripGrip { display: block; }
     c.lineWidth = 2 / view.s;
     c.beginPath(); c.arc(n.tx, n.ty, Math.max(L.fs * 0.6, 9 / view.s), 0, Math.PI * 2); c.stroke();
     // an angled leader of the one note selected: a handle on its bend, which drags the shoulder longer or shorter
-    var bend = state.picks.length === 1 ? bendAt(n, L) : null;
+    var bend = bendHandle(n, L);
     if (bend) {
-      var bh = (lastTouch ? 7 : 5) / view.s;
+      var bh = bend.hs;
       c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f"; c.lineWidth = 1.5 / view.s;
       c.fillRect(bend.x - bh, bend.y - bh, bh * 2, bh * 2); c.strokeRect(bend.x - bh, bend.y - bh, bh * 2, bh * 2);
     }
@@ -3099,7 +3142,7 @@ body.has-pages #stripGrip { display: block; }
     var L = layout(n, ctx);
     if (shapeOf(n) !== "text") {
       var g = angledLead(n) ? bendOf(n, L) : null;
-      if (!g) return null;
+      if (!g || g.straight) return null;           // (one going straight from the pill grows as a straight one does)
       var side = toGlobal(n, L, g.s * L.w / 2, 0);
       side.side = g.s;
       return side;
@@ -3994,13 +4037,16 @@ body.has-pages #stripGrip { display: block; }
     return { x: (e.clientX - r.left - view.ox) / view.s, y: (e.clientY - r.top - view.oy) / view.s };
   }
   function hit(p) {
-    // the handle on the bend of the one note selected, where it is nearer than that note's dot (a finger takes it
-    // from further off)
-    var sn = state.picks.length === 1 ? selected() : null, sb = sn && bendAt(sn, layout(sn, ctx));
-    if (sb) {
-      var bd = Math.hypot(p.x - sb.x, p.y - sb.y);
-      if (bd <= (lastTouch ? 16 : 7) / view.s && bd <= Math.hypot(p.x - sn.tx, p.y - sn.ty)) return { i: state.sel, part: "bend" };
-    }
+    var h = noteAt(p);
+    // the handle on the bend of the one note selected (a finger takes it from further off, never past half the
+    // shoulder): where no other note's dot or pill is, nor its own pill, nor its own dot's ring
+    var sn = selected(), hb = sn ? bendHandle(sn, layout(sn, ctx)) : null;
+    if (hb && Math.hypot(p.x - hb.x, p.y - hb.y) <= hb.r &&
+        (!h || (h.part === "target" && h.i === state.sel && Math.hypot(p.x - sn.tx, p.y - sn.ty) > hb.ring))) return { i: state.sel, part: "bend" };
+    return h;
+  }
+  // the note under p: a dot first, then a pill, the topmost of each
+  function noteAt(p) {
     for (var i = state.notes.length - 1; i >= 0; i--) {
       var n = state.notes[i], L = layout(n, ctx);
       var tr = Math.max(L.fs * 0.7, 12 / view.s);
@@ -4066,21 +4112,22 @@ body.has-pages #stripGrip { display: block; }
     var u = cleanWay(s * (t.x - bx), t.y), ul = [s * u[0], u[1]];
     return { u: ul, len: Math.max(0, (t.x - bx) * ul[0] + t.y * ul[1]) };
   }
-  // Shift moving the dot of an angled leader: the pill stays, and the spot goes along the clean line from the bend
+  // Shift moving the dot of an angled leader: the pill stays, and the spot goes along the clean line from the bend,
+  // never nearer it than an arrowhead's length (nearer, the bend would give way and the angle with it)
   function snapSpot(n, x, y) {
     var L = layout(n, ctx), t = toLocal(n, L, x, y), s = t.x < 0 ? -1 : 1, bx = s * (L.w / 2 + shoulderOf(n) * L.fs);
     var k = cleanPart(t, bx, s), B = toGlobal(n, L, bx, 0), c = Math.cos(L.ang), si = Math.sin(L.ang);
-    var U = [k.u[0] * c - k.u[1] * si, k.u[0] * si + k.u[1] * c], len = alongIn(B, U, k.len);
+    var U = [k.u[0] * c - k.u[1] * si, k.u[0] * si + k.u[1] * c], len = alongIn(B, U, Math.max(k.len, headLen(L)));
     return [clamp(B.x + U[0] * len, 0, state.w), clamp(B.y + U[1] * len, 0, state.h)];
   }
   // Shift moving the pill of an angled leader (or placing the note): the spot stays, and the pill goes where its
-  // bend is on the clean line through the spot
+  // bend is on the clean line through the spot, an arrowhead's length from it at least
   function snapPill(n, x, y) {
     var L = layout(n, ctx), c = Math.cos(L.ang), si = Math.sin(L.ang), dx = n.tx - x, dy = n.ty - y;
     var t = { x: dx * c + dy * si, y: -dx * si + dy * c }, s = t.x < 0 ? -1 : 1, bx = s * (L.w / 2 + shoulderOf(n) * L.fs);
     var k = cleanPart(t, bx, s);
     // the pill is the spot less the slanted part and the shoulder, all turned with the note
-    var o = { x: n.tx - bx * c, y: n.ty - bx * si }, U = [-(k.u[0] * c - k.u[1] * si), -(k.u[0] * si + k.u[1] * c)], len = alongIn(o, U, k.len);
+    var o = { x: n.tx - bx * c, y: n.ty - bx * si }, U = [-(k.u[0] * c - k.u[1] * si), -(k.u[0] * si + k.u[1] * c)], len = alongIn(o, U, Math.max(k.len, headLen(L)));
     return [clamp(o.x + U[0] * len, 0, state.w), clamp(o.y + U[1] * len, 0, state.h)];
   }
   // The mouse always works the same way: the left button draws, the wheel button erases, and the right button
@@ -4124,12 +4171,12 @@ body.has-pages #stripGrip { display: block; }
                  from: picked().map(function (m) { return [m.px, m.py, bare(m)]; }) };
       } else {
         select(h.i);
-        var n = state.notes[h.i];
-        drag = { part: h.part, dx: (h.part === "pill" ? n.px : n.tx) - p.x, dy: (h.part === "pill" ? n.py : n.ty) - p.y, moved: false, bare: bare(n) };
-        if (h.part === "bend") {
-          // the bend's handle: how far the press was out past the bend along the shoulder, which the drag keeps
-          var BL = layout(n, ctx), bg = bendOf(n, BL);
-          drag = { part: "bend", s: bg.s, off: bg.s * toLocal(n, BL, p.x, p.y).x - BL.w / 2 - bg.sh, sx: o.sx, sy: o.sy, moved: false };
+        var n = state.notes[h.i], BL = h.part === "bend" ? layout(n, ctx) : null, bg = BL && bendHandle(n, BL), part = h.part === "bend" && !bg ? "pill" : h.part;
+        drag = { part: part, dx: (part === "pill" ? n.px : n.tx) - p.x, dy: (part === "pill" ? n.py : n.ty) - p.y, moved: false, bare: bare(n) };
+        if (bg) {
+          // the bend's handle: how far the press was out past the bend along the shoulder, which the drag keeps, the
+          // shoulders the spot allows, and the shoulder as it was (a drag that ends where it began is no step to undo)
+          drag = { part: "bend", s: bg.s, off: bg.s * toLocal(n, BL, p.x, p.y).x - BL.w / 2 - bg.sh, lo: bg.lo, hi: bg.hi, was: n.shoulder, sx: o.sx, sy: o.sy, moved: false };
         }
       }
       if (state.tool !== "move") showPanel(panelOf(state.notes[h.i]));
@@ -5290,11 +5337,13 @@ body.has-pages #stripGrip { display: block; }
     }
     var n = selected(); if (!n) return;
     if (drag.part === "bend") {
-      // the shoulder follows the pointer along it, from half a text height to ten; the pill and the spot stay put
+      // the shoulder follows the pointer along it, from half a text height to ten, and only as far as the spot lets
+      // it be drawn (see bendOf), so the handle stops where the bend does and the note keeps no length it cannot show;
+      // the pill and the spot stay put
       if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return;
       drag.moved = true;
       var BL = layout(n, ctx);
-      n.shoulder = Math.round(clamp((drag.s * toLocal(n, BL, p.x, p.y).x - BL.w / 2 - drag.off) / BL.fs, SHOULDER_MIN, SHOULDER_MAX) * 100) / 100;
+      n.shoulder = clamp(Math.round((drag.s * toLocal(n, BL, p.x, p.y).x - BL.w / 2 - drag.off) / BL.fs * 100) / 100, drag.lo, drag.hi);
       render();
       return;
     }
@@ -5520,6 +5569,12 @@ body.has-pages #stripGrip { display: block; }
     if (d.part === "rclick") {
       // a plain right-click (no drag) opens the pop-up menu for whatever is under the pointer
       if (cancelled !== true && !d.dragged) openMenu(d.sx, d.sy, { x: d.last[0], y: d.last[1] });
+      return;
+    }
+    if (d.part === "bend" && d.moved && selected() && shoulderOf(selected()) === shoulderOf({ shoulder: d.was })) {
+      // the bend dragged back to where it was, or across the shoulder: nothing changed, so leave undo as it was
+      if (d.was === undefined) delete selected().shoulder; else selected().shoulder = d.was;
+      history.pop(); sync(); render(); setUndoButtons();
       return;
     }
     if (!d.moved) {
