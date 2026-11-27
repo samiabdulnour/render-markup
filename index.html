@@ -281,6 +281,9 @@ input.entry, .scalebox input {
 @media (prefers-reduced-motion: reduce) { #status { transition: none; } }
 /* Options (the legacy controls, then the shortcuts), and the choice of export */
 .modal .box.setbox { width: min(860px, 100%); }
+/* Install app, offered only by a browser that can install the page, sits at the other end of the row from Close */
+#installBtn { margin-right: auto; }
+#installBtn[hidden] { display: none; }
 .optwrap { max-width: 520px; display: flex; flex-direction: column; gap: 6px; }
 details.optsub { border-top: 1px solid var(--divider); padding-top: 14px; margin-top: 10px; }
 details.optsub summary { cursor: pointer; text-transform: uppercase; letter-spacing: 0.02em; list-style: none; display: flex; align-items: center; gap: 8px; }
@@ -886,7 +889,7 @@ body.has-pages #stripGrip { display: block; }
       <p class="note">Archicad, AutoCAD, InDesign, Bluebeam and the other names mentioned are trademarks of their owners. Render Markup is not connected with them.</p>
     </div>
     </details>
-    <div class="actions"><button id="setClose">Close</button></div>
+    <div class="actions"><button id="installBtn" hidden title="Install Render Markup as an app: it then opens PDFs and pictures from your computer, and works without a connection">Install app</button><button id="setClose">Close</button></div>
   </div>
 </div>
 <div class="modal" id="pdfModal" role="dialog" aria-modal="true" aria-labelledby="pdfTitle">
@@ -7677,6 +7680,24 @@ body.has-pages #stripGrip { display: block; }
       navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(function () { /* works without it */ });
     });
   }
+  // Install app, in Options, shows only once the browser says the page can be installed, and goes when it is, or
+  // when the app is already running installed. The browser's own install bar on a phone is held back: the page
+  // never asks of its own accord (Chrome and Edge still show their install icon in the address bar).
+  var installAsk = null;
+  var installed = !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installAsk = e;
+    $("installBtn").hidden = installed;
+  });
+  window.addEventListener("appinstalled", function () { installed = true; installAsk = null; $("installBtn").hidden = true; });
+  $("installBtn").addEventListener("click", function () {
+    var ask = installAsk;
+    // the browser's offer can be used once: the button goes, and comes back if the browser offers again
+    installAsk = null; $("installBtn").hidden = true;
+    closeModal("setModal");
+    if (ask) Promise.resolve(ask.prompt()).catch(function () { /* the browser said no: nothing to do */ });
+  });
 
   // ---------- boot ----------
   new ResizeObserver(render).observe(stage);
