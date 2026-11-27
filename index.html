@@ -641,6 +641,7 @@ body.has-pages #stripGrip { display: block; }
         <button type="button" data-mode="len" class="pro-mark" aria-pressed="false" title="Length: click along it · m"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 18.5l5-10 6 6 6-10"/><circle cx="3.5" cy="18.5" r="1.6" fill="currentColor"/><circle cx="8.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="14.5" cy="14.5" r="1.6" fill="currentColor"/><circle cx="20.5" cy="4.5" r="1.6" fill="currentColor"/></svg><span class="unseen">Length</span></button>
         <button type="button" data-mode="count" class="pro-mark" aria-pressed="false" title="Count: click each one · pcs"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.3 8h5.2l-2.9 3.4c2 0 3.4 1 3.4 2.6 0 1.7-1.5 2.8-3.3 2.8-1.2 0-2.3-.5-2.9-1.4" stroke-width="1.7"/></svg><span class="unseen">Count</span></button>
       </div>
+      <p class="note" id="takeHint" hidden></p>
       <div class="swatches five" id="dimColors" role="group" aria-label="Dimension colour"></div>
       <div id="takeOpts" hidden>
         <p class="sub" id="takeCap" hidden>Page · All</p>
@@ -1144,16 +1145,13 @@ body.has-pages #stripGrip { display: block; }
              padL: padL, padV: padV, w: lw + padL * 2, h: inH + padV * 2, cr: 0, centre: false, ang: textAngle(n) };
   }
   // one line, its letters spread by the tracking
-  function putText(c, str, x, y, tr, stroke) {
-    if (!tr) { if (stroke) c.strokeText(str, x, y); else c.fillText(str, x, y); return; }
+  function putText(c, str, x, y, tr) {
+    if (!tr) { c.fillText(str, x, y); return; }
     var ch = letters(str);
-    for (var i = 0; i < ch.length; i++) {
-      var at = x + c.measureText(ch.slice(0, i).join("")).width + tr * i;
-      if (stroke) c.strokeText(ch[i], at, y); else c.fillText(ch[i], at, y);
-    }
+    for (var i = 0; i < ch.length; i++) c.fillText(ch[i], x + c.measureText(ch.slice(0, i).join("")).width + tr * i, y);
   }
-  // A text: its background, or else a faint halo so the words read over a busy render; then the words, marks and
-  // lines in the colour. Drawn in the text's own axes, its box centred on the origin.
+  // A text: its background, if it has one, then the words, marks and lines in the colour, plain, with no outline.
+  // Drawn in the text's own axes, its box centred on the origin.
   function drawText(c, n, L) {
     var t = L.type, col = colorOf(n), fs = L.fs;
     if (t.bg) { c.fillStyle = colorDef(t.bg, "white").fill; c.fillRect(-L.w / 2, -L.h / 2, L.w, L.h); }
@@ -1170,18 +1168,12 @@ body.has-pages #stripGrip { display: block; }
       var x = t.align === "right" ? cl + L.colW - r.w : t.align === "center" ? cl + r.ind + (L.colW - r.ind - r.w) / 2 : cl + r.ind;
       return { r: r, x: x, y: top + r.line * L.lineH };
     });
-    var pass = function (halo) {
-      c.fillStyle = c.strokeStyle = halo ? col.halo : col.fill;
-      var g = 0;
-      if (halo) { c.lineWidth = Math.max(1, fs * 0.16); g = c.lineWidth / 2; }
-      spots.forEach(function (p) {
-        if (p.r.mark) putText(c, p.r.mark, p.x - p.r.ind, p.y, L.tr, halo);
-        if (p.r.s) putText(c, p.r.s, p.x, p.y, L.tr, halo);
-        if (p.r.w) deco.forEach(function (dy) { c.fillRect(p.x - g, p.y + dy - th / 2 - g, p.r.w + 2 * g, th + 2 * g); });
-      });
-    };
-    if (!t.bg) pass(true);
-    pass(false);
+    c.fillStyle = col.fill;
+    spots.forEach(function (p) {
+      if (p.r.mark) putText(c, p.r.mark, p.x - p.r.ind, p.y, L.tr);
+      if (p.r.s) putText(c, p.r.s, p.x, p.y, L.tr);
+      if (p.r.w) deco.forEach(function (dy) { c.fillRect(p.x, p.y + dy - th / 2, p.r.w, th); });
+    });
   }
 
   function toLocal(n, L, x, y) {
@@ -1325,7 +1317,7 @@ body.has-pages #stripGrip { display: block; }
   }
   // The length of the line from a to b, written along it, gap above it, never upside down: an upright line
   // reads from the right, bottom to top, with its length on the left, as on a drawing. A take-off gives its own
-  // words (text), which have the light halo under a dark colour, as they may lie over a fill or a busy drawing.
+  // words (text). Plain text in the colour either way, with no outline.
   function writeLength(c, a, b, col, fs, gap, text) {
     var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx), eps = 1e-6;
     if (len < 0.5) return;
@@ -1333,17 +1325,14 @@ body.has-pages #stripGrip { display: block; }
     c.save();
     c.translate((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); c.rotate(ang);
     c.font = fontStr(fs); c.textAlign = "center"; c.textBaseline = "alphabetic"; c.lineJoin = "round";
-    if (text != null) { haloText(c, text, 0, -gap, col, fs); c.restore(); return; }
+    if (text != null) { plainText(c, text, 0, -gap, col); c.restore(); return; }
     text = lengthText(len);
     // plain text in the colour, with no outline of any kind
     c.fillStyle = col.fill; c.fillText(text, 0, -gap);
     c.restore();
   }
-  // words in a colour, with a faint light halo under the dark colours (none under yellow, white or a light one)
-  function haloText(c, text, x, y, col, fs) {
-    if (col.ink === "#ffffff") { c.save(); c.strokeStyle = col.halo; c.lineWidth = fs * 0.22; c.lineJoin = "round"; c.strokeText(text, x, y); c.restore(); }
-    c.fillStyle = col.fill; c.fillText(text, x, y);
-  }
+  // words in a colour, plain: no outline round text, anywhere
+  function plainText(c, text, x, y, col) { c.fillStyle = col.fill; c.fillText(text, x, y); }
 
   // ---------- take-offs ----------
   // Areas, lengths and counts, three modes of Measure beside Dimension. Each is a stroke marked take
@@ -1531,8 +1520,8 @@ body.has-pages #stripGrip { display: block; }
     if (s.take === "area") {
       var at = labelAt(s);
       c.textAlign = "center"; c.textBaseline = "middle";
-      if (both && name) { haloText(c, name, at[0], at[1] - fs * 0.6, col, fs); haloText(c, val, at[0], at[1] + fs * 0.6, col, fs); }
-      else haloText(c, val, at[0], at[1], col, fs);
+      if (both && name) { plainText(c, name, at[0], at[1] - fs * 0.6, col); plainText(c, val, at[0], at[1] + fs * 0.6, col); }
+      else plainText(c, val, at[0], at[1], col);
     } else if (pts.length > 1) {
       // along its longest side
       var run = takeRuns(s)[0], best = 1, bl = -1;
@@ -2562,6 +2551,12 @@ body.has-pages #stripGrip { display: block; }
     $("movePanel").hidden = t !== "move";
     $("measurePanel").hidden = t !== "measure";
     var meas = state.measMode === "dim" ? "Left-drag measures" : state.measMode === "count" ? "Left click counts one" : "Left click adds a corner, Enter or a double-click finishes";
+    // how to draw a take-off, in one line under the mode switch: any polygon, corner by corner
+    var mm = state.measMode;
+    $("takeHint").hidden = t !== "measure" || mm === "dim";
+    $("takeHint").textContent = mm === "area" ? (COARSE ? "Tap each corner · tap the first, or double-tap, to close · or drag a rectangle" : "Click each corner · click the first, double-click or Enter to close · or drag a rectangle")
+      : mm === "len" ? (COARSE ? "Tap along it · double-tap to end · end on the first point for a loop" : "Click along it · double-click or Enter to end · end on the first point for a loop")
+      : mm === "count" ? (COARSE ? "Tap each one" : "Click each one") : "";
     $("hint").textContent = t === "move"
       ? (COARSE ? "Drag a picture or a note to move it · drag a picture's edges or corners to resize it"
          : "Left-drag moves pictures and notes · edges and corners resize a picture, the round handle turns it · Shift keeps proportions · right-click for a menu")
