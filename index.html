@@ -265,6 +265,20 @@ input.entry, .scalebox input {
 #list li button[aria-pressed="true"], #picList li button[aria-pressed="true"], #textList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
 #picEditor[hidden], #picScope[hidden] { display: none; }
+/* The Library, in the Move panel: two tiles abreast, each a stamp (or the title block) drawn small; a click places it.
+   An own stamp is typed in place, across both columns. */
+#libGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#libGrid > button { justify-content: center; padding: 4px; min-width: 0; min-height: 40px; }
+#libGrid canvas { display: block; max-width: 100%; }
+#libEdit { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+#libEdit .takeacts button { flex: 1 1 0; justify-content: center; padding: 6px 0; }
+/* a stamp's and a title block's own fields in the Selected picture card; two short fields abreast */
+#stampFields, #titleFields { display: flex; flex-direction: column; gap: 8px; }
+#stampFields[hidden], #titleFields[hidden], #setActs[hidden], #picAll[hidden], #picDelAll[hidden] { display: none; }
+.tfrow { display: flex; gap: 6px; align-items: flex-end; }
+.tfrow label { flex: 1 1 0; min-width: 0; }
+#tfFill, #picAll, #picDelAll { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+#tfFill { height: 33px; }
 /* What the page has to say (saved, copied, a picture added...): a message at the foot of the stage that shows
    for a moment and goes. */
 #status {
@@ -715,11 +729,49 @@ body.has-pages #stripGrip { display: block; }
       <ul id="picList" title="The top one lies in front. Drag a picture up or down the list to change that."></ul>
       <p class="empty" id="picEmpty">No pictures yet. Add one above, or paste one with Ctrl/Cmd+V.</p>
     </div>
+    <div class="section" id="libBox">
+      <h2 class="pro-mark" title="Stamps and title blocks: a click puts one on the page">Library</h2>
+      <div id="libGrid" role="group" aria-label="Stamps and title blocks"></div>
+    </div>
     <div class="section" id="picEditor" hidden>
       <h2 id="picEdTitle">Selected picture</h2>
       <div class="seg" id="picScope" role="group" aria-label="What it adds up" hidden>
         <button type="button" data-scope="page" aria-pressed="true" title="This page's take-offs">Page</button>
         <button type="button" data-scope="doc" aria-pressed="false" title="The take-offs of every page">All</button>
+      </div>
+      <div id="stampFields" hidden>
+        <label for="stText">Text<input id="stText" class="entry" type="text" maxlength="40" autocomplete="off" spellcheck="false"></label>
+        <label for="stSub">Second line<input id="stSub" class="entry" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="date · initials"></label>
+        <label for="stInit" title="Your initials, on the second line of the stamps you place; kept for next time">Initials<input id="stInit" class="entry" type="text" maxlength="8" autocomplete="off" spellcheck="false"></label>
+        <div class="swatches five" id="stColors" role="group" aria-label="Stamp colour"></div>
+      </div>
+      <div id="titleFields" hidden>
+        <span class="sub">This sheet</span>
+        <label for="tfDrawing">Drawing<input id="tfDrawing" class="entry" type="text" maxlength="120" autocomplete="off" data-f="drawing"></label>
+        <div class="tfrow">
+          <label for="tfNo">No.<input id="tfNo" class="entry" type="text" maxlength="40" autocomplete="off" spellcheck="false" data-f="no"></label>
+          <button type="button" id="tfFill" title="Fill down: the later pages' title blocks numbered on from this one, A-101, A-102, A-103…"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h7M2 8h7M2 13h7"/><path d="M14 2.5v12M11 11.5l3 3 3-3"/></svg><span class="unseen">Fill down</span></button>
+        </div>
+        <div class="tfrow">
+          <label for="tfRev">Rev<input id="tfRev" class="entry" type="text" maxlength="20" autocomplete="off" spellcheck="false" data-f="rev"></label>
+          <label for="tfScale" title="Empty: the page's own scale, as set under Measure">Scale<input id="tfScale" class="entry" type="text" maxlength="40" autocomplete="off" spellcheck="false" data-f="scale"></label>
+        </div>
+        <span class="sub">Every title block</span>
+        <label for="tbProject">Project<input id="tbProject" class="entry" type="text" maxlength="120" autocomplete="off" data-t="project"></label>
+        <label for="tbClient">Client<input id="tbClient" class="entry" type="text" maxlength="120" autocomplete="off" data-t="client"></label>
+        <div class="tfrow">
+          <label for="tbStatus">Status<input id="tbStatus" class="entry" type="text" maxlength="60" autocomplete="off" data-t="status"></label>
+          <label for="tbDate">Date<input id="tbDate" class="entry" type="text" maxlength="40" autocomplete="off" spellcheck="false" data-t="date"></label>
+        </div>
+        <div class="tfrow">
+          <label for="tbDrawn">Drawn<input id="tbDrawn" class="entry" type="text" maxlength="40" autocomplete="off" spellcheck="false" data-t="drawn"></label>
+          <label for="tbChecked">Checked<input id="tbChecked" class="entry" type="text" maxlength="40" autocomplete="off" spellcheck="false" data-t="checked"></label>
+        </div>
+        <label for="tbOffice">Office<input id="tbOffice" class="entry" type="text" maxlength="120" autocomplete="off"></label>
+      </div>
+      <div class="takeacts" id="setActs" hidden>
+        <button type="button" id="picAll" title="All pages: a copy on every other page, as far from the same corner on paper"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 1.5h10v12h-10z"/><path d="M2.5 4.5v12h10"/><path d="M10 9.5h3.5v2.5H10z" fill="currentColor" stroke="none"/></svg><span class="unseen">All pages</span></button>
+        <button type="button" id="picDelAll" class="danger" title="Delete from all pages"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5.5 1.5h10v12h-10z"/><path d="M2.5 4.5v12h10"/><path d="M8.5 5l4 5M12.5 5l-4 5"/></svg><span class="unseen">Delete from all pages</span></button>
       </div>
       <div class="segrow">
       <div class="seg" role="group" aria-label="Layer order">
@@ -1047,6 +1099,9 @@ body.has-pages #stripGrip { display: block; }
                 // for next time; with the paper size of a page, or an image's dpi, it gives the length of a pixel.
                 eraserTip: "round",     // the eraser's shape: round, or an upright square
                 ratio: null, pageRatio: null, dpi: 96, dpiRead: false, unit: "mm", dim: { color: "red", size: 1 }, showLen: true, wheelErase: true, shapeKind: "rect",
+                // what every title block says (settings, kept for next time), the initials on a stamp and the office's
+                // name, and the office's own stamps
+                title: { project: "", client: "", status: "", date: "", drawn: "", checked: "" }, office: { initials: "", name: "" }, ownStamps: [],
                 // Measure's mode, and the take-off groups (settings, kept for next time): the group each kind adds to,
                 // and what the labels say
                 measMode: "dim", groups: [], groupSeq: 0, takeSel: { area: null, len: null, count: null }, takeLab: "value",
@@ -2197,15 +2252,14 @@ body.has-pages #stripGrip { display: block; }
       if (!q.kind && (!im || !im.complete)) return;
       c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r);
       if (q.kind) drawKindPic(c, q);
-      else {
-        c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
-        if (q.line) { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
-      }
+      else c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
+      // an outline round it: a picture's, a stamp's or a title block's (a totals table has its own frame)
+      if (q.line && q.kind !== "legend") { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
       c.restore();
     });
   }
   // a picture drawn by code, about its middle (the canvas already moved and turned there), w by h
-  function drawKindPic(c, q) { if (q.kind === "legend") drawLegend(c, q); }
+  function drawKindPic(c, q) { if (q.kind === "legend") drawLegend(c, q); else if (q.kind === "stamp") drawStamp(c, q); else if (q.kind === "title") drawTitle(c, q); }
   // ---------- the totals table ----------
   // A table of the take-offs, placed on the page as a picture is: a row for each group with take-offs on the page it
   // is on (scope page) or on every page (scope doc), always as they are now. On a page being exported it is drawn
@@ -2279,6 +2333,206 @@ body.has-pages #stripGrip { display: block; }
     placePic(q, h < w * L.h / L.w ? h * L.w / L.h : w, h);
     status("Totals placed, and Move is on: drag the table into place, or a corner to resize it. Page or All in the panel.");
   }
+  // ---------- stamps and title blocks ----------
+  // Two more pictures drawn by code, placed from the Library in the Move panel. A stamp ({ kind: "stamp", st, text,
+  // sub, color }) is its words in capitals in a double frame, all in its colour, with the day and initials it was
+  // placed with under them. A title block ({ kind: "title", f }) is a white box of the sheet's details: the drawing's
+  // name, number, revision and scale are its own (f); the project, client, status, date, who drew and checked it and
+  // the office are the same on every sheet (state.title and state.office, settings), so they are typed once. Both are
+  // drawn as they are now, so an export through withPage shows that page's own scale and sheet number.
+  var STAMPS = {
+    approved: { text: "APPROVED", color: "green", name: "Approved" },
+    noted:    { text: "APPROVED AS NOTED", color: "green", name: "Approved as noted" },
+    revise:   { text: "REVISE AND RESUBMIT", color: "red", name: "Revise and resubmit" },
+    comment:  { text: "FOR COMMENT", color: "blue", name: "For comment" },
+    draft:    { text: "DRAFT", color: "black", name: "Draft" },
+    void:     { text: "VOID", color: "red", name: "Void" },
+    prelim:   { text: "PRELIMINARY", color: "magenta", name: "Preliminary" }
+  };
+  var OWN_MAX = 20, OWN_LEN = 40, TITLE_SHARED = ["project", "client", "status", "date", "drawn", "checked"];
+  // A stamp in units of the size of its words, F: the words take at most 80% of its width, and it is 2 F tall, or
+  // 2.6 F with a second line, which is set at 0.45 of the size. A capital is 0.72 F high.
+  var ST = { one: 2, two: 2.6, sub: 0.45, fit: 0.8, cap: 0.72 };
+  function boldStr(fs) { return "700 " + fs + "px " + FONTS[state.font].family; }
+  function stampWords(q) { return String(q.text || "").toUpperCase(); }
+  function stampSub(q) { return String(q.sub || "").toUpperCase(); }
+  // how wide the words and the second line are, each set 1 px high in the bold
+  function stampWidths(c, text, sub) {
+    c.save(); c.font = boldStr(100);
+    var m = { main: c.measureText(text).width / 100, sub: sub ? c.measureText(sub).width / 100 : 0 };
+    c.restore();
+    return m;
+  }
+  // a rounded rectangle's path (drawn with arcs where the browser has no roundRect of its own)
+  function rrPath(c, x, y, w, h, r) {
+    c.beginPath();
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
+    if (c.roundRect) { c.roundRect(x, y, w, h, r); return; }
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  // The frame (an outer line, a thinner one inside it, round corners) and the words, in the stamp's colour a little
+  // see-through, as ink stamped on paper: lines and plain lettering, nothing filled in, so the drawing shows through.
+  function drawStamp(c, q) {
+    loadBold();
+    var w = q.w, h = q.h, text = stampWords(q), sub = stampSub(q), m = stampWidths(c, text, sub);
+    var F = h / (sub ? ST.two : ST.one), fm = Math.min(F, ST.fit * w / Math.max(m.main, 1e-6)), fsub = Math.min(F * ST.sub, ST.fit * w / Math.max(m.sub, 1e-6));
+    var lo = 0.06 * h, li = 0.025 * h, r = 0.15 * h, d = lo / 2 + 0.1 * h, col = colorDef(q.color, "red").fill;
+    c.save();
+    c.globalAlpha = 0.9; c.strokeStyle = col; c.fillStyle = col;
+    rrPath(c, -w / 2 + lo / 2, -h / 2 + lo / 2, w - lo, h - lo, r); c.lineWidth = lo; c.stroke();
+    if (w > 2 * d && h > 2 * d) { rrPath(c, -w / 2 + d, -h / 2 + d, w - 2 * d, h - 2 * d, r - 0.1 * h); c.lineWidth = li; c.stroke(); }
+    // the words sit in the middle by the height of their capitals; with a second line the two are centred together
+    var gap = sub ? 0.3 * fm : 0, tall = fm * ST.cap + (sub ? gap + fsub * ST.cap : 0), top = -tall / 2;
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    c.font = boldStr(fm); c.fillText(text, 0, top + fm * ST.cap);
+    if (sub) { c.font = boldStr(fsub); c.fillText(sub, 0, top + tall); }
+    c.restore();
+  }
+  // A PDF page has a real paper size. An image has only what its resolution says, so on it a stamp or title block is
+  // never under 12% of its width, where it could hardly be seen on a large render.
+  function realPaper() { var pg = doc ? state.pg || doc.pages[doc.cur] : null; return !!pg && pg.source.kind === "pdf"; }
+  // w by h made to fit across the page, keeping its proportions: at most `most` of its width
+  function fitPage(w, h, most) {
+    var k = Math.min(1, most * state.w / w);
+    if (!realPaper()) k = Math.max(k, 0.12 * state.w / w);
+    return { w: w * k, h: h * k };
+  }
+  // A stamp's size when placed: 60 mm wide on paper and as tall as its words need (at most 0.4 of its width). Its
+  // words stay at least 3.5 mm high, so long words of the office's own make it wider instead.
+  function stampBox(q) {
+    var mm = paperMmPerPx(), m = stampWidths(ctx, stampWords(q), stampSub(q)), two = !!stampSub(q), W = 60 / mm;
+    var wide = Math.max(m.main, m.sub * ST.sub, 1e-6), F = Math.min(ST.fit * W / wide, 0.4 * W / (two ? ST.two : ST.one));
+    if (F < 3.5 / mm) { F = 3.5 / mm; W = wide * F / ST.fit; }
+    return fitPage(W, F * (two ? ST.two : ST.one), 0.6);
+  }
+  // After its words or its second line change, a stamp keeps the size of its words: it grows wider for longer words
+  // (up to 60% of the page across) and gains or loses the second line's height, about its middle.
+  function fitStamp(q, two0) {
+    var two = !!stampSub(q), F = q.h / (two0 ? ST.two : ST.one), m = stampWidths(ctx, stampWords(q), stampSub(q));
+    var cx = q.x + q.w / 2, cy = q.y + q.h / 2, need = Math.max(m.main, m.sub * ST.sub) * F / ST.fit;
+    q.h = F * (two ? ST.two : ST.one);
+    q.w = Math.max(q.w, Math.min(need, 0.6 * state.w));
+    q.x = cx - q.w / 2; q.y = cy - q.h / 2;
+  }
+  // the day a stamp was placed, as this browser writes a date, and its second line: the day and the initials
+  function stampDay(t) { return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t)); }
+  function subLine(day, ini) { return [day, String(ini || "").trim()].filter(Boolean).join(" · "); }
+  // Place a stamp in the middle of the view, Move on and the stamp selected. Its second line is written in now and
+  // kept, so a stamp keeps its day.
+  function placeStamp(st, text, color) {
+    var at = Date.now(), q = { id: picId(), kind: "stamp", st: st, text: text, sub: subLine(stampDay(at), state.office.initials), color: color, at: at };
+    var b = stampBox(q);
+    placePic(q, b.w, b.h);
+    status("Stamp placed, and Move is on: drag it into place, or a corner to resize it. Its words, date and colour are in the panel.");
+  }
+  // Place a title block: 180 by 45 mm on paper (at most 90% of the page across), 10 mm in from the bottom right corner
+  function placeTitle() {
+    var mm = paperMmPerPx(), b = fitPage(180 / mm, 45 / mm, 0.9), m = 10 / mm;
+    var q = { id: picId(), kind: "title", f: { drawing: "", no: "", rev: "", scale: "" }, at: Date.now() };
+    placePic(q, b.w, b.h, { x: Math.max(0, state.w - m - b.w), y: Math.max(0, state.h - m - b.h) });
+    status("Title block placed bottom right, and Move is on: fill it in in the panel" + (doc && doc.pages.length > 1 ? ". All pages puts it on every page." : "."));
+  }
+  // What a title block says now: its own fields, the shared ones, the scale (its own, or else the page's) and the sheet
+  // number from the page strip. A report reads it as the drawing does.
+  function titleData(q) {
+    var f = q.f || {}, t = state.title, r = pageRatio(), pg = doc ? state.pg || doc.pages[doc.cur] : null;
+    return { project: t.project, client: t.client, drawing: f.drawing || "", no: f.no || "", rev: f.rev || "",
+             scale: f.scale || (r ? "1:" + ratioText(r) : "—"), date: t.date, drawn: t.drawn, checked: t.checked, status: t.status,
+             sheet: pg ? (doc.pages.indexOf(pg) + 1) + " / " + doc.pages.length : "", office: state.office.name };
+  }
+  // The cells right of the logo cell, row by row: each its field, its label and its share of the row. The drawing's
+  // name has a taller row of its own. A single image has no sheet number, so there Status takes that cell too.
+  var TITLE_ROWS = [
+    { h: 1, cells: [["project", "Project", 0.55], ["client", "Client", 0.45]] },
+    { h: 1.3, cells: [["drawing", "Drawing", 1]] },
+    { h: 1, cells: [["no", "No.", 0.32], ["rev", "Rev", 0.14], ["scale", "Scale", 0.26], ["date", "Date", 0.28]] },
+    { h: 1, cells: [["drawn", "Drawn", 0.22], ["checked", "Checked", 0.22], ["status", "Status", 0.34], ["sheet", "Sheet", 0.22]] }
+  ];
+  // s at size fs, or smaller, down to 40% of it, to fit maxW; still too long there, it is cut short with …
+  function fitWords(c, s, maxW, fs, wt) {
+    var fam = FONTS[state.font].family, font = function (f) { c.font = wt + " " + f + "px " + fam; };
+    font(fs);
+    var tw = c.measureText(s).width;
+    if (tw <= maxW) return { s: s, fs: fs };
+    var f2 = Math.max(fs * 0.4, fs * maxW / tw * 0.999);
+    font(f2);
+    if (c.measureText(s).width <= maxW) return { s: s, fs: f2 };
+    var lo = 0, hi = s.length;
+    while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (c.measureText(s.slice(0, mid).replace(/\s+$/, "") + "…").width <= maxW) lo = mid; else hi = mid - 1; }
+    return { s: s.slice(0, lo).replace(/\s+$/, "") + "…", fs: f2 };
+  }
+  // Opaque white with a thin black grid; in each cell its label in small capitals, top left, and its value under it.
+  // The logo cell, down the left, has the office's name. bareLw: the lines alone, that wide (a tile, a thumbnail).
+  function drawTitle(c, q, bareLw) {
+    loadBold();
+    var w = q.w, h = q.h, x0 = -w / 2, y0 = -h / 2, ink = "#111214", lw = bareLw || Math.max(1, refMin() * 0.001), fam = FONTS[state.font].family;
+    var D = bareLw ? null : titleData(q), lx = x0 + w * 0.28, rw = x0 + w - lx, sum = 0, cells = [], y = y0;
+    TITLE_ROWS.forEach(function (row) { sum += row.h; });
+    TITLE_ROWS.forEach(function (row) {
+      var rh = h * row.h / sum, x = lx, list = row.cells.filter(function (cl) { return cl[0] !== "sheet" || !D || D.sheet; });
+      var spare = row.cells.length > list.length ? row.cells[row.cells.length - 1][2] : 0;
+      list.forEach(function (cl, i) {
+        var cw = rw * (cl[2] + (i === list.length - 1 ? spare : 0));
+        cells.push({ key: cl[0], label: cl[1], x: x, y: y, w: cw, h: rh, first: i === 0 });
+        x += cw;
+      });
+      y += rh;
+    });
+    c.save();
+    c.fillStyle = "#ffffff"; c.fillRect(x0, y0, w, h);
+    c.strokeStyle = ink; c.lineWidth = lw; c.lineJoin = "miter";
+    c.strokeRect(x0 + lw / 2, y0 + lw / 2, w - lw, h - lw);
+    c.beginPath(); c.moveTo(lx, y0); c.lineTo(lx, y0 + h);
+    cells.forEach(function (cl) {
+      if (cl.first && cl.y > y0) { c.moveTo(lx, cl.y); c.lineTo(x0 + w, cl.y); }
+      if (!cl.first) { c.moveTo(cl.x, cl.y); c.lineTo(cl.x, cl.y + cl.h); }
+    });
+    c.stroke();
+    if (!D) { c.restore(); return; }
+    var u = h / sum;
+    c.fillStyle = ink; c.textAlign = "left"; c.textBaseline = "alphabetic";
+    cells.forEach(function (cl) {
+      var pad = 0.14 * u, maxW = cl.w - 2 * pad, big = cl.key === "drawing", wt = big || cl.key === "no" ? 700 : 400;
+      var L = fitWords(c, cl.label.toUpperCase(), maxW, 0.24 * u, 400);
+      c.fillText(L.s, cl.x + pad, cl.y + pad + L.fs * ST.cap);
+      var v = String(D[cl.key] || "");
+      if (!v) return;
+      var V = fitWords(c, v, maxW, (big ? 0.62 : 0.42) * u, wt);
+      c.fillText(V.s, cl.x + pad, cl.y + cl.h - (big ? 0.28 : 0.26) * u);
+    });
+    // the office's name in the logo cell, bold, as large as fits on up to three lines
+    var name = String(D.office || "").trim(), cw2 = lx - x0, inner = cw2 * 0.84;
+    if (name) {
+      var fs = Math.min(0.2 * h, cw2 * 0.22), lines = [];
+      for (var i = 0; i < 16; i++) {
+        c.font = boldStr(fs); lines = wrapLines(c, name, inner);
+        if (lines.length <= 3 && lines.length * fs * 1.15 <= h * 0.84) break;
+        fs *= 0.88;
+      }
+      lines = lines.slice(0, 3);
+      var lh = fs * 1.15, top = -(lines.length - 1) * lh / 2;
+      c.textAlign = "center";
+      lines.forEach(function (ln, k) { var F2 = fitWords(c, ln, inner, fs, 700); c.fillText(F2.s, x0 + cw2 / 2, top + k * lh + F2.fs * ST.cap / 2); });
+    }
+    c.restore();
+  }
+  // The bold of the typeface, which stamps and title blocks are set in: asked for once a typeface, the first time the
+  // Library shows or one is drawn; once it is in, the tiles, the thumbnails and the page are drawn again with it.
+  var boldIn = {};
+  function loadBold() {
+    var fam = FONTS[state.font].family, p = boldIn[fam];
+    if (p) return p;
+    if (!document.fonts || !document.fonts.load) { p = boldIn[fam] = Promise.resolve(); p.done = true; return p; }
+    p = boldIn[fam] = document.fonts.load("700 40px " + fam).then(function () {}, function () {});
+    p.then(function () {
+      p.done = true; libKey = "";
+      state.pics.forEach(function (q) { if (q.kind) delete picThumb[q.id]; });
+      sync(); render();
+    });
+    return p;
+  }
+  // Before an export: that bold in, and every face the page has asked for, so what is exported is set as it shows
+  function typeReady() { return document.fonts && document.fonts.ready ? Promise.all([loadBold(), document.fonts.ready]).then(function () {}, function () {}) : Promise.resolve(); }
   function drawPicSelection(c, q) {
     var t = 1 / view.s, hs = 5 * t, mx = q.x + q.w / 2, my = q.y + q.h / 2;
     c.save();
@@ -2315,9 +2569,10 @@ body.has-pages #stripGrip { display: block; }
   function picId() { return "pic" + (state.nextId++) + Date.now().toString(36); }
   // Put picture q on the page, w by h, in the middle of what is on screen and kept on the page, as one step to undo;
   // Move comes on with it selected. Numbered as added, so its name stays put when the layer order changes. Pictures
-  // from a file and pictures drawn by code (q.kind) both come in this way.
-  function placePic(q, w, h) {
-    var cx = clamp(view.cx, w / 2, state.w - w / 2), cy = clamp(view.cy, h / 2, state.h - h / 2);
+  // from a file and pictures drawn by code (q.kind) both come in this way. at: its top left corner, instead of the
+  // middle of the view (a title block goes in the corner of the page).
+  function placePic(q, w, h, at) {
+    var cx = at ? at.x + w / 2 : clamp(view.cx, w / 2, state.w - w / 2), cy = at ? at.y + h / 2 : clamp(view.cy, h / 2, state.h - h / 2);
     var o = { id: q.id, n: state.pics.reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1, x: cx - w / 2, y: cy - h / 2, w: w, h: h };
     Object.keys(q).forEach(function (k) { if (!own(o, k)) o[k] = q[k]; });
     snapshot();
@@ -2352,14 +2607,15 @@ body.has-pages #stripGrip { display: block; }
   // kept as long as its own fields are as they were (thumbKey: its kind, what it shows and its shape).
   var picThumb = {}, thumbKey = {};
   function thumbOf(q) {
-    var id = q.id, key = q.kind ? q.kind + " " + (q.scope || "") + " " + Math.round(q.w / q.h * 50) : "";
+    var id = q.id, key = q.kind ? q.kind + " " + (q.scope || "") + " " + (q.text || "") + " " + (q.sub || "") + " " + (q.color || "") + " " + Math.round(q.w / q.h * 50) : "";
     if (picThumb[id] && (thumbKey[id] || "") === key) return picThumb[id];
     var c = document.createElement("canvas"), n = 44; c.width = n; c.height = n;
     var g = c.getContext("2d");
     if (q.kind) {
       var kk = Math.min(n / q.w, n / q.h);
       g.translate(n / 2, n / 2); g.scale(kk, kk);
-      drawKindPic(g, q);
+      if (q.kind === "title") drawTitle(g, q, 1 / kk);    // its words would be too small to read: its lines alone
+      else drawKindPic(g, q);
       thumbKey[id] = key;
       return (picThumb[id] = c.toDataURL("image/png"));
     }
@@ -2970,7 +3226,7 @@ body.has-pages #stripGrip { display: block; }
       var li = document.createElement("li"), b = document.createElement("button");
       b.setAttribute("aria-pressed", String(q.id === picSel));
       var th = document.createElement("img"); th.className = "thumb"; th.alt = ""; th.src = thumbOf(q);
-      var t = document.createElement("span"); t.className = "txt"; t.textContent = q.kind === "legend" ? "Totals" : "Picture " + (q.n || state.pics.indexOf(q) + 1);
+      var t = document.createElement("span"); t.className = "txt"; t.textContent = picName(q);
       b.appendChild(th); b.appendChild(t);
       b.addEventListener("click", function () { if (listDrag && listDrag.moved) return; selectPic(q); sync(); render(); });
       b.addEventListener("pointerdown", function (ev) { if (ev.button === 0) { listDrag = { q: q, from: d, y0: ev.clientY, moved: false, to: d }; b.setPointerCapture(ev.pointerId); } });
@@ -2991,13 +3247,15 @@ body.has-pages #stripGrip { display: block; }
     $("picEditor").hidden = !spic;
     // a totals table: what it adds up (this page, or every page) instead of an outline, which it draws itself
     var pk = spic && spic.kind;
-    $("picEdTitle").textContent = pk ? "Totals table" : "Selected picture";
-    $("picLineWrap").hidden = !!pk;
+    $("picEdTitle").textContent = pk === "stamp" ? "Stamp" : pk === "title" ? "Title block" : pk ? "Totals table" : "Selected picture";
+    $("picLineWrap").hidden = pk === "legend";
     $("picScope").hidden = pk !== "legend";
     if (pk === "legend") Array.prototype.forEach.call($("picScope").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === (spic.scope === "doc" ? "doc" : "page"))); });
     $("picNote").textContent = pk ? "Drag to move. Corners resize, keeping its proportions (Shift frees them); the round handle turns it."
       : "Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.";
-    $("delPic").textContent = pk ? "Delete table" : "Delete picture";
+    $("delPic").textContent = pk === "stamp" ? "Delete stamp" : pk === "title" ? "Delete title block" : pk ? "Delete table" : "Delete picture";
+    syncStampFields(spic);
+    if (state.tool === "move") syncLib();
     var si = spic ? state.pics.indexOf(spic) : -1;
     $("picUp").disabled = !spic || si === state.pics.length - 1;
     $("picDown").disabled = !spic || si === 0;
@@ -5225,6 +5483,8 @@ body.has-pages #stripGrip { display: block; }
         add(menuItem("Bring forward", "Ctrl+]", function () { movePicTo(pq, state.pics.indexOf(pq) + 1); }, { disabled: state.pics.indexOf(pq) === state.pics.length - 1 }));
         add(menuItem("Send backward", "Ctrl+[", function () { movePicTo(pq, state.pics.indexOf(pq) - 1); }, { disabled: state.pics.indexOf(pq) === 0 }));
         add(menuItem("Delete picture", pq.id === picSel ? "Del" : "", function () { deletePic(pq); }, { danger: true }));
+        var pqn = pq.set ? setCount(pq.set) : 0;
+        if (pqn > 1) add(menuItem("Delete from all pages (" + pqn + ")", "", function () { deleteSet(pq); }, { danger: true }));
         rule();
       }
       add(menuItem("Add note here", "", function () { addNote(p.x, p.y); }, { disabled: !onImage }));
@@ -5357,8 +5617,9 @@ body.has-pages #stripGrip { display: block; }
     var typing = /^(TEXTAREA|INPUT|SELECT)$/.test(el && el.tagName) && !(el && el.type === "range");
     var mod = e.ctrlKey || e.metaKey;
     var k = e.key.toLowerCase();
-    // in the note text box, Ctrl/Cmd+Z undoes typing first; once nothing has been typed it undoes the markup
-    var textEdited = el === $("noteText") && el.value !== textAtFocus;
+    // in the note text box (and a stamp's or title block's field), Ctrl/Cmd+Z undoes typing first; once nothing has
+    // been typed it undoes the markup
+    var textEdited = (el === $("noteText") && el.value !== textAtFocus) || (!!picField && el === picField.el && el.value !== picField.v);
     if (mod && (k === "z" || k === "y") && (!typing || !textEdited)) {
       e.preventDefault();
       if (k === "y" || e.shiftKey) redo(); else undo();
@@ -5739,7 +6000,7 @@ body.has-pages #stripGrip { display: block; }
     var cur = doc.pages[doc.cur], pg = doc.pages.splice(from, 1)[0];
     doc.pages.splice(to, 0, pg);
     doc.cur = doc.pages.indexOf(cur);
-    buildPageList(); pageLabel();
+    buildPageList(); pageLabel(); render();
     doc.pages.forEach(function (q, k) { markPage(k); });
     status("Page " + (from + 1) + " is page " + (to + 1) + " now. The export keeps this order.");
   }
@@ -7359,7 +7620,7 @@ body.has-pages #stripGrip { display: block; }
     var d = doc, split = $("expSplit").checked && pages.length > 1, marked = pages.filter(hasMarkup);
     var origLen = d.sources.reduce(function (t, src) { return t + (src.bytes ? src.bytes.length : src.file ? src.file.size || 0 : 0); }, 0);
     status("Preparing the PDF…");
-    pdfLib().then(function (L) {
+    typeReady().then(pdfLib).then(function (L) {
       if (!split) return buildPdf(L, d, pages, mode).then(function (res) {
         var filename = d.name + pagesText(pages) + "_markup.pdf", n = marked.length, what = n === 0 ? "no markup on it yet" : "markup on " + n + (n === 1 ? " page" : " pages");
         saveBlob(new Blob([res.bytes], { type: "application/pdf" }), filename,
@@ -7478,6 +7739,301 @@ body.has-pages #stripGrip { display: block; }
   });
   $("picRight").addEventListener("click", function () { turnPic(90); });
   $("picDown").addEventListener("click", function () { stepPic(-1); });
+  // what the Pictures list calls each one
+  function picName(q) {
+    return q.kind === "legend" ? "Totals" : q.kind === "stamp" ? "Stamp: " + stampWords(q) : q.kind === "title" ? "Title block" : "Picture " + (q.n || state.pics.indexOf(q) + 1);
+  }
+
+  // ---------- the Library: stamps and the title block, in the Move panel ----------
+  // Each tile is the thing itself drawn small; a click (or a tap) places it. The office's own stamps follow the seven,
+  // then + to type a new one in place, then the title block. A right-click, or a finger held, on an own stamp offers
+  // Rename and Delete. Placing needs Pro; stamps and title blocks already placed stay editable without it.
+  var libKey = "", libEditing = null, libHeld = null, libPress = null, libMenuAt = 0;   // libEditing: the own stamp typed in place, { i (-1: a new one), text, color }
+  var PLUS_SVG = '<svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 1.5v11M1.5 7h11"/></svg>';
+  var OK_SVG = '<svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7.5l3.2 3.2L12 3.5"/></svg>';
+  var X_SVG = '<svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8"/></svg>';
+  function iconButton(svg, title, act) {
+    var b = document.createElement("button"); b.type = "button"; b.title = title; b.innerHTML = svg;
+    var nm = document.createElement("span"); nm.className = "unseen"; nm.textContent = title; b.appendChild(nm);
+    b.addEventListener("click", act);
+    return b;
+  }
+  function libTile(face, title, act) {
+    var b = iconButton(typeof face === "string" ? face : "", title, function () {
+      if (libHeld && libHeld.b === b && Date.now() - libHeld.t < 1500) { libHeld = null; return; }    // the finger held for the menu lifts
+      if (needPro("stamps", act)) act();
+    });
+    if (typeof face !== "string") b.insertBefore(face, b.firstChild);
+    return b;
+  }
+  // a tile's picture, 110 by 30, drawn about its middle at the screen's own sharpness
+  function tileCanvas(draw) {
+    var W = 110, H = 30, d = window.devicePixelRatio || 1, c = document.createElement("canvas");
+    c.width = Math.round(W * d); c.height = Math.round(H * d); c.style.width = W + "px"; c.style.height = H + "px";
+    var g = c.getContext("2d"); g.scale(d, d); g.translate(W / 2, H / 2);
+    draw(g, W - 4, H - 4);
+    return c;
+  }
+  // a stamp's words alone, in the proportions it is placed with (as wide as its words need, and at most 0.4 as tall
+  // as it is wide), made as large as the tile holds
+  function stampTile(text, color) {
+    return tileCanvas(function (g, W, H) {
+      var m = stampWidths(g, text.toUpperCase(), ""), F = Math.min(ST.fit * 100 / Math.max(m.main, 1e-6), 0.4 * 100 / ST.one), k = Math.min(W / 100, H / (F * ST.one));
+      drawStamp(g, { text: text, sub: "", color: color, w: 100 * k, h: F * ST.one * k });
+    });
+  }
+  function titleTile() { return tileCanvas(function (g, W, H) { var h = Math.min(H, W / 4); drawTitle(g, { w: h * 4, h: h }, 1); }); }
+  // put the tiles in afresh only when what they show has changed: the typeface (and whether its bold is in), the own
+  // stamps, which one is being typed, and the screen's sharpness
+  function syncLib() {
+    var bold = loadBold(), key = FONTS[state.font].family + (bold.done ? " 1 " : " 0 ") + JSON.stringify(state.ownStamps) + " " + (libEditing ? libEditing.i : "") + " " + (window.devicePixelRatio || 1);
+    if (key === libKey) return;
+    libKey = key;
+    var grid = $("libGrid");
+    grid.innerHTML = "";
+    Object.keys(STAMPS).forEach(function (k) {
+      var s = STAMPS[k];
+      grid.appendChild(libTile(stampTile(s.text, s.color), s.name, function () { placeStamp(k, s.text, s.color); }));
+    });
+    state.ownStamps.forEach(function (o, i) {
+      if (libEditing && libEditing.i === i) { grid.appendChild(libEditor()); return; }
+      var b = libTile(stampTile(o.text, o.color), o.text, function () { placeStamp("own", o.text, o.color); });
+      b.addEventListener("contextmenu", function (ev) {
+        ev.preventDefault();
+        if (Date.now() - libMenuAt < 800) return;               // Android's own, after a finger held down opened it
+        ownMenu(i, ev.clientX, ev.clientY);
+      });
+      // a finger held still on it for half a second opens its menu (iOS sends no contextmenu)
+      b.addEventListener("pointerdown", function (ev) {
+        if (ev.pointerType !== "touch") return;
+        if (libPress) clearTimeout(libPress.timer);
+        var t = libPress = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+        t.timer = setTimeout(function () { if (libPress !== t) return; libPress = null; libMenuAt = Date.now(); libHeld = { b: b, t: Date.now() }; ownMenu(i, t.x, t.y, true); }, HOLD_MS);
+      });
+      b.addEventListener("pointermove", function (ev) { if (libPress && Math.hypot(ev.clientX - libPress.x, ev.clientY - libPress.y) > HOLD_SLOP) { clearTimeout(libPress.timer); libPress = null; } });
+      ["pointerup", "pointercancel"].forEach(function (t) { b.addEventListener(t, function () { if (libPress) { clearTimeout(libPress.timer); libPress = null; } }); });
+      grid.appendChild(b);
+    });
+    if (libEditing && libEditing.i < 0) grid.appendChild(libEditor());
+    else if (state.ownStamps.length < OWN_MAX) grid.appendChild(libTile(PLUS_SVG, "Your own stamp: its words and colour, kept for next time", function () { editOwn(-1); }));
+    grid.appendChild(libTile(titleTile(), "Title block", placeTitle));
+  }
+  function ownMenu(i, cx, cy, above) {
+    var m = $("menu");
+    m.innerHTML = "";
+    m.appendChild(menuItem("Rename", "", function () { editOwn(i); }));
+    m.appendChild(menuItem("Delete", "", function () { delOwn(i); }, { danger: true }));
+    showMenuAt(cx, cy, above);
+  }
+  // An own stamp typed in place of its tile (or of +): its words, its colour; Enter or the tick keeps it, Esc leaves it
+  function editOwn(i) {
+    var o = state.ownStamps[i];
+    libEditing = { i: o ? i : -1, text: o ? o.text : "", color: o ? o.color : "red" };
+    libKey = ""; syncLib();
+    var inp = $("libEdit").querySelector("input");
+    inp.focus(); inp.select();
+  }
+  function libEditor() {
+    var e = libEditing, box = document.createElement("div"), inp = document.createElement("input"), sw = document.createElement("div"), acts = document.createElement("div");
+    box.id = "libEdit";
+    inp.className = "entry"; inp.type = "text"; inp.maxLength = OWN_LEN; inp.value = e.text; inp.placeholder = "Words"; inp.autocomplete = "off"; inp.spellcheck = false;
+    inp.setAttribute("aria-label", "The stamp's words");
+    inp.addEventListener("input", function () { e.text = inp.value; });
+    inp.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); keepOwn(); }
+      else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); endOwn(); }
+    });
+    sw.className = "swatches five"; sw.setAttribute("role", "group"); sw.setAttribute("aria-label", "The stamp's colour");
+    var paint = function () { swatchRow(sw, e.color, function (k) { e.color = k; paint(); }); };
+    paint();
+    acts.className = "takeacts";
+    acts.appendChild(iconButton(OK_SVG, e.i < 0 ? "Keep it in the Library (Enter)" : "Keep the change (Enter)", keepOwn));
+    acts.appendChild(iconButton(X_SVG, "Cancel (Esc)", endOwn));
+    box.appendChild(inp); box.appendChild(sw); box.appendChild(acts);
+    return box;
+  }
+  function keepOwn() {
+    var e = libEditing; if (!e) return;
+    var t = e.text.replace(/\s+/g, " ").trim().slice(0, OWN_LEN);
+    if (!t) { endOwn(); return; }
+    var o = { text: t, color: validColor(e.color, "red") };
+    state.ownStamps = state.ownStamps.slice();
+    if (e.i < 0) state.ownStamps.push(o); else state.ownStamps[e.i] = o;
+    libEditing = null; libKey = "";
+    sync();
+    status(e.i < 0 ? "Kept in the Library: a click puts it on the page." : "Changed in the Library. Stamps already placed keep their own words.");
+  }
+  function endOwn() { libEditing = null; libKey = ""; sync(); }
+  function delOwn(i) {
+    state.ownStamps = state.ownStamps.filter(function (o, k) { return k !== i; });
+    libEditing = null; libKey = "";
+    sync();
+    status("Deleted from the Library. Stamps already placed stay.");
+  }
+
+  // ---------- a stamp's and a title block's fields ----------
+  // What is typed shows on the page at once. A field of the selected stamp or title block is one step to undo, from
+  // the field getting the keyboard to its losing it. The fields every title block shares, the initials and the office's
+  // name are settings: kept as they are typed, and not undone. picField is the field being typed in, with its value
+  // when it got the keyboard (or was last put there), so that Ctrl/Cmd+Z undoes the typing first, as in a note's text.
+  var picField = null;
+  function fieldKeys(el) {
+    el.addEventListener("focus", function () { picField = { el: el, v: el.value, snapped: false }; });
+    el.addEventListener("blur", function () { if (picField && picField.el === el) picField = null; sync(); });
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); el.blur(); canvas.focus({ preventScroll: true }); } });
+  }
+  // the first change in a field of the selected stamp or title block makes the step to undo
+  function fieldStep(el) {
+    if (!picField || picField.el !== el) picField = { el: el, v: el.value, snapped: false };
+    if (!picField.snapped) { snapshot(); picField.snapped = true; }
+  }
+  // A field shows what it stands for, unless it is being typed in. One with the keyboard but nothing typed in it since
+  // follows too: an Undo or Redo pressed there.
+  function showField(id, v) {
+    var el = $(id); v = v == null ? "" : String(v);
+    if (document.activeElement !== el) { if (el.value !== v) el.value = v; return; }
+    if (picField && picField.el === el && el.value === picField.v && v !== el.value) { el.value = v; picField.v = v; picField.snapped = false; }
+  }
+  [["stText", "text", OWN_LEN], ["stSub", "sub", 60]].forEach(function (o) {
+    var el = $(o[0]);
+    fieldKeys(el);
+    el.addEventListener("input", function () {
+      var q = selectedPic(); if (!q || q.kind !== "stamp") return;
+      fieldStep(el);
+      var two = !!stampSub(q);
+      q[o[1]] = el.value.slice(0, o[2]);
+      fitStamp(q, two);
+      render();
+    });
+  });
+  // The initials are for the stamps placed from now on. The selected stamp's second line follows them while it still
+  // reads as it was placed: its day, and the initials as they were.
+  fieldKeys($("stInit"));
+  $("stInit").addEventListener("input", function () {
+    var el = $("stInit"), was = state.office.initials, q = selectedPic();
+    state.office.initials = el.value.slice(0, 8);
+    if (q && q.kind === "stamp" && q.at) {
+      var day = stampDay(q.at), now = subLine(day, state.office.initials);
+      if ((q.sub || "") === subLine(day, was) && now !== q.sub) { fieldStep(el); var two = !!stampSub(q); q.sub = now; fitStamp(q, two); }
+    }
+    saveSettings(); render();
+  });
+  Array.prototype.forEach.call($("titleFields").querySelectorAll("input[data-f]"), function (el) {
+    fieldKeys(el);
+    el.addEventListener("input", function () {
+      var q = selectedPic(); if (!q || q.kind !== "title") return;
+      fieldStep(el);
+      q.f = q.f || {}; q.f[el.getAttribute("data-f")] = el.value;
+      render();
+    });
+  });
+  Array.prototype.forEach.call($("titleFields").querySelectorAll("input[data-t]"), function (el) {
+    fieldKeys(el);
+    el.addEventListener("input", function () { state.title[el.getAttribute("data-t")] = el.value; saveSettings(); render(); });
+  });
+  fieldKeys($("tbOffice"));
+  $("tbOffice").addEventListener("input", function () { state.office.name = $("tbOffice").value; saveSettings(); render(); });
+  // the Selected picture card for a stamp or a title block: its fields, and All pages and Delete from all pages
+  function syncStampFields(q) {
+    var k = q && q.kind;
+    $("stampFields").hidden = k !== "stamp";
+    $("titleFields").hidden = k !== "title";
+    if (k === "stamp") {
+      showField("stText", q.text); showField("stSub", q.sub); showField("stInit", state.office.initials);
+      var ck = q.id + " " + q.color + " " + (state.ownColor || "");
+      if ($("stColors").getAttribute("data-key") !== ck) {
+        swatchRow($("stColors"), q.color, function (c) { var s = selectedPic(); if (!s || s.kind !== "stamp") return; snapshot(); s.color = c; sync(); render(); });
+        $("stColors").setAttribute("data-key", ck);
+      }
+    }
+    if (k === "title") {
+      Array.prototype.forEach.call($("titleFields").querySelectorAll("input[data-f]"), function (el) { showField(el.id, (q.f || {})[el.getAttribute("data-f")]); });
+      Array.prototype.forEach.call($("titleFields").querySelectorAll("input[data-t]"), function (el) { showField(el.id, state.title[el.getAttribute("data-t")]); });
+      showField("tbOffice", state.office.name);
+      var r = pageRatio();
+      $("tfScale").placeholder = r ? "1:" + ratioText(r) : "—";
+      $("tfFill").disabled = !doc || doc.cur >= doc.pages.length - 1;
+    }
+    var n = q && q.set ? setCount(q.set) : 0;
+    $("picAll").hidden = !(k === "stamp" || k === "title") || !doc || doc.pages.length < 2;
+    $("picDelAll").hidden = !(k === "stamp" || k === "title") || n < 2;
+    $("picDelAll").title = "Delete from all pages (" + n + ")";
+    $("setActs").hidden = $("picAll").hidden && $("picDelAll").hidden;
+  }
+
+  // ---------- on every page: All pages, Delete from all pages, Fill down ----------
+  // how many copies of a set there are, on every page
+  function setCount(set) {
+    var n = 0, mine = function (x) { if (x.set === set) n++; };
+    state.pics.forEach(mine);
+    if (doc) doc.pages.forEach(function (pg, i) { if (i !== doc.cur) (pg.pics || []).forEach(mine); });
+    return n;
+  }
+  // All pages: a copy of the selected stamp or title block on every other page, as far in paper millimetres from the
+  // same corner of the page as it is here from the corner nearest it, and as big on paper, so it lines up on sheets of
+  // different sizes (a title block 10 mm in from the bottom right of an A1, an A3 and an A4 alike). The copies share
+  // a set id; a page that has one of the set already is left as it is. Each page has its own step to undo.
+  function allPages() {
+    var q = selectedPic();
+    if (!q || !doc || doc.pages.length < 2 || (q.kind !== "stamp" && q.kind !== "title")) return;
+    stashPage();
+    var here = doc.pages[doc.cur], mm = paperMmPerPx(), right = q.x + q.w / 2 > state.w / 2, below = q.y + q.h / 2 > state.h / 2;
+    var dx = (right ? state.w - q.x - q.w : q.x) * mm, dy = (below ? state.h - q.y - q.h : q.y) * mm, n = 0;
+    if (!q.set) { snapshot(); q.set = "set" + (state.nextId++) + Date.now().toString(36); stashPage(); }
+    doc.pages.forEach(function (pg) {
+      if (pg === here || (pg.pics || []).some(function (x) { return x.set === q.set; })) return;
+      var k = 25.4 / 72 / pg.k, s = Math.min(1, 0.9 * pg.w / (q.w * mm / k)), o = JSON.parse(JSON.stringify(q));
+      o.id = picId(); o.at = Date.now();
+      o.n = (pg.pics || []).reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1;
+      o.w = q.w * mm / k * s; o.h = q.h * mm / k * s;
+      o.x = right ? pg.w - dx / k - o.w : dx / k; o.y = below ? pg.h - dy / k - o.h : dy / k;
+      pageSnap(pg);
+      pg.pics = (pg.pics || []).concat([o]);
+      n++;
+    });
+    doc.pages.forEach(function (p, i) { markPage(i); });
+    sync(); render();
+    status(n ? "Placed on " + n + (n === 1 ? " page" : " pages") + ". Undo on a page takes it off that page." : "It is on every page already.");
+  }
+  // Delete from all pages: every copy of the set, from every page, a step to undo on each
+  function deleteSet(which) {
+    var q = which && which.id ? which : selectedPic(); if (!q || !q.set) return;
+    var set = q.set, keep = function (x) { return x.set !== set; }, pages = 0;
+    if (doc) stashPage();
+    if (!state.pics.every(keep)) { snapshot(); state.pics = state.pics.filter(keep); pages++; }
+    if (doc) {
+      doc.pages.forEach(function (pg, i) {
+        if (i === doc.cur || (pg.pics || []).every(keep)) return;
+        pageSnap(pg); pg.pics = pg.pics.filter(keep); pages++;
+      });
+      stashPage();
+      doc.pages.forEach(function (p, i) { markPage(i); });
+    }
+    if (!selectedPic()) picSel = null;
+    sync(); render();
+    status("Deleted from " + pages + (pages === 1 ? " page" : " pages") + ". Undo on a page brings it back there.");
+  }
+  // Fill down: this page's No., its trailing number counted on, into the title blocks of the later pages that have one
+  // (A-101 here: A-102, A-103 on the next ones), keeping its zeros in front; a step to undo on each page
+  function fillDown() {
+    var q = selectedPic(); if (!q || q.kind !== "title" || !doc) return;
+    var m = String((q.f || {}).no || "").match(/^(.*?)(\d+)(\D*)$/);
+    if (!m) { status("Fill down counts on from a number at the end of No., such as A-101."); return; }
+    stashPage();
+    var k = 0, first = "", last = "";
+    doc.pages.forEach(function (pg, i) {
+      var tbs = i > doc.cur ? (pg.pics || []).filter(function (x) { return x.kind === "title"; }) : [];
+      if (!tbs.length) return;
+      var d = String(parseInt(m[2], 10) + (++k)); while (d.length < m[2].length) d = "0" + d;
+      last = m[1] + d + m[3]; if (!first) first = last;
+      pageSnap(pg);
+      tbs.forEach(function (x) { x.f = x.f || {}; x.f.no = last; });
+    });
+    status(!k ? "No later page has a title block." : "Fill down: " + first + (k > 1 ? " to " + last : "") + ", on " + k + (k === 1 ? " page" : " pages") + ". Undo works page by page.");
+  }
+  $("picAll").addEventListener("click", function () { if (needPro("stamps", allPages)) allPages(); });
+  $("picDelAll").addEventListener("click", function () { deleteSet(); });
+  $("tfFill").addEventListener("click", function () { if (needPro("stamps", fillDown)) fillDown(); });
   ["dragenter", "dragover"].forEach(function (t) {
     stage.addEventListener(t, function (e) { e.preventDefault(); stage.classList.add("dragging"); });
   });
@@ -7662,7 +8218,7 @@ body.has-pages #stripGrip { display: block; }
     if (exporting) return;
     exporting = true;
     stashPage();
-    var d = doc, files = [], chain = Promise.resolve(), ext = type === "png" ? "png" : "jpg";
+    var d = doc, files = [], chain = typeReady(), ext = type === "png" ? "png" : "jpg";
     pages.forEach(function (pg, i) {
       chain = chain.then(function () {
         status("Page " + (i + 1) + " of " + pages.length + "…");
@@ -7895,7 +8451,7 @@ body.has-pages #stripGrip { display: block; }
     if (!state.img) return;
     var w = state.w, h = state.h, filename = state.name + (doc ? "_p" + (doc.cur + 1) : "") + "_markup.png";
     status("Preparing a " + w + " × " + h + " px PNG…");
-    pageReady().then(function () {
+    pageReady().then(typeReady).then(function () {
       fullImage().toBlob(function (blob) {
         if (!blob) { status("The image is too large for this browser to export."); return; }
         saveBlob(blob, filename, "Saved " + filename + " (" + w + " × " + h + " px).", true);
@@ -7907,7 +8463,7 @@ body.has-pages #stripGrip { display: block; }
     if (!state.img) return;
     var w = state.w, h = state.h, filename = state.name + (doc ? "_p" + (doc.cur + 1) : "") + "_markup.jpg";
     status("Preparing a " + w + " × " + h + " px JPG…");
-    pageReady().then(function () {
+    pageReady().then(typeReady).then(function () {
       var c = document.createElement("canvas"); c.width = w; c.height = h;
       var g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, w, h); g.drawImage(fullImage(), 0, 0);
       c.toBlob(function (blob) {
@@ -7924,7 +8480,7 @@ body.has-pages #stripGrip { display: block; }
     exporting = true;
     var filename = state.name + "_markup.pdf", dpi = state.dpi || 96, wPt = state.w / dpi * 72, hPt = state.h / dpi * 72;
     status("Preparing the PDF…");
-    pdfLib().then(function (L) {
+    typeReady().then(pdfLib).then(function (L) {
       var c = fullImage();
       if (small) {
         var k = Math.min(1, 150 / dpi), s2 = document.createElement("canvas");
@@ -7965,7 +8521,7 @@ body.has-pages #stripGrip { display: block; }
     }
     status("Copying a " + state.w + " × " + state.h + " px image…");
     // the PNG is handed over as a promise so the copy starts inside the click, which Safari insists on
-    var png = pageReady().then(function () {
+    var png = pageReady().then(typeReady).then(function () {
       var c = fullImage();
       return new Promise(function (resolve, reject) {
         c.toBlob(function (blob) { if (blob) resolve(blob); else reject(new Error("too large")); }, "image/png");
@@ -8131,6 +8687,7 @@ body.has-pages #stripGrip { display: block; }
     { id: "takeoff", name: "Take-offs", icon: '<path d="M3.5 5.5h12l5 6v7h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5.5l-3.5 3.5M12 5.5l-8.5 8.5M16 6l-12.5 12.5M18.5 9l-9.5 9.5M20.5 12l-6.5 6.5" stroke="currentColor" stroke-width="1"/>' },
     { id: "report", name: "Report and totals", icon: '<path d="M3.5 4.5h17v15h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15" fill="none" stroke="currentColor" stroke-width="1.2"/>' }
   ];
+  PRO_FEATURES.push({ id: "stamps", name: "Stamps and title blocks", icon: '<rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="5" y="8.5" width="14" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' });
   var proAsk = null;            // what asked for Pro while the Unlock dialog shows: { id, then }, then run once Pro is on
   // What was typed in the key field and is not kept (refused, or not checked for want of an answer): it stays in the
   // field to be put right, while the key kept, if any, stays as it was.
@@ -8365,6 +8922,7 @@ body.has-pages #stripGrip { display: block; }
     // the take-off groups: those not deleted
     var groups = liveGroups().map(function (g) { var o = { id: g.id, name: g.name, kind: g.kind, color: g.color }; if (g.kind === "count") o.mark = g.mark || "circle"; else if (g.h > 0) o.h = g.h; return o; });
     var text = JSON.stringify({ v: 5, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
+                                title: state.title, office: { initials: state.office.initials, name: state.office.name }, ownStamps: state.ownStamps,
                                 style: state.style, textStyle: state.textStyle || null, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "", strip: state.stripW || 0, stripFolded: !!state.stripFolded,
                                 measMode: state.measMode, groups: groups, groupSeq: state.groupSeq, takeSel: state.takeSel, takeLab: state.takeLab, csv: state.csv || "" });
@@ -8418,6 +8976,15 @@ body.has-pages #stripGrip { display: block; }
     if (typeof d.ratio === "number" && isFinite(d.ratio) && d.ratio > 0) state.ratio = d.ratio;
     // the eraser's own shape; before it had one it went with the pen's tip
     state.eraserTip = d.eraserTip === "square" || (d.eraserTip == null && state.pen.tip === "square") ? "square" : "round";
+    // what every title block says, the initials and the office's name, and the office's own stamps (from version 5):
+    // words of up to 120 characters (initials 8, a stamp's 40), and at most 20 stamps, each with a colour
+    var str = function (v, n) { return typeof v === "string" ? v.slice(0, n) : ""; };
+    if (d.title && typeof d.title === "object") TITLE_SHARED.forEach(function (k) { state.title[k] = str(d.title[k], 120); });
+    if (d.office && typeof d.office === "object") state.office = { initials: str(d.office.initials, 8), name: str(d.office.name, 120) };
+    if (Array.isArray(d.ownStamps)) {
+      state.ownStamps = d.ownStamps.filter(function (o) { return o && typeof o.text === "string" && o.text.trim() && validColor(o.color, ""); })
+        .slice(0, OWN_MAX).map(function (o) { return { text: o.text.trim().slice(0, OWN_LEN), color: validColor(o.color, "red") }; });
+    }
     // the take-off groups (from version 5): each with a known kind and colour, a name of up to 60 characters, at most 30
     if (Array.isArray(d.groups)) {
       var seq = 0;
