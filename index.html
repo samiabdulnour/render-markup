@@ -9369,9 +9369,11 @@ body.has-pages #stripGrip { display: block; }
   // is part of the page for good goes in: no page content, nothing redacted, no changed words written into the page as
   // text, no form values; only what is in the overlay, which can be taken off again. Version 2 is version 1 with
   // those (take-off cut-outs and moved labels, heights and depths, totals tables, stamps, title blocks, and when and by
-  // whom each thing was made); a file of version 1 is read as it always was. A file of some pages of a set (Export of
-  // some pages, or one file a page) keeps what those read in the set: a title block its sheet number, a table of its
-  // page that page's number, and a table of every page, whose other pages are not in the file, a picture of it.
+  // whom each thing was made); a file of version 1 is read as it always was. A note's angled leader is two plain fields
+  // of the note (noteData), in version 2 too: a reader from before them leaves them out, and the note is straight. A
+  // file of some pages of a set (Export of some pages, or one file a page) keeps what those read in the set: a title
+  // block its sheet number, a table of its page that page's number, and a table of every page, whose other pages are
+  // not in the file, a picture of it.
   var MARKUP_FILE = "render-markup.json", MARKUP_V = 2;
   // what a file's markup may hold at most, read back: past any of it, the file opens as a plain PDF. The writer keeps
   // within the same (markupJson), so what is saved here always opens here again.
@@ -9535,7 +9537,7 @@ body.has-pages #stripGrip { display: block; }
       var e = { pg: pg, ims: ims, page: null, points: 0, xo: m.xo || null, has: !!(pg.notes.length || pg.strokes.length || pics.length || edits.length) };
       if (!whole || !e.has) return e;
       e.page = { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: ratioOf(pg), xo: m.xo || null,
-                 notes: pg.notes, strokes: withPage(pg, function () { return bakedStrokes(pg.strokes); }), pics: pics, edits: edits };
+                 notes: pg.notes.map(noteData), strokes: withPage(pg, function () { return bakedStrokes(pg.strokes); }), pics: pics, edits: edits };
       // the page as the reader takes it, on its own (its pictures stood in for: they are checked once, below)
       var test = { app: top.app, v: top.v, images: ims.map(function () { return "data:image/png;base64,AAAA"; }), pages: [e.page] };
       if (readMarkup(test, [e.page])) e.points = pointsIn(e.page); else e.page = null;
@@ -9600,6 +9602,19 @@ body.has-pages #stripGrip { display: block; }
     var fixed = [];
     list.forEach(function (e, i) { if (e.has && !e.page) fixed.push(i + 1); });
     return { bytes: bytes, fixed: fixed };
+  }
+  // A note as the file keeps it: as it is, but for its leader, which goes in only as the reader takes it back. An
+  // angled one says so, with the shoulder its bend was dragged to (if it was) in text heights to the hundredth; a
+  // straight one has neither field, so it reads as every note did before there were angled leaders.
+  function noteData(n) {
+    if (n.leader === undefined && n.shoulder === undefined) return n;
+    var o = {}, k;
+    for (k in n) if (k !== "leader" && k !== "shoulder") o[k] = n[k];
+    if (angledLead(n)) {
+      o.leader = "angled";
+      if (typeof n.shoulder === "number" && isFinite(n.shoulder)) o.shoulder = Math.round(shoulderOf(n) * 100) / 100;
+    }
+    return o;
   }
   // A picture drawn by code as the file keeps it: where it is and what it says, and no picture of it. A totals table
   // keeps whether it adds up this page or every page; a stamp which one of the Library it is, its words, its second
@@ -9758,6 +9773,10 @@ body.has-pages #stripGrip { display: block; }
       if (has(n, "color")) o.color = color(n.color);
       flags(n, o, ["dark", "vertical", "outline", "bold", "italic", "under", "strike"]);
       if (has(n, "end")) o.end = oneOf(n.end, ["", "arrow"]);
+      // an angled leader, and the shoulder its bend was dragged to, in text heights to the hundredth as the handle
+      // sets it (noteData); a straight leader has neither, so a shoulder on one is not what this app writes
+      if (has(n, "leader")) o.leader = oneOf(n.leader, ["angled"]);
+      if (has(n, "shoulder")) { if (o.leader !== "angled") bad(); o.shoulder = Math.round(num(n.shoulder, SHOULDER_MIN, SHOULDER_MAX) * 100) / 100; }
       if (has(n, "rot")) o.rot = num(n.rot, -1000, 1000);
       if (has(n, "boxW")) o.boxW = num(n.boxW, 0, 10000);
       if (has(n, "boxH")) o.boxH = num(n.boxH, 0, 10000);
