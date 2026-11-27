@@ -320,7 +320,12 @@ details.optsub[open] summary { margin-bottom: 4px; }
 .rephead .seg { flex: none; }
 .rephead .seg button { font-family: var(--font-mono); }
 .pdfchoices #expCsv, .pdfchoices #expTotals { grid-column: span 3; }
-#takeCopy { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+/* Copy totals ends the row of the groups' actions, beside Labels: the panel is a column of rows, with a narrow second
+   column on that row alone */
+#takeOpts:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 6px; }
+#takeOpts > * { grid-column: 1 / -1; }
+#takeOpts > .takeacts { grid-column: 1; }
+#takeOpts > #takeCopy { grid-column: 2; width: 44px; justify-content: center; padding: 6px 0; }
 /* the page strip: a page being dragged to a new place, and where it will go */
 #pageList li.lifted { opacity: 0.45; }
 #pageList li.drop-before button { box-shadow: inset 0 3px 0 var(--ink); }
@@ -667,8 +672,8 @@ body.has-pages #stripGrip { display: block; }
             <button type="button" data-lab="value" title="Labels: the quantity"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 7h9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="unseen">Quantity</span></button>
             <button type="button" data-lab="both" title="Labels: the name and the quantity"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 5h11M11 9.5h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="unseen">Name and quantity</span></button>
           </div>
-          <button type="button" id="takeCopy" class="pro-mark" title="Copy totals: each group's total and its figure on each page, to paste into Excel or an email"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 6.5h10v10h-10z" stroke-width="1.6"/><path d="M1.5 9.8h10M1.5 13.2h10M5.5 6.5v10" stroke-width="1.1"/><path d="M9 9l7.5-7.5M11.5 1.5h5v5" stroke-width="1.6"/></svg><span class="unseen">Copy totals</span></button>
         </div>
+        <button type="button" id="takeCopy" class="pro-mark" title="Copy totals: each group's total and its figure on each page, to paste into Excel or an email"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 6.5h10v10h-10z" stroke-width="1.6"/><path d="M1.5 9.8h10M1.5 13.2h10M5.5 6.5v10" stroke-width="1.1"/><path d="M9 9l7.5-7.5M11.5 1.5h5v5" stroke-width="1.6"/></svg><span class="unseen">Copy totals</span></button>
         <div id="takeEdit" hidden>
           <label for="takeName">Name<input id="takeName" class="entry" type="text" maxlength="60" autocomplete="off" spellcheck="false"></label>
           <div class="swatches five" id="takeColors" role="group" aria-label="Group colour"></div>
