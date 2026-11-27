@@ -23,9 +23,10 @@ var SHARE_URL = new URL("share", SCOPE).href;
 
 // What the page needs to start with no connection; everything else is kept as it is first used (the PDF
 // libraries when a PDF is first opened, a typeface when a note first uses it), so nothing is fetched up front
-// that the person may never need.
+// that the person may never need. The first typeface's bold is among them: stamps and title blocks are set in it,
+// so the Library in the Move panel asks for it as soon as the panel shows, and every export waits for it.
 var START = ["./", "manifest.webmanifest", "fonts/fonts.css",
-             "fonts/arimo-latin-400-normal.woff2", "fonts/ibm-plex-mono-latin-400-normal.woff2",
+             "fonts/arimo-latin-400-normal.woff2", "fonts/arimo-latin-700-normal.woff2", "fonts/ibm-plex-mono-latin-400-normal.woff2",
              "icons/icon-192.png", "icons/icon-512.png"];
 
 // PDF.js reads a PDF and pdf-lib writes one. Opening a PDF only uses PDF.js, so pdf-lib is kept along with it:

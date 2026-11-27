@@ -3862,6 +3862,7 @@ body.has-pages #stripGrip { display: block; }
     pg.history.push(JSON.stringify({ notes: pg.notes, strokes: pg.strokes, pics: pg.pics || [], edits: pg.edits || [], sel: pg.sel, picks: pg.picks, dpi: state.dpi }));
     if (pg.history.length > 80) pg.history.shift();
     pg.future = [];
+    touchDoc();     // a change to a page off screen (All pages, Fill down, a group deleted) is a change to save too
   }
   // Delete group: one that is not used just goes. One that is asks first, then its take-offs go from every page,
   // one step to undo on each. The group is kept out of sight (gone), so an undo that brings its take-offs back
@@ -8176,7 +8177,7 @@ body.has-pages #stripGrip { display: block; }
       if ((q.sub || "") === subLine(day, was) && now !== q.sub) { var two = !!stampSub(q); q.sub = now; fitStamp(q, two); }
       delete q.by; madeBy(q);
     }
-    saveSettings(); render();
+    saveSettings(); render(); touchDoc();
   });
   Array.prototype.forEach.call($("titleFields").querySelectorAll("input[data-f]"), function (el) {
     fieldKeys(el);
@@ -8189,10 +8190,10 @@ body.has-pages #stripGrip { display: block; }
   });
   Array.prototype.forEach.call($("titleFields").querySelectorAll("input[data-t]"), function (el) {
     fieldKeys(el);
-    el.addEventListener("input", function () { state.title[el.getAttribute("data-t")] = el.value; saveSettings(); render(); });
+    el.addEventListener("input", function () { state.title[el.getAttribute("data-t")] = el.value; saveSettings(); render(); touchDoc(); });
   });
   fieldKeys($("tbOffice"));
-  $("tbOffice").addEventListener("input", function () { state.office.name = $("tbOffice").value; saveSettings(); render(); });
+  $("tbOffice").addEventListener("input", function () { state.office.name = $("tbOffice").value; saveSettings(); render(); touchDoc(); });
   // the Selected picture card for a stamp or a title block: its fields, and All pages and Delete from all pages
   function syncStampFields(q) {
     var k = q && q.kind;
@@ -8921,15 +8922,22 @@ body.has-pages #stripGrip { display: block; }
   // The title names the file, with a small dot in front while there are changes since it was opened or last saved;
   // closing the window then asks first, if there is a file to save into. What counts is the markup on every page, the
   // pages themselves (their order, turns, crops and redactions) and what a form has filled in: undone back to where it
-  // was saved, it is unchanged again. Only where Save is offered.
+  // was saved, it is unchanged again. So does what the markup shows that is kept as a setting: the take-off groups it
+  // uses (a name, a colour, a height changed relabels them and their totals) and, once there is a title block, the
+  // words every title block shares (typed in its panel, as the file's title blocks are saved with them). Only where
+  // Save is offered.
   var savedSig = null, unsaved = false, sigTimer = null;
   function docSig() {
-    var cur = doc ? doc.pages[doc.cur] : null;
-    var mk = function (o) { return [o.notes, o.strokes, o.pics || [], o.edits || [], o.pageRatio != null ? o.pageRatio : null]; };
-    if (!doc) return JSON.stringify(mk(state));
-    return JSON.stringify([doc.pages.map(function (pg) {
+    var cur = doc ? doc.pages[doc.cur] : null, used = {}, titled = false;
+    var mk = function (o) {
+      o.strokes.forEach(function (s) { if (s.take) used[s.g] = true; });
+      (o.pics || []).forEach(function (q) { if (q.kind === "title") titled = true; });
+      return [o.notes, o.strokes, o.pics || [], o.edits || [], o.pageRatio != null ? o.pageRatio : null];
+    };
+    var marks = !doc ? mk(state) : [doc.pages.map(function (pg) {
       return [doc.sources.indexOf(pg.source), pg.n, pg.rot, pg.crop, pg.redact || null].concat(mk(pg === cur ? state : pg));   // the page on screen keeps its markup in state
-    }), doc.sources.map(function (src) { return src.values || null; })]);
+    }), doc.sources.map(function (src) { return src.values || null; })];
+    return JSON.stringify([marks, state.groups.filter(function (g) { return used[g.id]; }), titled ? [state.title, state.office.name] : null]);
   }
   function touchDoc() { if (CAN_SAVE && !sigTimer) sigTimer = setTimeout(checkSaved, 250); }
   function checkSaved() { clearTimeout(sigTimer); sigTimer = null; unsaved = savedSig !== null && docSig() !== savedSig; showTitle(); }
@@ -8973,12 +8981,13 @@ body.has-pages #stripGrip { display: block; }
   // Build the full-quality PDF of the document itself (built on the PDF it came from, whatever was done to its pages:
   // fullPdf, keepHome) and write it into the file. Chromium writes to a copy and swaps it in only once it is all there,
   // so a write that fails leaves the file as it was. A PDF that could only be made as pictures of its pages (an
-  // encrypted one, or one pdf-lib cannot read) is never written over the PDF it came from.
+  // encrypted one, or one pdf-lib cannot read) is never written over the PDF it came from. As with Export, the type
+  // is in first (typeReady), so stamps, title blocks and totals tables go into the overlay set as they show.
   function writeTo(t) {
     var set = saveSet(), sig = docSig();
     exporting = true;
     status("Saving " + t.name + "…");
-    return pdfLib().then(function (L) { return buildPdf(L, set.d, set.pages, "save"); }).then(function (res) {
+    return typeReady().then(pdfLib).then(function (L) { return buildPdf(L, set.d, set.pages, "save"); }).then(function (res) {
       if (res.flat && t.from === "open") { var e = failure("Flat"); e.flat = true; throw e; }
       return t.handle.createWritable().then(function (w) {
         return w.write(res.bytes).then(function () { return w.close(); }, function (err) {
