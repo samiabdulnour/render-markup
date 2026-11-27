@@ -318,7 +318,7 @@ details.optsub[open] summary { margin-bottom: 4px; }
 .rephead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--divider); padding-top: 12px; }
 .modal .box .rephead h4.optsub { margin: 0; padding: 0; border: 0; }
 .rephead .seg { flex: none; }
-.rephead .seg button { font-family: var(--font-mono); }
+.rephead .seg button { text-transform: none; letter-spacing: normal; font-family: var(--font-mono); }
 .pdfchoices #expCsv, .pdfchoices #expTotals { grid-column: span 3; }
 /* Copy totals ends the row of the groups' actions, beside Labels: the panel is a column of rows, with a narrow second
    column on that row alone */
@@ -938,7 +938,7 @@ body.has-pages #stripGrip { display: block; }
     </div>
     <div class="rephead">
       <h4 class="optsub" id="repTitle">Report</h4>
-      <div class="seg case" id="csvFmt" role="group" aria-label="CSV format">
+      <div class="seg" id="csvFmt" role="group" aria-label="CSV format">
         <button type="button" data-csv="en" aria-pressed="false" title="Comma separated, decimal point: Excel in English">a,b · 1.5</button>
         <button type="button" data-csv="eu" aria-pressed="false" title="Semicolon separated, decimal comma: Excel in most of Europe">a;b · 1,5</button>
       </div>
