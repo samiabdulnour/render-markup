@@ -7,6 +7,10 @@
 <title>Render Markup</title>
 <meta name="description" content="Mark up architectural renders with clean pill callouts, leader lines and sketches. Runs in your browser; images never leave your computer.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
+<!-- The manifest makes the page an app Chrome and Edge can install, which then opens PDFs and pictures from the
+     computer (Open with) and, on Android, takes them shared from other apps. One theme colour: there is no dark version. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#efefef">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
@@ -291,6 +295,9 @@ input.entry, .scalebox input {
 @media (prefers-reduced-motion: reduce) { #status { transition: none; } }
 /* Options (the legacy controls, then the shortcuts), and the choice of export */
 .modal .box.setbox { width: min(860px, 100%); }
+/* Install app, offered only by a browser that can install the page, sits at the other end of the row from Close */
+#installBtn { margin-right: auto; }
+#installBtn[hidden] { display: none; }
 .optwrap { max-width: 520px; display: flex; flex-direction: column; gap: 6px; }
 details.optsub { border-top: 1px solid var(--divider); padding-top: 14px; margin-top: 10px; }
 details.optsub summary { cursor: pointer; text-transform: uppercase; letter-spacing: 0.02em; list-style: none; display: flex; align-items: center; gap: 8px; }
@@ -975,7 +982,7 @@ body.has-pages #stripGrip { display: block; }
       <p class="note">Archicad, AutoCAD, InDesign, Bluebeam and the other names mentioned are trademarks of their owners. Render Markup is not connected with them.</p>
     </div>
     </details>
-    <div class="actions"><button id="setClose">Close</button></div>
+    <div class="actions"><button id="installBtn" hidden title="Install Render Markup as an app: it then opens PDFs and pictures from your computer, and works without a connection">Install app</button><button id="setClose">Close</button></div>
   </div>
 </div>
 <div class="modal" id="pdfModal" role="dialog" aria-modal="true" aria-labelledby="pdfTitle">
@@ -5690,15 +5697,20 @@ body.has-pages #stripGrip { display: block; }
   var doc = null, loadToken = 0;
   var VENDOR = new URL("vendor/", document.baseURI).href;
   var PAGE_LONG = 4000, PAGE_MAX_PX = 16e6, PAGE_MAX_SCALE = 3, PAGE_KEEP = 3, THUMB_PX = 192;   // THUMB_PX grows with a wider page strip
-  var pdfjsReady = null, pdfjsLib = null, pdfLibReady = null, useClock = 0, whiteCanvas = null;
-  // Both libraries are part of this site (see vendor/) and are only fetched when a PDF is opened or exported.
+  var pdfjsReady = null, pdfjsLib = null, pdfjsTries = 0, pdfLibReady = null, useClock = 0, whiteCanvas = null;
+  // Both libraries are part of this site (see vendor/) and are only fetched when a PDF is opened or exported; the
+  // service worker keeps pdf-lib as soon as the first PDF opens, so a PDF can then be exported with no connection.
+  // A library that cannot be fetched (with no connection, before it was ever kept) fails as NotLoaded, so the
+  // person is told to connect, not that their file is at fault. The browser remembers a module it could not fetch,
+  // so the next try asks for it under another name: the same file, with a # after it.
+  function notLoaded(what) { var e = new Error(what + " did not load"); e.name = "NotLoaded"; return e; }
   function pdfjs() {
     if (!pdfjsReady) {
-      pdfjsReady = import(VENDOR + "pdfjs/pdf.min.mjs").then(function (lib) {
+      pdfjsReady = import(VENDOR + "pdfjs/pdf.min.mjs" + (pdfjsTries ? "#" + pdfjsTries : "")).then(function (lib) {
         pdfjsLib = lib;
         lib.GlobalWorkerOptions.workerSrc = VENDOR + "pdfjs/pdf.worker.min.mjs";
         return lib;
-      });
+      }, function () { pdfjsTries++; throw notLoaded("PDF.js"); });
       pdfjsReady.catch(function () { pdfjsReady = null; });
     }
     return pdfjsReady;
@@ -5708,8 +5720,8 @@ body.has-pages #stripGrip { display: block; }
       pdfLibReady = new Promise(function (resolve, reject) {
         var el = document.createElement("script");
         el.src = VENDOR + "pdf-lib/pdf-lib.min.js";
-        el.onload = function () { if (window.PDFLib) resolve(window.PDFLib); else reject(new Error("pdf-lib did not load")); };
-        el.onerror = function () { reject(new Error("pdf-lib did not load")); };
+        el.onload = function () { if (window.PDFLib) resolve(window.PDFLib); else reject(notLoaded("pdf-lib")); };
+        el.onerror = function () { reject(notLoaded("pdf-lib")); };
         document.head.appendChild(el);
       });
       pdfLibReady.catch(function () { pdfLibReady = null; });
@@ -5875,7 +5887,8 @@ body.has-pages #stripGrip { display: block; }
     }).catch(function (err) {
       if (token !== loadToken) return;
       status(err && err.name === "PasswordException" ? "That PDF is password-protected, so it cannot be opened here."
-                                                     : "That file could not be opened. It may be damaged, or not really a PDF or an image.");
+           : err && err.name === "NotLoaded" ? "Opening a PDF needs a connection the first time. Connect, then open it again."
+                                             : "That file could not be opened. It may be damaged, or not really a PDF or an image.");
     });
   }
   // The image or blank canvas open now becomes the first page of a document, with its markup and undo history.
@@ -7653,8 +7666,9 @@ body.has-pages #stripGrip { display: block; }
         var zip = makeZip(files), filename = d.name + "_pages_markup.zip";
         saveBlob(new Blob([zip], { type: "application/zip" }), filename, "Saved " + filename + ": " + files.length + " PDFs, one a page (" + sizeText(zip.length) + ").", false);
       });
-    }).catch(function () {
-      status("The PDF could not be exported. Save pages as images from the right-click menu instead.");
+    }).catch(function (err) {
+      status(err && err.name === "NotLoaded" ? "Saving a PDF needs a connection the first time. Connect, then export again."
+                                             : "The PDF could not be exported. Save pages as images from the right-click menu instead.");
     }).then(function () { exporting = false; });
   }
   // A .zip of files as they are (stored, not compressed again: PNG, JPEG and PDF are compressed already).
@@ -8589,8 +8603,10 @@ body.has-pages #stripGrip { display: block; }
       });
     }).then(function (bytes) {
       saveBlob(new Blob([bytes], { type: "application/pdf" }), filename, "Saved " + filename + " (" + sizeText(bytes.length) + ").", false);
-    }).catch(function () { status("The PDF could not be made. Save it as an image instead."); })
-      .then(function () { exporting = false; });
+    }).catch(function (err) {
+      status(err && err.name === "NotLoaded" ? "Saving a PDF needs a connection the first time. Connect, then export again."
+                                             : "The PDF could not be made. Save it as an image instead.");
+    }).then(function () { exporting = false; });
   }
   // The whole marked-up image at its own resolution, whatever the zoom on screen.
   function fullImage() {
@@ -8739,6 +8755,7 @@ body.has-pages #stripGrip { display: block; }
       state.blank = true; stage.classList.add("has-image");
       $("docname").textContent = "Blank canvas · 1920 × 1080 px";
       sync(); render();
+      bootDone();
     };
     im.src = c.toDataURL("image/png");
   }
@@ -9094,6 +9111,88 @@ body.has-pages #stripGrip { display: block; }
     // the mode is kept, but without Pro the take-off modes go back to Dimension
     state.measMode = ["dim", "area", "len", "count"].indexOf(d.measMode) >= 0 && (d.measMode === "dim" || proOk()) ? d.measMode : "dim";
   }
+
+  // ---------- opened from the system ----------
+  // Installed from Chrome or Edge, the app is offered for PDFs and pictures (Open with, or a double-click once it is
+  // the default), and on Android a file can be shared to it. Either way the files open just as the Open button opens
+  // them, once the blank canvas is up: opened before, the blank canvas would replace them. Each file is read once
+  // and let go; nothing is kept of it, and nothing is ever written back to the copy on the computer.
+  var booted = false, onBoot = [];
+  function whenBooted(fn) { if (booted) fn(); else onBoot.push(fn); }
+  function bootDone() { if (booted) return; booted = true; onBoot.splice(0).forEach(function (fn) { fn(); }); }
+  if (window.launchQueue && typeof window.launchQueue.setConsumer === "function") {
+    window.launchQueue.setConsumer(function (params) {
+      var handles = Array.prototype.slice.call((params && params.files) || []);
+      if (!handles.length) return;   // the app was started on its own, with nothing to open
+      Promise.all(handles.map(function (h) { return h.getFile(); })).then(function (files) {
+        whenBooted(function () { openMany(files); });
+      }, function () {
+        whenBooted(function () { status("That file could not be read."); });
+      });
+    });
+  }
+  // A share on Android: the service worker (sw.js) has put the files aside and opened the app at ./?shared=1.
+  // They are taken in the order shared, and cleared, and the address goes back to the app's own, so a reload
+  // does not look for them again.
+  if (/[?&]shared=1(&|$)/.test(location.search)) {
+    // (window.history: `history` here is the undo list)
+    try { window.history.replaceState(null, "", location.pathname + location.hash); } catch (err) { /* it keeps the query: harmless */ }
+    if (window.caches) caches.open("render-markup-shared").then(function (cache) {
+      return cache.keys().then(function (keys) {
+        keys.sort(function (a, b) { return +a.url.split("/").pop() - +b.url.split("/").pop(); });
+        return Promise.all(keys.map(function (k) {
+          return cache.match(k).then(function (res) {
+            return res.blob().then(function (b) { return new File([b], decodeURIComponent(res.headers.get("x-file-name") || "shared"), { type: b.type }); });
+          });
+        }));
+      });
+    }).then(function (files) {
+      caches.delete("render-markup-shared");
+      if (files.length) whenBooted(function () { openMany(files); });
+    }).catch(function () {
+      whenBooted(function () { status("The shared file could not be opened."); });
+    });
+  }
+  // Android puts a share in the app's one window, in place of what is open there. So in the installed app, a page
+  // with markup on it tells the service worker as it is about to go, and the worker hands it the shared files
+  // instead: the page stays, and opens them as Open does, asking first. It only tells; it never asks to stay, so a
+  // reload or closing the window goes ahead as ever.
+  if ("serviceWorker" in navigator && window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+    window.addEventListener("beforeunload", function () {
+      var worker = navigator.serviceWorker.controller;
+      if (worker && hasWork()) worker.postMessage({ leaving: true });
+    });
+  }
+  if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", function (e) {
+    var files = e.data && e.data.shared;
+    if (e.source !== navigator.serviceWorker.controller || !files || !files.length) return;
+    whenBooted(function () { openMany(files); });
+  });
+  // The service worker also keeps the app's own files, so the app opens with no connection. It is registered once
+  // the page has loaded, so it never slows the start; where it cannot be, the app works the same without it.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(function () { /* works without it */ });
+    });
+  }
+  // Install app, in Options, shows only once the browser says the page can be installed, and goes when it is, or
+  // when the app is already running installed. The browser's own install bar on a phone is held back: the page
+  // never asks of its own accord (Chrome and Edge still show their install icon in the address bar).
+  var installAsk = null;
+  var installed = !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installAsk = e;
+    $("installBtn").hidden = installed;
+  });
+  window.addEventListener("appinstalled", function () { installed = true; installAsk = null; $("installBtn").hidden = true; });
+  $("installBtn").addEventListener("click", function () {
+    var ask = installAsk;
+    // the browser's offer can be used once: the button goes, and comes back if the browser offers again
+    installAsk = null; $("installBtn").hidden = true;
+    closeModal("setModal");
+    if (ask) Promise.resolve(ask.prompt()).catch(function () { /* the browser said no: nothing to do */ });
+  });
 
   // ---------- boot ----------
   new ResizeObserver(render).observe(stage);

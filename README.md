@@ -75,6 +75,19 @@ Kept too: what every title block says (the project, client, status, date, who dr
   A PDF that cannot be edited, such as an encrypted one, is saved as pictures of its pages instead, and a message says so. Save image (Save this page as an image on a PDF) in the right-click menu saves a PNG straight away.
 - **Copy to clipboard:** in the right-click menu, or Ctrl/Cmd+C, puts the full-resolution marked-up image on the clipboard, ready to paste into a chat, an email or a document.
 
+## Open PDFs with Render Markup
+
+Installed as an app, Render Markup can be the app your computer opens PDFs and pictures with.
+
+- **Install** it from Chrome or Edge: the install icon at the right of the address bar, or **Install app** in Options when it shows there. It then has a window and an icon of its own, and works with no connection (PDFs too, once one has been opened online).
+- **Windows:** right-click a PDF › Open with › Choose another app › Render Markup, and Always.
+- **macOS:** select a PDF › Get Info (Cmd+I) › Open with › Render Markup › Change All.
+- **ChromeOS and Linux:** Render Markup is under Open with for PDFs and PNG, JPG and WebP pictures.
+- **Android:** install it from Chrome, then Share a PDF or a picture to Render Markup.
+- **iPhone, iPad, Safari and Firefox** cannot hand a file to a web app: use **Open file**.
+
+The first time, the browser asks whether Render Markup may open that kind of file. Files open in a new window, so work in another is never replaced; on Android, where the app has one window, a share asks before it replaces markup. Several opened at once become one document, as with Open. The file is only read: the copy on your computer is never changed (Export saves a new one). When the app moves to its own domain, it has to be installed again from there.
+
 ## Shortcuts
 
 | Key | Action |
@@ -123,7 +136,7 @@ Kept too: what every title block says (the project, client, status, date, who dr
 
 ## Look
 
-The logo is in `brand/`: the original (`logo.png`), and traced from it as vectors in black (`logo.svg`) and white (`logo-white.svg`). In the app it is drawn in the text colour, so it follows the theme.
+The logo is in `brand/`: the original (`logo.png`), and traced from it as vectors in black (`logo.svg`) and white (`logo-white.svg`). In the app it is drawn in the text colour, so it follows the theme. The app icon (`icons/`) is the favicon's mark, a pill with its leader and red dot, in ink on a pale lemon tile, so it reads on a light or a dark taskbar.
 
 
 The interface follows Loriini's: a light grey surround with the settings on white cards, a one-pixel edge, flat, with 8 px corners on controls and 12 px on cards. What is chosen or switched on is pale lemon with ink words, and Export is the one lemon button. The type is set like Site Analyst's: Arial at one weight, never bold, and at one size, 14px, for every word of the interface, with the labels, buttons and panel headings in capitals spaced a little apart. Only the drop placeholder has its own: a 30px headline, an 18px Open file button and 12px notes. Every word is black, hints and labels too (a button that cannot be used is the same black, faded). The note shapes, and the choices in the panels (tip, eraser shape, orientation (a note reading across, or upwards), filled or outline, dot or arrow end, layer order, turning a picture, its outline), are pictograms only, named in their tooltips, like the colours. The typefaces for notes are chosen separately under All notes. Colours are picked from plain solid circles (their names show as tooltips), the chosen one ringed. It has no dark version: it looks the same on a system set to dark. Sliders have their name and value on one line, the value at the right, over a thin track inked up to a round knob in the switch's colours; a click leaves no box round them.
@@ -132,4 +145,4 @@ There is no footer and no hint line over the image. **Options** (the gear under 
 
 ## Hosting
 
-Static files with no build step, served by GitHub Pages from the `main` branch root: `index.html` is the whole tool, and `vendor/` holds the two libraries it uses for PDFs ([PDF.js](https://mozilla.github.io/pdf.js/) to read them and [pdf-lib](https://pdf-lib.js.org/) to write them). `fonts/` holds the open fonts. All are part of this site, so nothing is loaded from elsewhere (only Check grammar sends the notes' words to LanguageTool); the browser fetches the PDF libraries only when a PDF is opened or exported, and a font only when a page uses it. See `vendor/README.md` and `fonts/README.md` for versions and licences; Options › About lists them too.
+Static files with no build step, served by GitHub Pages from the `main` branch root: `index.html` is the whole tool, and `vendor/` holds the two libraries it uses for PDFs ([PDF.js](https://mozilla.github.io/pdf.js/) to read them and [pdf-lib](https://pdf-lib.js.org/) to write them). `fonts/` holds the open fonts. `manifest.webmanifest` and `icons/` make it an app Chrome and Edge can install, and `sw.js`, its service worker, takes files shared on Android and keeps the app's own files for use with no connection: it asks the network first, so an update shows at once, and never touches a request to another site. All are part of this site, so nothing is loaded from elsewhere (only Check grammar sends the notes' words to LanguageTool); the browser fetches the PDF libraries only when a PDF is opened or exported, and a font only when a page uses it. See `vendor/README.md` and `fonts/README.md` for versions and licences; Options › About lists them too.
