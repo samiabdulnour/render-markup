@@ -641,6 +641,7 @@ body.has-pages #stripGrip { display: block; }
         <button type="button" data-mode="len" class="pro-mark" aria-pressed="false" title="Length: click along it · m"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 18.5l5-10 6 6 6-10"/><circle cx="3.5" cy="18.5" r="1.6" fill="currentColor"/><circle cx="8.5" cy="8.5" r="1.6" fill="currentColor"/><circle cx="14.5" cy="14.5" r="1.6" fill="currentColor"/><circle cx="20.5" cy="4.5" r="1.6" fill="currentColor"/></svg><span class="unseen">Length</span></button>
         <button type="button" data-mode="count" class="pro-mark" aria-pressed="false" title="Count: click each one · pcs"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.3 8h5.2l-2.9 3.4c2 0 3.4 1 3.4 2.6 0 1.7-1.5 2.8-3.3 2.8-1.2 0-2.3-.5-2.9-1.4" stroke-width="1.7"/></svg><span class="unseen">Count</span></button>
       </div>
+      <p class="note" id="takeHint" hidden></p>
       <div class="swatches five" id="dimColors" role="group" aria-label="Dimension colour"></div>
       <div id="takeOpts" hidden>
         <p class="sub" id="takeCap" hidden>Page · All</p>
@@ -2562,6 +2563,12 @@ body.has-pages #stripGrip { display: block; }
     $("movePanel").hidden = t !== "move";
     $("measurePanel").hidden = t !== "measure";
     var meas = state.measMode === "dim" ? "Left-drag measures" : state.measMode === "count" ? "Left click counts one" : "Left click adds a corner, Enter or a double-click finishes";
+    // how to draw a take-off, in one line under the mode switch: any polygon, corner by corner
+    var mm = state.measMode;
+    $("takeHint").hidden = t !== "measure" || mm === "dim";
+    $("takeHint").textContent = mm === "area" ? (COARSE ? "Tap each corner · tap the first, or double-tap, to close · or drag a rectangle" : "Click each corner · click the first, double-click or Enter to close · or drag a rectangle")
+      : mm === "len" ? (COARSE ? "Tap along it · double-tap to end · end on the first point for a loop" : "Click along it · double-click or Enter to end · end on the first point for a loop")
+      : mm === "count" ? (COARSE ? "Tap each one" : "Click each one") : "";
     $("hint").textContent = t === "move"
       ? (COARSE ? "Drag a picture or a note to move it · drag a picture's edges or corners to resize it"
          : "Left-drag moves pictures and notes · edges and corners resize a picture, the round handle turns it · Shift keeps proportions · right-click for a menu")
