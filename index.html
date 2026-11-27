@@ -1436,20 +1436,60 @@ body.has-pages #stripGrip { display: block; }
     }
     return false;
   }
+  // Where p lies against ring r: 1 inside it, 0 on its edge, -1 outside. A corner snapped onto another's corner or
+  // side lies exactly on it, and inRing alone would call that inside or outside by which way the side faces, so the
+  // edge (within a hair) is looked for first.
+  function ringSide(p, r) {
+    for (var i = 0, n = r.length; i < n; i++) if (distToSeg(p, r[i], r[(i + 1) % n]) < 1e-6) return 0;
+    return inRing(p, r) ? 1 : -1;
+  }
+  // Does ring h keep out of where it must not go: ring r's outside (bad -1) or its inside (bad 1)? The rings' sides
+  // do not cross (that is looked at first), so each side of h is cut where a corner of r touches it, and each piece
+  // lies wholly one way, as its midpoint does: a side may run along r's edge, but not across a corner of r.
+  function ringKeeps(h, r, bad) {
+    for (var i = 0, n = h.length; i < n; i++) {
+      var a = h[i], b = h[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, ts = [0, 1];
+      if (ringSide(a, r) === bad) return false;
+      if (l2) r.forEach(function (q) { if (distToSeg(q, a, b) < 1e-6) ts.push(((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2); });
+      ts.sort(function (x, y) { return x - y; });
+      for (var k = 1; k < ts.length; k++) {
+        var t = (ts[k - 1] + ts[k]) / 2;
+        if (ringSide([a[0] + dx * t, a[1] + dy * t], r) === bad) return false;
+      }
+    }
+    return true;
+  }
+  // a point well inside ring r, off its edge: the middle of a side moved a hair inwards, the first that lands inside
+  function ringInner(r) {
+    var n = r.length, a = 0, i;
+    for (i = 0; i < n; i++) a += r[i][0] * r[(i + 1) % n][1] - r[(i + 1) % n][0] * r[i][1];
+    var dir = a > 0 ? 1 : -1;
+    for (i = 0; i < n; i++) {
+      var p = r[i], q = r[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy);
+      if (!l) continue;
+      var e = dir * 1e-3 / l, m = [(p[0] + q[0]) / 2 - dy * e, (p[1] + q[1]) / 2 + dx * e];
+      if (ringSide(m, r) === 1) return m;
+    }
+    return null;
+  }
   // Is an area sound: its outline not crossing itself, and each cut-out a ring of its own lying wholly inside the
-  // outline, clear of the other cut-outs (neither crossing one nor holding one inside it)? A cut-out that broke any
-  // of these would make the area's figure wrong, so it is refused, and so is a corner dragged to such a place.
+  // outline, clear of the other cut-outs (neither crossing one, nor overlapping one, nor holding one inside it)? A
+  // cut-out may touch the outline or another cut-out, corner on corner or along a side: a column in a room's corner,
+  // two shafts side by side. One that broke any of this would make the area's figure wrong, so it is refused, and so
+  // is a corner dragged to such a place.
   function areaSound(pts, holes) {
     if (crosses(pts)) return false;
     holes = holes || [];
     for (var i = 0; i < holes.length; i++) {
-      var h = holes[i];
+      var h = holes[i], inner;
       if (h.length < 3 || crosses(h) || ringsCross(h, pts)) return false;
-      for (var k = 0; k < h.length; k++) if (!inRing(h[k], pts)) return false;
+      // its sides inside the outline or on it, and a point well inside it inside the outline too
+      if (!ringKeeps(h, pts, -1) || !(inner = ringInner(h)) || ringSide(inner, pts) !== 1) return false;
+      // its sides out of each other cut-out, and its inside too (so it is not the same ring as another); the loop
+      // meets each pair both ways round, so one holding another inside it is found as well
       for (var j = 0; j < holes.length; j++) {
         if (j === i) continue;
-        if (ringsCross(h, holes[j])) return false;
-        for (k = 0; k < holes[j].length; k++) if (inRing(holes[j][k], h)) return false;
+        if (ringsCross(h, holes[j]) || !ringKeeps(h, holes[j], 1) || ringSide(inner, holes[j]) === 1) return false;
       }
     }
     return true;
@@ -2567,12 +2607,24 @@ body.has-pages #stripGrip { display: block; }
     if (state.sel < 0) state.picks = [];
     else if (state.picks.indexOf(state.sel) < 0) state.picks = [state.sel];
   }
-  function snapshot() {
+  // a step to undo: the markup as it is now, or as it was (was, from current()) when a drag that has only now moved began
+  function snapshot(was) {
     if (ownApplying) { if (ownApplying.snapped) return; ownApplying.snapped = true; }   // one step for a whole go at the colour picker
-    history.push(current());
+    history.push(was || current());
     if (history.length > 80) history.shift();
     if (touchGuard && touchGuard.armed && !touchGuard.before) touchGuard.before = history[history.length - 1];   // what a second finger takes back to
     future = [];
+    setUndoButtons();
+  }
+  // A drag's step to undo, taken once it first really moves, from what was there at the press (d.was): a press that
+  // moves nothing leaves Undo and Redo as they were. If the drag then comes to nothing after all (a corner that goes
+  // back, a drag cancelled), the step is taken back, and Redo and the oldest step it pushed out are put back with it.
+  function dragSnap(d) { d.snap = { future: future, first: history.length >= 80 ? history[0] : null }; snapshot(d.was); }
+  function dragUnsnap(d) {
+    if (!d.snap) return;
+    history.pop();
+    if (d.snap.first !== null && history.length < 80) history.unshift(d.snap.first);
+    future = d.snap.future; d.snap = null;
     setUndoButtons();
   }
   // Undo, and Redo where there is a button for it, can be pressed only when there is something to undo or redo
@@ -3407,11 +3459,12 @@ body.has-pages #stripGrip { display: block; }
       if (t.noScale.length) qty.title = "No scale on page " + t.noScale.join(", ");
       b.innerHTML = groupSwatch(g, mode);
       b.appendChild(name); b.appendChild(qty);
-      // with a height or a depth, a second line: "× 2.50 m = 50.00 m²"
+      // with a height or a depth, a second line: "× 2.50 m = 50.00 m²". The height is shown as exactly as it is kept
+      // and worked with, to the millimetre ("× 0.125 m"), so the figures on the line multiply out.
       if (g && g.h > 0 && mode !== "count") {
         var der = document.createElement("span"); der.className = "der";
         var dPage = t.noScale.indexOf(here) >= 0 ? "—" : t.dPage.toFixed(2), dAll = t.noScale.length ? "—" : t.dAll.toFixed(2);
-        der.textContent = "× " + g.h.toFixed(2) + " m = " + (many ? dPage + " · " + dAll : dPage) + " " + TAKE_DER[mode];
+        der.textContent = "× " + g.h.toFixed(3).replace(/0$/, "") + " m = " + (many ? dPage + " · " + dAll : dPage) + " " + TAKE_DER[mode];
         b.appendChild(der);
       }
       b.addEventListener("click", function () { if (!g || g.gone) return; state.takeSel[mode] = g.id; sync(); });
@@ -4152,7 +4205,7 @@ body.has-pages #stripGrip { display: block; }
       var g = takeGroup(kind);
       if (!g) return false;
       if (kind === "count") { addMarker(g, p); return false; }
-      taking = { kind: kind, g: g.id, pts: [], last: null, hover: null, near: false, rect: null, cut: cut };
+      taking = { kind: kind, g: g.id, pts: [], last: null, hover: null, near: false, rect: null, cut: cut, fromCut: cut };
       drag = { part: "takePress", a: takePoint(p, false).pt, sx: e.clientX, sy: e.clientY, touch: touch };
       takeIdle = null;
       takeBar(); render();
@@ -4285,6 +4338,9 @@ body.has-pages #stripGrip { display: block; }
   }
   // Cut out, from the switch in the panel, the menu or the Move panel: Measure's Area mode, ready for the outline
   function armCut(on) {
+    // An outline begun as a cut-out was let through without Pro; made into an area of its own, it is a new take-off,
+    // so it asks as a new area does, and stays a cut-out until Pro is on.
+    if (!on && taking && taking.kind === "area" && taking.cut && taking.fromCut && !needPro("takeoff", function () { armCut(false); })) return;
     if (on && (state.tool !== "measure" || state.measMode !== "area")) setMeasMode("area");
     takeCut = !!on;
     if (taking && taking.kind === "area") { taking.cut = takeCut; takeBar(); }
@@ -4461,16 +4517,14 @@ body.has-pages #stripGrip { display: block; }
     takeTap = { t: now, sx: e.clientX, sy: e.clientY };
     if (st && e.shiftKey && onTakeLabel(st, p)) {
       var L = takeLabel(st);
-      snapshot();
-      drag = { part: "takeLab", s: st, off: [L.x - p.x, L.y - p.y], from: takeWhere(st), sx: e.clientX, sy: e.clientY, moved: false };
+      drag = { part: "takeLab", s: st, off: [L.x - p.x, L.y - p.y], at: [L.x, L.y], from: takeWhere(st), sx: e.clientX, sy: e.clientY, moved: false, was: current() };
       return true;
     }
     var tc = st ? takeCorner(st, p, finger) : null;
     if (tc) {
       var ring = tc.r === 0 ? st.points : st.holes[tc.r - 1], closed = st.take === "area" || st.closed;
       var prev = tc.k > 0 ? ring[tc.k - 1] : closed ? ring[ring.length - 1] : ring[1];
-      snapshot();
-      drag = { part: "takeCorner", s: st, r: tc.r, k: tc.k, from: ring[tc.k].slice(), prev: prev ? prev.slice() : null, sx: e.clientX, sy: e.clientY, moved: false };
+      drag = { part: "takeCorner", s: st, r: tc.r, k: tc.k, from: ring[tc.k].slice(), prev: prev ? prev.slice() : null, sx: e.clientX, sy: e.clientY, moved: false, was: current() };
       canvas.style.cursor = "crosshair";
       return true;
     }
@@ -4484,48 +4538,53 @@ body.has-pages #stripGrip { display: block; }
     // a finger on one not yet selected moves the view, and a tap selects it, as with pictures
     if (finger && tk !== st) { drag = { part: "pan", sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy, tap: true, tapTake: tk, moved: false }; return true; }
     selectTake(tk);
-    snapshot();
-    drag = { part: "takeMove", s: tk, x0: p.x, y0: p.y, sx: e.clientX, sy: e.clientY, from: takeWhere(tk), moved: false, side: side };
+    drag = { part: "takeMove", s: tk, x0: p.x, y0: p.y, sx: e.clientX, sy: e.clientY, from: takeWhere(tk), moved: false, side: side, was: current() };
     sync(); render();
     return true;
   }
-  // the drag of a take-off, its corner or its label, as the pointer moves
+  // The drag of a take-off, its corner or its label, as the pointer moves. Each is kept on the page, or, if it was
+  // already off it (a page cropped after it was drawn keeps it beyond the edge), from going any further off: it moves
+  // only as the pointer does, and is never pulled onto the page with a jump.
   function takeDragTo(e, p) {
     var d = drag, s = d.s;
     if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 3) return;
+    if (!d.moved) dragSnap(d);
     d.moved = true;
-    var x = clamp(p.x, 0, state.w), y = clamp(p.y, 0, state.h);
-    if (d.part === "takeLab") { s.lab = [clamp(p.x + d.off[0], 0, state.w), clamp(p.y + d.off[1], 0, state.h)]; render(); return; }
+    var keep = function (v, from, end) { return clamp(v, Math.min(0, from), Math.max(end, from)); };
+    if (d.part === "takeLab") { s.lab = [keep(p.x + d.off[0], d.at[0], state.w), keep(p.y + d.off[1], d.at[1], state.h)]; render(); return; }
     if (d.part === "takeCorner") {
-      var ring = d.r === 0 ? s.points : s.holes[d.r - 1];
+      var ring = d.r === 0 ? s.points : s.holes[d.r - 1], x = keep(p.x, d.from[0], state.w), y = keep(p.y, d.from[1], state.h);
       // Shift: level, upright or 45° from the corner before; otherwise onto a corner of another take-off close by
       ring[d.k] = e.shiftKey && d.prev ? snapNote(d.prev, x, y) : cornerNear(x, y, s) || [x, y];
       render();
       return;
     }
-    // the whole of it, kept on the page
+    // the whole of it: x0..x1, y0..y1 round all its corners, which may go as far as the page's edges, or no further
+    // off than they already are (one wider than the page does not go sideways at all)
     var f = d.from, all = f.points.concat.apply(f.points, f.holes || []);
     var x0 = Math.min.apply(null, all.map(function (q) { return q[0]; })), x1 = Math.max.apply(null, all.map(function (q) { return q[0]; }));
     var y0 = Math.min.apply(null, all.map(function (q) { return q[1]; })), y1 = Math.max.apply(null, all.map(function (q) { return q[1]; }));
-    var dx = clamp(p.x - d.x0, -x0, state.w - x1), dy = clamp(p.y - d.y0, -y0, state.h - y1);
+    var dx = clamp(p.x - d.x0, Math.min(0, -x0), Math.max(0, state.w - x1)), dy = clamp(p.y - d.y0, Math.min(0, -y0), Math.max(0, state.h - y1));
     var mv = function (q) { return [q[0] + dx, q[1] + dy]; };
     s.points = f.points.map(mv);
     if (f.holes) s.holes = f.holes.map(function (h) { return h.map(mv); });
     if (f.lab) s.lab = mv(f.lab);
     render();
   }
-  // let go: a drag that did not move is no step to undo; a corner that would leave an area unsound goes back
+  // let go: a drag that did not move is no step to undo (none was taken); a corner that would leave an area unsound
+  // goes back, and so does what a cancelled drag moved, each with its step taken back; and a drag that ends where it
+  // began (or could not go where the pointer went) changed nothing, so its step goes too
   function takeDragEnd(d, cancelled) {
     var s = d.s;
-    if (!d.moved) { history.pop(); if (d.side && cancelled !== true) addTakeCorner(s, d.side); setUndoButtons(); sync(); render(); return; }
-    if (cancelled === true && d.part !== "takeCorner") { takePut(s, d.from); history.pop(); }
+    if (!d.moved) { if (d.side && cancelled !== true) addTakeCorner(s, d.side); setUndoButtons(); sync(); render(); return; }
+    if (cancelled === true && d.part !== "takeCorner") { takePut(s, d.from); dragUnsnap(d); }
     else if (d.part === "takeCorner") {
-      var ring = d.r === 0 ? s.points : s.holes[d.r - 1];
+      var ring = d.r === 0 ? s.points : s.holes[d.r - 1], c = ring[d.k];
       if (cancelled === true || (s.take === "area" && !areaSound(s.points, s.holes))) {
-        ring[d.k] = d.from; history.pop();
+        ring[d.k] = d.from; dragUnsnap(d);
         if (cancelled !== true) status("The sides would cross, or a cut-out would leave its area: the corner is back where it was.");
-      }
-    }
+      } else if (c[0] === d.from[0] && c[1] === d.from[1]) dragUnsnap(d);
+    } else if (JSON.stringify(takeWhere(s)) === JSON.stringify(d.from)) dragUnsnap(d);
     setUndoButtons(); sync(); render();
   }
   // Measure's modes: Dimension, Area, Length, Count. The three take-offs need Pro (only once the shop is open): a
@@ -8145,7 +8204,8 @@ body.has-pages #stripGrip { display: block; }
         seq = Math.max(seq, +g.id.slice(1));
         var o = { id: g.id, name: typeof g.name === "string" ? g.name.slice(0, 60) : TAKE_NAMES[g.kind], kind: g.kind, color: validColor(g.color, "red") };
         if (g.kind === "count") o.mark = TAKE_MARKS.indexOf(g.mark) >= 0 ? g.mark : "circle";
-        else if (typeof g.h === "number" && isFinite(g.h) && g.h > 0 && g.h <= 1000) o.h = g.h;   // a height or depth
+        // a height or depth, to the millimetre as the field keeps it, so the figure shown is the one worked with
+        else if (typeof g.h === "number" && isFinite(g.h) && g.h <= 1000 && Math.round(g.h * 1000) > 0) o.h = Math.round(g.h * 1000) / 1000;
         return o;
       });
       state.groupSeq = Math.max(seq, num(d.groupSeq, 0, 1e9, 0));
