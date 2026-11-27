@@ -2626,13 +2626,18 @@ body.has-pages #stripGrip { display: block; }
     g.drawImage(im, (n - w) / 2, (n - h) / 2, w, h);
     return (picThumb[id] = c.toDataURL("image/png"));
   }
+  // what each kind of picture is called where it is deleted: a stamp, a title block, a totals table or a picture
+  function picWord(q) { var k = q && q.kind; return k === "stamp" ? "stamp" : k === "title" ? "title block" : k === "legend" ? "totals table" : "picture"; }
+  // the Delete button in the panel and the right-click menu say the same (a totals table's, Delete table)
+  function delWord(q) { return q && q.kind === "legend" ? "Delete table" : "Delete " + picWord(q); }
   function deletePic(which) {
     var q = which && which.id ? which : selectedPic(); if (!q) return;
     snapshot();
     state.pics = state.pics.filter(function (x) { return x !== q; });
     if (q.id === picSel) picSel = null;
     sync(); render();
-    status((q.kind === "legend" ? "Totals table" : "Picture") + " deleted. Undo brings it back.");
+    var w = picWord(q);
+    status(w.charAt(0).toUpperCase() + w.slice(1) + " deleted. Undo brings it back.");
   }
   // Is there any markup that opening something else would clear? (Every page of a PDF counts.)
   function hasWork() {
@@ -3255,7 +3260,7 @@ body.has-pages #stripGrip { display: block; }
     if (pk === "legend") Array.prototype.forEach.call($("picScope").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === (spic.scope === "doc" ? "doc" : "page"))); });
     $("picNote").textContent = pk ? "Drag to move. Corners resize, keeping its proportions (Shift frees them); the round handle turns it."
       : "Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.";
-    $("delPic").textContent = pk === "stamp" ? "Delete stamp" : pk === "title" ? "Delete title block" : pk ? "Delete table" : "Delete picture";
+    $("delPic").textContent = delWord(spic);
     syncStampFields(spic);
     if (state.tool === "move") syncLib();
     var si = spic ? state.pics.indexOf(spic) : -1;
@@ -5484,7 +5489,7 @@ body.has-pages #stripGrip { display: block; }
       if (pq) {
         add(menuItem("Bring forward", "Ctrl+]", function () { movePicTo(pq, state.pics.indexOf(pq) + 1); }, { disabled: state.pics.indexOf(pq) === state.pics.length - 1 }));
         add(menuItem("Send backward", "Ctrl+[", function () { movePicTo(pq, state.pics.indexOf(pq) - 1); }, { disabled: state.pics.indexOf(pq) === 0 }));
-        add(menuItem("Delete picture", pq.id === picSel ? "Del" : "", function () { deletePic(pq); }, { danger: true }));
+        add(menuItem(delWord(pq), pq.id === picSel ? "Del" : "", function () { deletePic(pq); }, { danger: true }));
         var pqn = inSets(pq) ? setCount(setKey(pq)) : 0;
         if (pqn > 1) add(menuItem("Delete from all pages (" + pqn + ")", "", function () { deleteSet(pq); }, { danger: true }));
         rule();
@@ -8728,9 +8733,9 @@ body.has-pages #stripGrip { display: block; }
   // what Pro unlocks, each with a pictogram and a word or two for the Unlock dialog: the Pro section shows once there is something in it
   var PRO_FEATURES = [
     { id: "takeoff", name: "Take-offs", icon: '<path d="M3.5 5.5h12l5 6v7h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5.5l-3.5 3.5M12 5.5l-8.5 8.5M16 6l-12.5 12.5M18.5 9l-9.5 9.5M20.5 12l-6.5 6.5" stroke="currentColor" stroke-width="1"/>' },
-    { id: "report", name: "Report and totals", icon: '<path d="M3.5 4.5h17v15h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15" fill="none" stroke="currentColor" stroke-width="1.2"/>' }
+    { id: "report", name: "Report and totals", icon: '<path d="M3.5 4.5h17v15h-17z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15" fill="none" stroke="currentColor" stroke-width="1.2"/>' },
+    { id: "stamps", name: "Stamps and title blocks", icon: '<rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="5" y="8.5" width="14" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' }
   ];
-  PRO_FEATURES.push({ id: "stamps", name: "Stamps and title blocks", icon: '<rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="5" y="8.5" width="14" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' });
   var proAsk = null;            // what asked for Pro while the Unlock dialog shows: { id, then }, then run once Pro is on
   // What was typed in the key field and is not kept (refused, or not checked for want of an answer): it stays in the
   // field to be put right, while the key kept, if any, stays as it was.
