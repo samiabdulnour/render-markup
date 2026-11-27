@@ -2,7 +2,9 @@
 //
 // 1. Share: on Android, a PDF or a picture shared to the installed app arrives here as a form posted to ./share
 //    (the manifest's share_target). The files are put aside for a moment and the app is opened at ./?shared=1,
-//    which picks them up, opens them and clears them.
+//    which picks them up, opens them and clears them. Android puts a share in the app's one window, in place of
+//    what is open there, so a window with markup on it is handed the files instead: it stays, and asks first, as
+//    Open does.
 // 2. Offline: every request for one of the app's own files goes to the network first, and the answer is kept, so a
 //    published update is seen as soon as there is a connection; only when there is none is the kept copy used.
 //
@@ -10,7 +12,8 @@
 // not a plain GET, other than the share, are never answered here: the browser sends them exactly as it would with
 // no service worker. Nothing a person draws or opens is kept, other than a shared file until the page takes it.
 
-// A new version (raise it when this file changes) keeps its copies under a new name and drops the old ones.
+// A new version (raise it when this file changes) keeps its copies under a new name and drops the old ones, once
+// it has taken over what they kept that it has not.
 var VERSION = 1;
 var PREFIX = "render-markup-app-";
 var CACHE = PREFIX + VERSION;
@@ -25,28 +28,55 @@ var START = ["./", "manifest.webmanifest", "fonts/fonts.css",
              "fonts/arimo-latin-400-normal.woff2", "fonts/ibm-plex-mono-latin-400-normal.woff2",
              "icons/icon-192.png", "icons/icon-512.png"];
 
+// PDF.js reads a PDF and pdf-lib writes one. Opening a PDF only uses PDF.js, so pdf-lib is kept along with it:
+// a PDF opened with no connection can then be exported, filled in and edited too, not only looked at.
+var READER = new URL("vendor/pdfjs/pdf.min.mjs", SCOPE).href;
+var WRITER = new URL("vendor/pdf-lib/pdf-lib.min.js", SCOPE).href;
+
+// Fetch one of the app's files and keep it. One that cannot be fetched is simply left out: it is kept later, when
+// it is used with a connection.
+function keep(cache, url) {
+  return fetch(url, { cache: "no-cache" }).then(function (res) {
+    if (res.ok) return cache.put(url, res);
+  }).catch(function () {});
+}
+
 self.addEventListener("install", function (event) {
   // Each file is fetched on its own, and one that fails is simply left for later: installing never fails for want
   // of a connection, as the files are kept as they are used anyway.
   event.waitUntil(caches.open(CACHE).then(function (cache) {
-    return Promise.all(START.map(function (path) {
-      var url = new URL(path, SCOPE).href;
-      return fetch(url, { cache: "no-cache" }).then(function (res) {
-        if (res.ok) return cache.put(url, res);
-      }).catch(function () {});
-    }));
+    return Promise.all(START.map(function (path) { return keep(cache, new URL(path, SCOPE).href); }));
   }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener("activate", function (event) {
   // Only this app's own older copies go: other apps on the same site keep their caches, and a file shared a
-  // moment ago stays for the page to take.
-  event.waitUntil(caches.keys().then(function (names) {
-    return Promise.all(names.filter(function (name) {
-      return name.indexOf(PREFIX) === 0 && name !== CACHE;
-    }).map(function (name) { return caches.delete(name); }));
+  // moment ago stays for the page to take. Before one goes, what it kept as it was used (the PDF libraries, the
+  // typefaces) is moved into the new copies, where they have none of their own: an update would otherwise leave
+  // PDFs unopenable with no connection until one was opened online again. The newest older copy is taken first.
+  event.waitUntil(caches.open(CACHE).then(function (cache) {
+    return caches.keys().then(function (names) {
+      var older = names.filter(function (name) { return name.indexOf(PREFIX) === 0 && name !== CACHE; })
+                       .sort(function (a, b) { return +b.slice(PREFIX.length) - +a.slice(PREFIX.length); });
+      return older.reduce(function (done, name) {
+        return done.then(function () { return takeOver(name, cache); }).then(function () { return caches.delete(name); });
+      }, Promise.resolve());
+    });
   }).then(function () { return self.clients.claim(); }));
 });
+
+// Move every file an older version kept, and this one has not, into this version's copies.
+function takeOver(name, cache) {
+  return caches.open(name).then(function (old) {
+    return old.keys().then(function (reqs) {
+      return Promise.all(reqs.map(function (req) {
+        return cache.match(req, { ignoreVary: true }).then(function (mine) {
+          if (!mine) return old.match(req, { ignoreVary: true }).then(function (res) { if (res) return cache.put(req, res); });
+        });
+      }));
+    });
+  }).catch(function () {});
+}
 
 self.addEventListener("fetch", function (event) {
   var req = event.request, url = new URL(req.url);
@@ -66,7 +96,13 @@ function networkFirst(event) {
   return fetch(req).then(function (res) {
     if (res.status === 200 && res.type === "basic") {
       var copy = res.clone();
-      event.waitUntil(caches.open(CACHE).then(function (cache) { return cache.put(key, copy); }).catch(function () {}));
+      event.waitUntil(caches.open(CACHE).then(function (cache) {
+        return cache.put(key, copy).then(function () {
+          // PDF.js is fetched as a PDF opens (after a failed try, with a # after its name): pdf-lib is fetched and
+          // kept with it, once
+          if (req.url.split("#")[0] === READER) return cache.match(WRITER).then(function (hit) { if (!hit) return keep(cache, WRITER); });
+        });
+      }).catch(function () {}));
     }
     return res;
   }, function (err) {
@@ -82,21 +118,54 @@ function networkFirst(event) {
   });
 }
 
-// A share from Android: keep the files (in the order given, with their names) and open the app to take them.
-// Whatever is left from an earlier share that was never taken goes first.
+// A window of the app with markup on it says so as it is about to go (see the page's "leaving"). A share that
+// comes a moment later is going into that window, and is handed to it rather than let replace its markup.
+var leaving = {};
+self.addEventListener("message", function (event) {
+  var id = event.source && event.source.id;
+  if (id && event.data && event.data.leaving) leaving[id] = Date.now();
+});
+
+// The window that said in the last few seconds that it is going, if it is still there. Its word and the share can
+// arrive in either order, so when there is none yet, it is looked for once more a fifth of a second later.
+function leavingWindow(again) {
+  var now = Date.now();
+  var ids = Object.keys(leaving).filter(function (id) {
+    if (now - leaving[id] < 5000) return true;
+    delete leaving[id];
+    return false;
+  }).sort(function (a, b) { return leaving[b] - leaving[a]; });
+  return Promise.all(ids.map(function (id) { return self.clients.get(id); })).then(function (wins) {
+    var win = wins.filter(Boolean)[0];
+    if (win) { delete leaving[win.id]; return win; }
+    if (again) return null;
+    return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () { return leavingWindow(true); });
+  });
+}
+
+// A share from Android. Into a window with markup, the files are handed to it, and the answer (204, no content)
+// leaves it where it is, to open them as Open would, asking first (a share with no file in it leaves it alone).
+// Otherwise the files are kept (in the order given, with their names) and the app opened to take them; whatever is
+// left from an earlier share that was never taken goes first.
 function takeShare(req) {
   return req.formData().then(function (form) {
     var files = form.getAll("files").filter(function (f) { return f && typeof f !== "string" && f.size > 0; });
-    return caches.delete(SHARED).then(function () { return caches.open(SHARED); }).then(function (cache) {
-      return Promise.all(files.map(function (f, i) {
-        return cache.put(new URL("shared/" + i, SCOPE).href, new Response(f, {
-          headers: { "content-type": f.type || "application/octet-stream", "x-file-name": encodeURIComponent(f.name || "shared") }
+    return leavingWindow().then(function (win) {
+      if (win) {
+        if (files.length) win.postMessage({ shared: files });
+        return new Response(null, { status: 204 });
+      }
+      return caches.delete(SHARED).then(function () { return caches.open(SHARED); }).then(function (cache) {
+        return Promise.all(files.map(function (f, i) {
+          return cache.put(new URL("shared/" + i, SCOPE).href, new Response(f, {
+            headers: { "content-type": f.type || "application/octet-stream", "x-file-name": encodeURIComponent(f.name || "shared") }
+          }));
         }));
-      }));
+      }).then(function () {
+        return Response.redirect(new URL("./?shared=1", SCOPE).href, 303);
+      });
     });
-  }).then(function () {
-    return Response.redirect(new URL("./?shared=1", SCOPE).href, 303);
-  }, function () {
+  }).catch(function () {
     return Response.redirect(SCOPE, 303);
   });
 }

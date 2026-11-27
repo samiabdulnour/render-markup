@@ -4811,15 +4811,20 @@ body.has-pages #stripGrip { display: block; }
   var doc = null, loadToken = 0;
   var VENDOR = new URL("vendor/", document.baseURI).href;
   var PAGE_LONG = 4000, PAGE_MAX_PX = 16e6, PAGE_MAX_SCALE = 3, PAGE_KEEP = 3, THUMB_PX = 192;   // THUMB_PX grows with a wider page strip
-  var pdfjsReady = null, pdfjsLib = null, pdfLibReady = null, useClock = 0, whiteCanvas = null;
-  // Both libraries are part of this site (see vendor/) and are only fetched when a PDF is opened or exported.
+  var pdfjsReady = null, pdfjsLib = null, pdfjsTries = 0, pdfLibReady = null, useClock = 0, whiteCanvas = null;
+  // Both libraries are part of this site (see vendor/) and are only fetched when a PDF is opened or exported; the
+  // service worker keeps pdf-lib as soon as the first PDF opens, so a PDF can then be exported with no connection.
+  // A library that cannot be fetched (with no connection, before it was ever kept) fails as NotLoaded, so the
+  // person is told to connect, not that their file is at fault. The browser remembers a module it could not fetch,
+  // so the next try asks for it under another name: the same file, with a # after it.
+  function notLoaded(what) { var e = new Error(what + " did not load"); e.name = "NotLoaded"; return e; }
   function pdfjs() {
     if (!pdfjsReady) {
-      pdfjsReady = import(VENDOR + "pdfjs/pdf.min.mjs").then(function (lib) {
+      pdfjsReady = import(VENDOR + "pdfjs/pdf.min.mjs" + (pdfjsTries ? "#" + pdfjsTries : "")).then(function (lib) {
         pdfjsLib = lib;
         lib.GlobalWorkerOptions.workerSrc = VENDOR + "pdfjs/pdf.worker.min.mjs";
         return lib;
-      });
+      }, function () { pdfjsTries++; throw notLoaded("PDF.js"); });
       pdfjsReady.catch(function () { pdfjsReady = null; });
     }
     return pdfjsReady;
@@ -4829,8 +4834,8 @@ body.has-pages #stripGrip { display: block; }
       pdfLibReady = new Promise(function (resolve, reject) {
         var el = document.createElement("script");
         el.src = VENDOR + "pdf-lib/pdf-lib.min.js";
-        el.onload = function () { if (window.PDFLib) resolve(window.PDFLib); else reject(new Error("pdf-lib did not load")); };
-        el.onerror = function () { reject(new Error("pdf-lib did not load")); };
+        el.onload = function () { if (window.PDFLib) resolve(window.PDFLib); else reject(notLoaded("pdf-lib")); };
+        el.onerror = function () { reject(notLoaded("pdf-lib")); };
         document.head.appendChild(el);
       });
       pdfLibReady.catch(function () { pdfLibReady = null; });
@@ -4996,7 +5001,8 @@ body.has-pages #stripGrip { display: block; }
     }).catch(function (err) {
       if (token !== loadToken) return;
       status(err && err.name === "PasswordException" ? "That PDF is password-protected, so it cannot be opened here."
-                                                     : "That file could not be opened. It may be damaged, or not really a PDF or an image.");
+           : err && err.name === "NotLoaded" ? "Opening a PDF needs a connection the first time. Connect, then open it again."
+                                             : "That file could not be opened. It may be damaged, or not really a PDF or an image.");
     });
   }
   // The image or blank canvas open now becomes the first page of a document, with its markup and undo history.
@@ -6773,8 +6779,9 @@ body.has-pages #stripGrip { display: block; }
         var zip = makeZip(files), filename = d.name + "_pages_markup.zip";
         saveBlob(new Blob([zip], { type: "application/zip" }), filename, "Saved " + filename + ": " + files.length + " PDFs, one a page (" + sizeText(zip.length) + ").", false);
       });
-    }).catch(function () {
-      status("The PDF could not be exported. Save pages as images from the right-click menu instead.");
+    }).catch(function (err) {
+      status(err && err.name === "NotLoaded" ? "Saving a PDF needs a connection the first time. Connect, then export again."
+                                             : "The PDF could not be exported. Save pages as images from the right-click menu instead.");
     }).then(function () { exporting = false; });
   }
   // A .zip of files as they are (stored, not compressed again: PNG, JPEG and PDF are compressed already).
@@ -7141,8 +7148,10 @@ body.has-pages #stripGrip { display: block; }
       });
     }).then(function (bytes) {
       saveBlob(new Blob([bytes], { type: "application/pdf" }), filename, "Saved " + filename + " (" + sizeText(bytes.length) + ").", false);
-    }).catch(function () { status("The PDF could not be made. Save it as an image instead."); })
-      .then(function () { exporting = false; });
+    }).catch(function (err) {
+      status(err && err.name === "NotLoaded" ? "Saving a PDF needs a connection the first time. Connect, then export again."
+                                             : "The PDF could not be made. Save it as an image instead.");
+    }).then(function () { exporting = false; });
   }
   // The whole marked-up image at its own resolution, whatever the zoom on screen.
   function fullImage() {
@@ -7673,6 +7682,21 @@ body.has-pages #stripGrip { display: block; }
       whenBooted(function () { status("The shared file could not be opened."); });
     });
   }
+  // Android puts a share in the app's one window, in place of what is open there. So in the installed app, a page
+  // with markup on it tells the service worker as it is about to go, and the worker hands it the shared files
+  // instead: the page stays, and opens them as Open does, asking first. It only tells; it never asks to stay, so a
+  // reload or closing the window goes ahead as ever.
+  if ("serviceWorker" in navigator && window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+    window.addEventListener("beforeunload", function () {
+      var worker = navigator.serviceWorker.controller;
+      if (worker && hasWork()) worker.postMessage({ leaving: true });
+    });
+  }
+  if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", function (e) {
+    var files = e.data && e.data.shared;
+    if (e.source !== navigator.serviceWorker.controller || !files || !files.length) return;
+    whenBooted(function () { openMany(files); });
+  });
   // The service worker also keeps the app's own files, so the app opens with no connection. It is registered once
   // the page has loaded, so it never slows the start; where it cannot be, the app works the same without it.
   if ("serviceWorker" in navigator) {
