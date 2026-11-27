@@ -9110,12 +9110,16 @@ body.has-pages #stripGrip { display: block; }
 
   // ---------- the markup kept inside a saved PDF ----------
   // The full-quality PDF (Save, or Export's PDF, full quality or compact) carries the markup as an attachment,
-  // render-markup.json: a version, the notes' typeface and the units, the take-off groups used, the pictures (as data
-  // URLs, each once), and for each page of the file its markup in the page's own pixels, with the size it was drawn at
-  // (pixels, points, k pixels to the point, and the size its markup is sized from), its scale and the name of its
-  // overlay picture. Nothing that is part of the page for good goes in: no page content, nothing redacted, no changed
-  // words written into the page as text, no form values; only what is in the overlay, which can be taken off again.
-  var MARKUP_FILE = "render-markup.json", MARKUP_V = 1;
+  // render-markup.json: a version, the notes' typeface and the units, the take-off groups used (with a height or
+  // depth), the pictures (as data URLs, each once), the words every title block shares (when there is one), and for
+  // each page of the file its markup in the page's own pixels, with the size it was drawn at (pixels, points, k pixels
+  // to the point, and the size its markup is sized from), its scale and the name of its overlay picture. A totals
+  // table, a stamp and a title block are drawn by code, so they go in as what they say, with no picture. Nothing that
+  // is part of the page for good goes in: no page content, nothing redacted, no changed words written into the page as
+  // text, no form values; only what is in the overlay, which can be taken off again. Version 2 is version 1 with
+  // those (take-off cut-outs and moved labels, heights and depths, totals tables, stamps, title blocks, and when and by
+  // whom each thing was made); a file of version 1 is read as it always was.
+  var MARKUP_FILE = "render-markup.json", MARKUP_V = 2;
   // what a file's markup may hold at most, read back: past any of it, the file opens as a plain PDF. The writer keeps
   // within the same (markupJson), so what is saved here always opens here again.
   var MK = { bytes: 64 * 1048576, notes: 5000, strokes: 50000, points: 2000000, pics: 1000, edits: 5000, text: 1000000, images: 1000, image: 48 * 1048576, groups: 200 };
@@ -9197,15 +9201,17 @@ body.has-pages #stripGrip { display: block; }
   }
   // The scale a page reads at, as the file keeps it: its own, or for a page with something measured that follows the
   // scale set last, that scale (0 for none), so its lengths read the same wherever it is opened; null when nothing on
-  // it is measured
+  // it is measured. A title block whose Scale is left empty shows the page's scale, so it counts as measured.
   function ratioOf(pg) {
     if (pg.pageRatio != null) return pg.pageRatio;
-    return pg.strokes.some(function (s) { return s.dim || (s.take && s.take !== "count"); }) ? state.ratio || 0 : null;
+    var measured = pg.strokes.some(function (s) { return s.dim || (s.take && s.take !== "count"); }) ||
+                   (pg.pics || []).some(function (q) { return q.kind === "title" && !(q.f && q.f.scale); });
+    return measured ? state.ratio || 0 : null;
   }
-  // a page's points as the reader counts them (MK.points is for the whole file)
+  // a page's points as the reader counts them (MK.points is for the whole file); a moved label is one
   function pointsIn(p) {
     var n = 0, add = function (r) { n += r.length; };
-    p.strokes.forEach(function (st) { n += st.points.length; (st.left || []).forEach(add); (st.holes || []).forEach(add); });
+    p.strokes.forEach(function (st) { n += st.points.length + (st.lab ? 1 : 0); (st.left || []).forEach(add); (st.holes || []).forEach(add); });
     return n;
   }
   // The markup of the pages being written, as the bytes of render-markup.json (null when there is none), and fixed:
@@ -9232,12 +9238,17 @@ body.has-pages #stripGrip { display: block; }
     var list = pages.map(function (pg, i) {
       var m = made[i] || { raster: [], xo: null }, ims = [], whole = true;
       var pics = (pg.pics || []).map(function (q) {
-        var im = picStore[q.id];
-        // a picture that cannot go in (none to read back): the page keeps its overlay rather than lose the picture
-        if (!im || !im.complete || !im.naturalWidth || !url(im)) { whole = false; return null; }
-        if (ims.indexOf(im) < 0) ims.push(im);
-        var o = { img: ims.indexOf(im), x: q.x, y: q.y, w: q.w, h: q.h };
+        var o;
+        if (q.kind) o = kindData(q);
+        else {
+          var im = picStore[q.id];
+          // a picture that cannot go in (none to read back): the page keeps its overlay rather than lose the picture
+          if (!im || !im.complete || !im.naturalWidth || !url(im)) { whole = false; return null; }
+          if (ims.indexOf(im) < 0) ims.push(im);
+          o = { img: ims.indexOf(im), x: q.x, y: q.y, w: q.w, h: q.h };
+        }
         if (q.n != null) o.n = q.n; if (q.rot) o.rot = q.rot; if (q.line) o.line = { w: q.line.w, c: q.line.c };
+        if (q.at != null) o.at = q.at; if (q.by != null) o.by = q.by;
         return o;
       });
       // changed words that could only go in as a picture are in the overlay: they come back without their cover,
@@ -9262,15 +9273,18 @@ body.has-pages #stripGrip { display: block; }
     }
     var bytes = null, json = null;
     for (;;) {
-      var images = [], at = new Map(), used = {};
+      var images = [], at = new Map(), used = {}, titled = false;
       var out = list.map(function (e) {
         if (!e.page) return bare(e);
         var o = {}, k;
         for (k in e.page) o[k] = e.page[k];
         o.pics = e.page.pics.map(function (q) {
-          var im = e.ims[q.img], c = {};
-          if (!at.has(im)) { at.set(im, images.length); images.push(url(im)); }
+          var c = {};
           for (k in q) c[k] = q[k];
+          if (q.kind === "title") titled = true;
+          if (q.kind) return c;               // drawn by code: no picture
+          var im = e.ims[q.img];
+          if (!at.has(im)) { at.set(im, images.length); images.push(url(im)); }
           c.img = at.get(im);
           return c;
         });
@@ -9281,10 +9295,18 @@ body.has-pages #stripGrip { display: block; }
       var groups = state.groups.filter(function (g) { return used[g.id] && /^g\d{1,9}$/.test(g.id) && own(TAKE_NAMES, g.kind) && validColor(g.color, ""); }).slice(0, MK.groups).map(function (g) {
         var o = { id: g.id, name: String(g.name || "").slice(0, 60), kind: g.kind, color: validColor(g.color, "red") };
         if (g.kind === "count") o.mark = TAKE_MARKS.indexOf(g.mark) >= 0 ? g.mark : "circle";
+        else if (g.h > 0) o.h = g.h;
         return o;
       });
       json = { app: top.app, v: top.v, groups: groups, images: images, pages: out };
       if (top.type) json.type = top.type; if (top.unit) json.unit = top.unit; if (top.takeLab) json.takeLab = top.takeLab;
+      // a title block shows the words every title block shares, which are settings here: they go with it, so it says
+      // the same when the file is opened in another browser
+      if (titled) {
+        json.title = {};
+        TITLE_SHARED.forEach(function (k) { json.title[k] = String(state.title[k] || "").slice(0, 120); });
+        json.office = String(state.office.name || "").slice(0, 120);
+      }
       bytes = new TextEncoder().encode(JSON.stringify(json));
       if (bytes.length <= MK.bytes) break;
       // too big for the reader: the page with most in it keeps its overlay, and the rest are tried again
@@ -9302,6 +9324,18 @@ body.has-pages #stripGrip { display: block; }
     var fixed = [];
     list.forEach(function (e, i) { if (e.has && !e.page) fixed.push(i + 1); });
     return { bytes: bytes, fixed: fixed };
+  }
+  // A picture drawn by code as the file keeps it: where it is and what it says, and no picture of it. A totals table
+  // keeps whether it adds up this page or every page; a stamp which one of the Library it is, its words, its second
+  // line and its colour; a title block this sheet's own fields (the shared ones go once, for the whole file); a stamp
+  // or a title block put on every page, the set its copies share.
+  function kindData(q) {
+    var o = { kind: q.kind, x: q.x, y: q.y, w: q.w, h: q.h };
+    if (q.kind === "legend") o.scope = q.scope === "doc" ? "doc" : "page";
+    if (q.kind === "stamp") { if (q.st != null) o.st = q.st; o.text = q.text; if (q.sub != null) o.sub = q.sub; o.color = q.color; }
+    if (q.kind === "title") { var f = q.f || {}; o.f = { drawing: f.drawing || "", no: f.no || "", rev: f.rev || "", scale: f.scale || "" }; }
+    if (q.set != null) o.set = q.set;
+    return o;
   }
   // Put the markup into the PDF being written, in place of any it had before. Resolves to the pages that keep theirs
   // drawn in (markupJson).
@@ -9409,6 +9443,8 @@ body.has-pages #stripGrip { display: block; }
     var pt = function (q) { list(q, 3); if (q.length < 2 || --points < 0) bad(); return q.map(function (v) { return num(v, -C, C); }); };
     var run = function (r, min) { list(r, MK.points); if (r.length < min) bad(); return r.map(pt); };
     var flags = function (src, o, keys) { keys.forEach(function (k) { if (has(src, k)) o[k] = bool(src[k]); }); };
+    // when a thing was made (a time as Date.now gives it) and by whom (the initials, as the settings keep them)
+    var made = function (src, o) { if (has(src, "at")) o.at = num(src.at, 0, 1e15); if (has(src, "by")) o.by = str(src.by, 8); };
     var images = [];
     var readNote = function (n) {
       obj(n);
@@ -9430,6 +9466,7 @@ body.has-pages #stripGrip { display: block; }
       if (has(n, "gap")) o.gap = num(n.gap, 0, 100);
       if (has(n, "cols")) o.cols = oneOf(n.cols, [1, 2, 3]);
       if (has(n, "bg")) o.bg = n.bg === "" ? "" : color(n.bg);
+      made(n, o);
       return o;
     };
     var readStroke = function (s) {
@@ -9450,15 +9487,37 @@ body.has-pages #stripGrip { display: block; }
       if (has(s, "shape")) o.shape = oneOf(s.shape, SHAPE_KINDS);
       if (has(s, "left")) o.left = list(s.left, MK.points).map(function (r) { return run(r, 1); });
       if (has(s, "holes")) o.holes = list(s.holes, MK.points).map(function (r) { return run(r, 3); });
-      if (has(s, "at")) o.at = num(s.at, 0, 1e15);
+      // an area's or a length's label moved by hand: where its middle is
+      if (has(s, "lab")) { if (o.take !== "area" && o.take !== "len") bad(); o.lab = pt(s.lab); if (o.lab.length !== 2) bad(); }
+      made(s, o);
       return o;
     };
     var readPic = function (q) {
       obj(q);
-      var o = { img: int(q.img, 0, images.length - 1), x: num(q.x, -C, C), y: num(q.y, -C, C), w: num(q.w, 1e-3, C), h: num(q.h, 1e-3, C) };
+      var o = { x: num(q.x, -C, C), y: num(q.y, -C, C), w: num(q.w, 1e-3, C), h: num(q.h, 1e-3, C) };
+      // a picture drawn by code (a totals table, a stamp, a title block) is only what it says: words only ever as text
+      if (has(q, "kind")) {
+        o.kind = oneOf(q.kind, ["legend", "stamp", "title"]);
+        if (has(q, "img")) bad();
+        if (o.kind === "legend") o.scope = has(q, "scope") ? oneOf(q.scope, ["page", "doc"]) : "page";
+        if (o.kind === "stamp") {
+          if (has(q, "st")) o.st = oneOf(q.st, Object.keys(STAMPS).concat(["own"]));
+          o.text = str(q.text, 120);
+          if (has(q, "sub")) o.sub = str(q.sub, 120);
+          o.color = color(q.color);
+        }
+        if (o.kind === "title") {
+          var f = obj(q.f);
+          o.f = {};
+          ["drawing", "no", "rev", "scale"].forEach(function (k) { o.f[k] = has(f, k) ? str(f[k], 120) : ""; });
+        }
+        // the set the copies All pages made share: named after a picture's id
+        if (has(q, "set")) { if (o.kind === "legend") bad(); o.set = str(q.set, 48); if (!/^pic[0-9a-z]+$/.test(o.set)) bad(); }
+      } else o.img = int(q.img, 0, images.length - 1);
       if (has(q, "n")) o.n = int(q.n, 0, 1e9);
       if (has(q, "rot")) o.rot = num(q.rot, -1000, 1000);
       if (has(q, "line")) { obj(q.line); o.line = { w: oneOf(q.line.w, ["thin", "thick"]), c: color(q.line.c) }; }
+      made(q, o);
       return o;
     };
     var readEdit = function (e) {
@@ -9472,7 +9531,7 @@ body.has-pages #stripGrip { display: block; }
     };
     try {
       obj(raw);
-      if (raw.app !== "render-markup" || raw.v !== MARKUP_V) bad();
+      if (raw.app !== "render-markup" || (raw.v !== 1 && raw.v !== MARKUP_V)) bad();
       list(raw.pages, pages.length); if (raw.pages.length !== pages.length) bad();
       images = list(has(raw, "images") ? raw.images : [], MK.images).map(function (s) { str(s, MK.image); if (!DATA_IMG.test(s)) bad(); return s; });
       var groups = list(has(raw, "groups") ? raw.groups : [], MK.groups).map(function (g) {
@@ -9480,12 +9539,16 @@ body.has-pages #stripGrip { display: block; }
         var o = { id: str(g.id, 12), kind: oneOf(g.kind, ["area", "len", "count"]), name: str(g.name, 60), color: color(g.color) };
         if (!/^g\d{1,9}$/.test(o.id)) bad();
         if (has(g, "mark")) o.mark = oneOf(g.mark, TAKE_MARKS);
+        // a height (lengths) or a depth (areas), in metres to the millimetre, as the panel keeps it
+        if (has(g, "h")) { if (o.kind === "count") bad(); var h = Math.round(num(g.h, 0, 1000) * 1000) / 1000; if (!(h > 0)) bad(); o.h = h; }
         return o;
       });
-      var out = { groups: groups, images: images, imgs: [], type: null, unit: null, takeLab: null };
+      var out = { groups: groups, images: images, imgs: [], type: null, unit: null, takeLab: null, title: null, office: null };
       if (has(raw, "type")) { var t = obj(raw.type); if (!own(FONTS, t.font)) bad(); out.type = { font: t.font, bold: bool(t.bold), caps: oneOf(t.caps, ["", "upper", "lower"]) }; }
       if (has(raw, "unit")) out.unit = own(UNITS, raw.unit) ? raw.unit : bad();
       if (has(raw, "takeLab")) out.takeLab = oneOf(raw.takeLab, ["value", "none", "both"]);
+      if (has(raw, "title")) { var tt = obj(raw.title); out.title = {}; TITLE_SHARED.forEach(function (k) { out.title[k] = has(tt, k) ? str(tt[k], 120) : ""; }); }
+      if (has(raw, "office")) out.office = str(raw.office, 120);
       out.pages = raw.pages.map(function (p, i) {
         obj(p);
         var o = { w: num(p.w, 1, 1e5), h: num(p.h, 1, 1e5), wPt: num(p.wPt, 1e-3, 1e6), hPt: num(p.hPt, 1e-3, 1e6), k: num(p.k, 1e-4, 1e3), refW: num(p.refW, 1e-3, 1e7), refH: num(p.refH, 1e-3, 1e7) };
@@ -9558,8 +9621,9 @@ body.has-pages #stripGrip { display: block; }
       return pd.save();
     });
   }
-  // The markup read from the files just opened (or added as pages) put on their pages: the typeface and units it was
-  // saved with (only when it opens as a new document), its take-off groups joined to those here, and each page's
+  // The markup read from the files just opened (or added as pages) put on their pages: the typeface, units and the
+  // words its title blocks share it was saved with (only when it opens as a new document), its take-off groups joined
+  // to those here, and each page's
   // markup scaled from the pixels it was drawn at to the page's pixels now (a page cropped or a picture becomes a PDF
   // page with pixels of another size). Returns what to say if a file's markup could not be read.
   function adoptMarkup(parts, opening) {
@@ -9580,22 +9644,26 @@ body.has-pages #stripGrip { display: block; }
     if (t && (t.font !== state.font || t.bold !== !!state.bold || t.caps !== (state.caps || ""))) { state.font = t.font; state.bold = t.bold; state.caps = t.caps; $("font").value = state.font; changed = true; }
     if (m.unit && m.unit !== state.unit) { state.unit = m.unit; changed = true; }
     if (m.takeLab && m.takeLab !== state.takeLab) { state.takeLab = m.takeLab; changed = true; }
+    // a file with a title block brings what its title blocks said, so they say it again here (and are what the next
+    // title block placed says, as when they are typed); the initials are this browser's own and stay
+    if (m.title) TITLE_SHARED.forEach(function (k) { if (state.title[k] !== m.title[k]) { state.title[k] = m.title[k]; changed = true; } });
+    if (m.office != null && m.office !== state.office.name) { state.office.name = m.office; changed = true; }
     if (changed) saveSettings();
   }
-  // A file's groups among those here: the same group (kind, name, colour and marker) is used as it is; another gets a
-  // new id of its own here (the file's numbers are never taken over, so a file cannot push the count past what ids
-  // may hold). Returns the file's ids to the ids here.
+  // A file's groups among those here: the same group (kind, name, colour, marker, and height or depth, which its totals
+  // are worked with) is used as it is; another gets a new id of its own here (the file's numbers are never taken over,
+  // so a file cannot push the count past what ids may hold). Returns the file's ids to the ids here.
   function joinGroups(list) {
     var ids = {}, changed = false;
     list.forEach(function (g) {
       var mark = g.mark || "circle";
-      var same = state.groups.filter(function (h) { return h.kind === g.kind && h.name === g.name && h.color === g.color && (g.kind !== "count" || (h.mark || "circle") === mark); })[0];
+      var same = state.groups.filter(function (x) { return x.kind === g.kind && x.name === g.name && x.color === g.color && (g.kind !== "count" || (x.mark || "circle") === mark) && (x.h || 0) === (g.h || 0); })[0];
       if (same) { if (same.gone) { delete same.gone; changed = true; } ids[g.id] = same.id; return; }
       var id = nextGroupId();
       ids[g.id] = id;
       if (liveGroups().length >= TAKE_MAX) return;        // no room for it: its take-offs show as a deleted group's
       var o = { id: id, name: g.name, kind: g.kind, color: g.color };
-      if (g.kind === "count") o.mark = mark;
+      if (g.kind === "count") o.mark = mark; else if (g.h) o.h = g.h;
       state.groups.push(o); changed = true;
     });
     if (changed) saveSettings();
@@ -9612,9 +9680,12 @@ body.has-pages #stripGrip { display: block; }
       return st;
     });
     pg.pics = mp.pics.map(function (q) {
-      var id = "pic" + (state.nextId++) + Date.now().toString(36), o = { id: id, x: q.x * s, y: q.y * s, w: q.w * s, h: q.h * s };
-      picStore[id] = m.imgs[q.img];
+      var id = picId(), o = { id: id, x: q.x * s, y: q.y * s, w: q.w * s, h: q.h * s };
+      // one drawn by code takes what it says (read as kindData wrote it); a picture its pixels
+      if (q.kind) ["kind", "scope", "st", "text", "sub", "color", "f", "set"].forEach(function (k) { if (q[k] !== undefined) o[k] = q[k]; });
+      else picStore[id] = m.imgs[q.img];
       if (q.n != null) o.n = q.n; if (q.rot != null) o.rot = q.rot; if (q.line) o.line = q.line;
+      if (q.at != null) o.at = q.at; if (q.by != null) o.by = q.by;
       return o;
     });
     pg.edits = pg.proxy ? mp.edits : [];
