@@ -8298,11 +8298,12 @@ body.has-pages #stripGrip { display: block; }
   }
 
   // ----- the markup report -----
-  // The report is a CSV file for a spreadsheet. Report has a row for each note, text, dimension and take-off on the
-  // pages chosen, except that a group's count markers are one row a page holding how many there are, so 200 doors
-  // are not 200 rows. Totals has a row for each take-off group: its total, and its figure on each page. Each page is
-  // read at its own scale and paper size, through withPage, and nothing is changed, so there is nothing to undo.
-  // The number columns hold one unit each and only numbers, so SUM and pivot tables work on them at once.
+  // The report is a CSV file for a spreadsheet. Report has a row for each note, text, dimension, take-off, stamp and
+  // title block on the pages chosen, except that a group's count markers are one row a page holding how many there
+  // are, so 200 doors are not 200 rows. Totals has a row for each take-off group: its total, and its figure on each
+  // page. Each page is read at its own scale and paper size, through withPage, and nothing is changed, so there is
+  // nothing to undo. The number columns hold one unit each and only numbers, so SUM and pivot tables work on them at
+  // once.
   var REPORT_COLS = ["Page", "Sheet", "Kind", "No.", "Group", "Text", "Colour", "Length (m)", "Area (m²)", "Perimeter (m)", "Count", "Height/depth (m)", "Scale (1:n)", "Date", "By"];
   var TOTALS_COLS = ["Group", "Kind", "Unit", "Total", "Height/depth (m)", "Derived", "Derived unit"];
   // Excel reads a CSV in the separator and decimal mark of the computer's region, which a web page cannot know, so
@@ -8347,13 +8348,15 @@ body.has-pages #stripGrip { display: block; }
   }
   // The report's rows for the page in state. Notes and texts first, in the order of their lists and numbered in each
   // as the lists number them; then dimensions, in the order drawn; then take-offs, group by group in the order the
-  // groups were made, each group's in the order put down. Lines, shapes and pictures carry no figures and are left out.
-  // On a page with no scale the lengths and areas are blank, and a dimension says how long it is in pixels.
+  // groups were made, each group's in the order put down; then stamps and title blocks, as they lie on the page.
+  // Lines, shapes and plain pictures carry no figures and are left out. On a page with no scale the lengths and areas
+  // are blank, and a dimension says how long it is in pixels.
   function pageRows(no, sheet) {
-    var out = [], mmpp = mmPerPx(), scale = scaleCell(pageRatio()), i;
-    // By is for the initials of whoever made the markup, which there is nowhere to set yet
+    var out = [], mmpp = mmPerPx(), scale = scaleCell(pageRatio()), i, none = [null, null, null, null, null];
+    // By: the initials typed for stamps, the only name the page knows; blank until they are set
+    var by = String(state.office.initials || "").trim();
     var add = function (kind, n, group, text, colour, figs, sc, at) {
-      out.push([repNum(no, 0), sheet, kind, n ? repNum(n, 0) : null, group, text, colour].concat(figs, [sc, stampText(at), ""]));
+      out.push([repNum(no, 0), sheet, kind, n ? repNum(n, 0) : null, group, text, colour].concat(figs, [sc, stampText(at), by]));
     };
     var seen = { note: 0, text: 0 };
     state.notes.forEach(function (n) {
@@ -8386,6 +8389,25 @@ body.has-pages #stripGrip { display: block; }
         add(area ? "Area" : "Length", j + 1, name, takeText(s), col,
             [area ? null : repNum(q.len, 2), area ? repNum(q.area, 2) : null, area ? repNum(q.per, 2) : null, null, h], scale, s.at);
       });
+    });
+    // Stamps and title blocks, from the back to the front as they lie, each numbered among its own kind on the page.
+    // A copy put on every page by All pages is a row on each page it is on. A stamp's Group is which stamp it is (an
+    // own stamp's is its words) and its Text the words and second line as stamped. A title block's Text is its No.,
+    // Drawing and Rev, read as it is drawn on this page, and its Scale what its Scale cell says: a scale typed in it
+    // such as 1:50 as the number 50, otherwise the page's own. A typed scale that is not 1:n (NTS, As shown) cannot
+    // stand in that column of numbers, so it is told in the Text instead.
+    var kinds = { stamp: 0, title: 0 };
+    state.pics.forEach(function (q) {
+      if (q.kind === "stamp") {
+        var st = STAMPS[q.st];
+        add("Stamp", ++kinds.stamp, st ? st.name : String(q.text || ""), [stampWords(q), stampSub(q)].filter(Boolean).join(" · "),
+            colourName(q.color), none, "", q.at);
+      } else if (q.kind === "title") {
+        var D = titleData(q), m = /^\D*1\s*:\s*(\d+(?:[.,]\d+)?)\s*$/.exec(D.scale), k = m ? parseFloat(m[1].replace(",", ".")) : 0;
+        var words = [D.no, D.drawing, D.rev ? "Rev " + D.rev : ""];
+        if (!(k > 0) && D.scale !== "—") words.push("Scale " + D.scale);
+        add("Title block", ++kinds.title, "", words.filter(Boolean).join(" · "), "", none, k > 0 ? scaleCell(k) : null, q.at);
+      }
     });
     return out;
   }
