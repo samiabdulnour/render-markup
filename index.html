@@ -264,7 +264,7 @@ input.entry, .scalebox input {
 #list li button:hover, #picList li button:hover, #textList li button:hover { background: var(--chosen-tint); border-color: transparent; }
 #list li button[aria-pressed="true"], #picList li button[aria-pressed="true"], #textList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
-#picEditor[hidden] { display: none; }
+#picEditor[hidden], #picScope[hidden] { display: none; }
 /* What the page has to say (saved, copied, a picture added...): a message at the foot of the stage that shows
    for a moment and goes. */
 #status {
@@ -376,7 +376,15 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 #takeList .qty { flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .takeacts { display: flex; gap: 6px; }
 .takeacts .seg { flex: 1 1 auto; }
-#takeAdd { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+#takeAdd, #takeCut, #takePlace { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+#takeDel { flex: 1 1 auto; }
+#takeCut[hidden], #takeSelBox[hidden], #takeSelCut[hidden], #takeHWrap[hidden] { display: none; }
+#takeList li button { flex-wrap: wrap; row-gap: 2px; }
+#takeList .der { flex: 1 0 100%; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.8; }
+#takeSelCut { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+#takeSelDel { flex: 1 1 auto; justify-content: center; }
+#takeSelText { text-transform: none; letter-spacing: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+#takeCut[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #scaleFrom { text-transform: none; letter-spacing: normal; margin-top: -4px; }
 #takeBar button:has(svg) { padding: 6px 9px; }
 /* A control that needs Pro, while Pro is locked: a small ink corner, top right. No words and no lemon, which means on. */
@@ -653,6 +661,7 @@ body.has-pages #stripGrip { display: block; }
             <button type="button" data-lab="value" title="Labels: the quantity"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 7h9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="unseen">Quantity</span></button>
             <button type="button" data-lab="both" title="Labels: the name and the quantity"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 5h11M11 9.5h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="unseen">Name and quantity</span></button>
           </div>
+          <button type="button" id="takePlace" title="Place totals: a table of the take-offs, on the page"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3" width="14" height="12" rx="1"/><path d="M2 7h14M2 11h14M7.5 7v8"/></svg><span class="unseen">Place totals</span></button>
         </div>
         <div id="takeEdit" hidden>
           <label for="takeName">Name<input id="takeName" class="entry" type="text" maxlength="60" autocomplete="off" spellcheck="false"></label>
@@ -663,7 +672,13 @@ body.has-pages #stripGrip { display: block; }
             <button type="button" data-mark="diamond" title="Diamond"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M15 0.8L21.2 7 15 13.2 8.8 7z" fill="currentColor"/></svg><span class="unseen">Diamond</span></button>
             <button type="button" data-mark="triangle" title="Triangle"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M15 1L21.5 12.5h-13z" fill="currentColor"/></svg><span class="unseen">Triangle</span></button>
           </div>
-          <button type="button" id="takeDel" class="danger">Delete group</button>
+          <label for="takeH" id="takeHWrap" title="Lengths: the height, for the wall's area in m². Areas: the depth, for the volume in m³."><span id="takeHName">Height</span>
+            <span class="ratio"><input id="takeH" class="entry" type="text" inputmode="decimal" autocomplete="off" placeholder="—"><span class="pre">m</span></span>
+          </label>
+          <div class="takeacts">
+            <button type="button" id="takeCut" aria-pressed="false" title="Cut out: the next outline is a hole in the area it lies in" hidden><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 2h14v14H2z" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 6.5h5v5h-5z" stroke-width="1.4" stroke-dasharray="2 1.4"/></svg><span class="unseen">Cut out</span></button>
+            <button type="button" id="takeDel" class="danger">Delete group</button>
+          </div>
         </div>
       </div>
       <label for="dimSize" class="slider"><span class="head">Text size <span class="val" id="dimSizeVal"></span></span>
@@ -688,7 +703,11 @@ body.has-pages #stripGrip { display: block; }
       <p class="empty" id="picEmpty">No pictures yet. Add one above, or paste one with Ctrl/Cmd+V.</p>
     </div>
     <div class="section" id="picEditor" hidden>
-      <h2>Selected picture</h2>
+      <h2 id="picEdTitle">Selected picture</h2>
+      <div class="seg" id="picScope" role="group" aria-label="What it adds up" hidden>
+        <button type="button" data-scope="page" aria-pressed="true" title="This page's take-offs">Page</button>
+        <button type="button" data-scope="doc" aria-pressed="false" title="The take-offs of every page">All</button>
+      </div>
       <div class="segrow">
       <div class="seg" role="group" aria-label="Layer order">
         <button id="picUp" title="Bring forward: in front of the picture above it in the list (Ctrl/Cmd+])"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4.5" y="4.5" width="10" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="9" y="1" width="10" height="8" fill="currentColor"/><path d="M25 12.5V2.5M22 5.5l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Forward</span></button>
@@ -699,7 +718,7 @@ body.has-pages #stripGrip { display: block; }
         <button id="picRight" title="Rotate right: a quarter turn clockwise"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M19.8 3.6A5.6 5.6 0 1 0 20.6 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M22.8 1.4l-3.6 2.2 3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Rotate right</span></button>
       </div>
       </div>
-      <div class="field">Outline
+      <div class="field" id="picLineWrap">Outline
         <div class="seg" role="group" aria-label="Outline">
           <button id="picLineNone" aria-pressed="true" title="No outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M6 12.5l5.5-6.5 3.8 4 2.7-2.7 6 5.2z" fill="currentColor" opacity="0.55"/><circle cx="20" cy="3.8" r="1.6" fill="currentColor" opacity="0.55"/></svg><span class="unseen">None</span></button>
           <button id="picLineThin" aria-pressed="false" title="A thin outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.2" width="20" height="11.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.5 12l5-5.5 3.5 3.5 2.5-2.4 5.5 4.4z" fill="currentColor" opacity="0.55"/></svg><span class="unseen">Thin</span></button>
@@ -707,8 +726,17 @@ body.has-pages #stripGrip { display: block; }
         </div>
         <div class="swatches five" id="picLineColors" role="group" aria-label="Outline colour" hidden></div>
       </div>
-      <p class="note">Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.</p>
+      <p class="note" id="picNote">Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.</p>
       <button id="delPic" class="danger">Delete picture</button>
+    </div>
+    <div class="section" id="takeSelBox" hidden>
+      <h2>Selected take-off</h2>
+      <p class="note" id="takeSelText"></p>
+      <div class="takeacts">
+        <button type="button" id="takeSelCut" title="Cut out: draw a hole in this area"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 2h14v14H2z" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 6.5h5v5h-5z" stroke-width="1.4" stroke-dasharray="2 1.4"/></svg><span class="unseen">Cut out</span></button>
+        <button type="button" id="takeSelDel" class="danger">Delete</button>
+      </div>
+      <p class="note">Drag to move, a corner to reshape. Double-click a side to add a corner, right-click a corner to delete it. Shift-drag the label to move it.</p>
     </div>
     </div>
     <div id="notesPanel" hidden>
@@ -1343,6 +1371,9 @@ body.has-pages #stripGrip { display: block; }
   // scale, in m² and m, and need one; a count needs none. Each item is rounded to 2 places and a total is the sum of
   // the rounded items, so a spreadsheet adding up the items comes to the same figure.
   var TAKE_NAMES = { area: "Area", len: "Length", count: "Count" }, TAKE_UNITS = { area: "m²", len: "m", count: "pcs" };
+  // A group can carry a height (lengths: a wall's, giving its area in m²) or a depth (areas: a slab's, giving its
+  // volume in m³), in metres: its h. What it gives is the derived figure, worked from each item as rounded.
+  var TAKE_DER = { area: "m³", len: "m²" }, TAKE_H = { area: "Depth", len: "Height" };
   var TAKE_COLORS = ["red", "blue", "green", "magenta", "yellow", "black"], TAKE_MARKS = ["circle", "square", "diamond", "triangle"];
   var TAKE_MAX = 30;            // groups at most
   // what a take-off whose group has gone altogether is drawn in: grey, with a question mark
@@ -1369,17 +1400,88 @@ body.has-pages #stripGrip { display: block; }
   // Do any two sides of a closed outline cross? (Sides that only meet at a corner do not count.) Past 500 corners it
   // is not worth the wait, and is taken as no.
   function crosses(r) {
-    var n = r.length, side = function (a, b, c) { var v = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); return v > 1e-9 ? 1 : v < -1e-9 ? -1 : 0; };
+    var n = r.length;
     if (n < 4 || n > 500) return false;
     for (var i = 0; i < n; i++) {
       for (var j = i + 2; j < n; j++) {
         if (i === 0 && j === n - 1) continue;          // the closing side meets the first at a corner
-        var a = r[i], b = r[(i + 1) % n], c = r[j], d = r[(j + 1) % n];
-        var s1 = side(a, b, c), s2 = side(a, b, d), s3 = side(c, d, a), s4 = side(c, d, b);
-        if (s1 && s2 && s3 && s4 && s1 !== s2 && s3 !== s4) return true;
+        if (sidesCross(r[i], r[(i + 1) % n], r[j], r[(j + 1) % n])) return true;
       }
     }
     return false;
+  }
+  // Which way c lies from the line a to b (1, -1, or 0 on it); and whether the side a-b crosses the side c-d at a
+  // point inside both (sides that only touch, or run along each other, do not count)
+  function sideOf(a, b, c) { var v = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); return v > 1e-9 ? 1 : v < -1e-9 ? -1 : 0; }
+  function sidesCross(a, b, c, d) {
+    var s1 = sideOf(a, b, c), s2 = sideOf(a, b, d), s3 = sideOf(c, d, a), s4 = sideOf(c, d, b);
+    return !!(s1 && s2 && s3 && s4 && s1 !== s2 && s3 !== s4);
+  }
+  // Does any side of one closed ring cross a side of another? (Past 500 corners each it is taken as no, as above.)
+  function ringsCross(r, q) {
+    if (r.length > 500 || q.length > 500) return false;
+    for (var i = 0; i < r.length; i++) for (var j = 0; j < q.length; j++) {
+      if (sidesCross(r[i], r[(i + 1) % r.length], q[j], q[(j + 1) % q.length])) return true;
+    }
+    return false;
+  }
+  // Where p lies against ring r: 1 inside it, 0 on its edge, -1 outside. A corner snapped onto another's corner or
+  // side lies exactly on it, and inRing alone would call that inside or outside by which way the side faces, so the
+  // edge (within a hair) is looked for first.
+  function ringSide(p, r) {
+    for (var i = 0, n = r.length; i < n; i++) if (distToSeg(p, r[i], r[(i + 1) % n]) < 1e-6) return 0;
+    return inRing(p, r) ? 1 : -1;
+  }
+  // Does ring h keep out of where it must not go: ring r's outside (bad -1) or its inside (bad 1)? The rings' sides
+  // do not cross (that is looked at first), so each side of h is cut where a corner of r touches it, and each piece
+  // lies wholly one way, as its midpoint does: a side may run along r's edge, but not across a corner of r.
+  function ringKeeps(h, r, bad) {
+    for (var i = 0, n = h.length; i < n; i++) {
+      var a = h[i], b = h[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, ts = [0, 1];
+      if (ringSide(a, r) === bad) return false;
+      if (l2) r.forEach(function (q) { if (distToSeg(q, a, b) < 1e-6) ts.push(((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2); });
+      ts.sort(function (x, y) { return x - y; });
+      for (var k = 1; k < ts.length; k++) {
+        var t = (ts[k - 1] + ts[k]) / 2;
+        if (ringSide([a[0] + dx * t, a[1] + dy * t], r) === bad) return false;
+      }
+    }
+    return true;
+  }
+  // a point well inside ring r, off its edge: the middle of a side moved a hair inwards, the first that lands inside
+  function ringInner(r) {
+    var n = r.length, a = 0, i;
+    for (i = 0; i < n; i++) a += r[i][0] * r[(i + 1) % n][1] - r[(i + 1) % n][0] * r[i][1];
+    var dir = a > 0 ? 1 : -1;
+    for (i = 0; i < n; i++) {
+      var p = r[i], q = r[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy);
+      if (!l) continue;
+      var e = dir * 1e-3 / l, m = [(p[0] + q[0]) / 2 - dy * e, (p[1] + q[1]) / 2 + dx * e];
+      if (ringSide(m, r) === 1) return m;
+    }
+    return null;
+  }
+  // Is an area sound: its outline not crossing itself, and each cut-out a ring of its own lying wholly inside the
+  // outline, clear of the other cut-outs (neither crossing one, nor overlapping one, nor holding one inside it)? A
+  // cut-out may touch the outline or another cut-out, corner on corner or along a side: a column in a room's corner,
+  // two shafts side by side. One that broke any of this would make the area's figure wrong, so it is refused, and so
+  // is a corner dragged to such a place.
+  function areaSound(pts, holes) {
+    if (crosses(pts)) return false;
+    holes = holes || [];
+    for (var i = 0; i < holes.length; i++) {
+      var h = holes[i], inner;
+      if (h.length < 3 || crosses(h) || ringsCross(h, pts)) return false;
+      // its sides inside the outline or on it, and a point well inside it inside the outline too
+      if (!ringKeeps(h, pts, -1) || !(inner = ringInner(h)) || ringSide(inner, pts) !== 1) return false;
+      // its sides out of each other cut-out, and its inside too (so it is not the same ring as another); the loop
+      // meets each pair both ways round, so one holding another inside it is found as well
+      for (var j = 0; j < holes.length; j++) {
+        if (j === i) continue;
+        if (ringsCross(h, holes[j]) || !ringKeeps(h, holes[j], 1) || ringSide(inner, holes[j]) === 1) return false;
+      }
+    }
+    return true;
   }
   // Where an area's label goes: its centroid when that lies inside it, otherwise the middle of the widest stretch
   // inside it level with the centroid (so an L or a U shaped room gets its label in the room), holes left out.
@@ -1423,38 +1525,45 @@ body.has-pages #stripGrip { display: block; }
   }
   // A take-off's quantities at mmpp real millimetres a pixel (0: no scale, and no area or length): its area in m²
   // (net of holes), its length in m (a loop's closing side counted), an area's perimeter in m, and n, one of it.
-  // Each is rounded to 2 places here, at the item.
+  // Each is rounded to 2 places here, at the item. der is the derived figure, when its group has a height or depth:
+  // the rounded length times the height (m²), or the rounded area times the depth (m³), itself rounded to 2 places.
   function takeQty(s, mmpp) {
-    var m = mmpp / 1000, r2 = function (v) { return Math.round(v * 100) / 100; };
-    if (s.take === "count" || !m) return { area: null, len: null, per: null, n: 1 };
+    var m = mmpp / 1000, r2 = function (v) { return Math.round(v * 100) / 100; }, g = groupOf(s.g), h = g && g.h > 0 ? g.h : 0, q;
+    if (s.take === "count" || !m) return { area: null, len: null, per: null, n: 1, der: null };
     if (s.take === "area") {
       var a = ringArea(s.points);
-      (s.holes || []).forEach(function (h) { a -= ringArea(h); });
-      return { area: r2(Math.max(0, a) * m * m), per: r2(ringLen(s.points, true) * m), len: null, n: 1 };
+      (s.holes || []).forEach(function (hole) { a -= ringArea(hole); });
+      q = { area: r2(Math.max(0, a) * m * m), per: r2(ringLen(s.points, true) * m), len: null, n: 1 };
+      q.der = h ? r2(q.area * h) : null;
+      return q;
     }
-    return { len: r2(ringLen(s.points, !!s.closed) * m), area: null, per: null, n: 1 };
+    q = { len: r2(ringLen(s.points, !!s.closed) * m), area: null, per: null, n: 1 };
+    q.der = h ? r2(q.len * h) : null;
+    return q;
   }
-  // Totals for each group on this page and on every page: { id: { kind, page, all, items, noScale } }. This page is
-  // read as it is now, the others from what they keep, each at its own scale; noScale lists the pages (numbered from
-  // 1) where the group has areas or lengths but the page has no scale. Take-offs of a group gone altogether add up
-  // under "?" and their kind. Totals are sums of the items as rounded, worked in hundredths so they add up exactly.
+  // Totals for each group on this page and on every page: { id: { kind, page, all, items, pItems, noScale, dPage,
+  // dAll } }. This page is the one being painted (state.pg: the one on screen, or the one an export is drawing), read
+  // as it is now; the others from what they keep, each at its own scale. noScale lists the pages (numbered from 1)
+  // where the group has areas or lengths but the page has no scale; pItems counts its items on this page. Take-offs
+  // of a group gone altogether add up under "?" and their kind. Totals are sums of the items as rounded, worked in
+  // hundredths so they add up exactly; so are the derived figures (dPage, dAll) of a group with a height or depth.
   function takeTotals() {
-    var out = {};
+    var out = {}, here = doc ? state.pg || doc.pages[doc.cur] : null;
     var add = function (list, mmpp, no, here) {
       list.forEach(function (s) {
         if (!s.take) return;
         var key = groupOf(s.g) ? s.g : "?" + s.take;
-        var t = out[key] || (out[key] = { kind: s.take, page: 0, all: 0, items: 0, noScale: [] });
-        t.items++;
+        var t = out[key] || (out[key] = { kind: s.take, page: 0, all: 0, items: 0, pItems: 0, noScale: [], dPage: 0, dAll: 0 });
+        t.items++; if (here) t.pItems++;
         var q = takeQty(s, mmpp), v = s.take === "count" ? 1 : s.take === "area" ? q.area : q.len;
         if (v == null) { if (t.noScale.indexOf(no) < 0) t.noScale.push(no); return; }
-        var h = Math.round(v * 100);
-        t.all += h; if (here) t.page += h;
+        var h = Math.round(v * 100), dh = q.der != null ? Math.round(q.der * 100) : 0;
+        t.all += h; t.dAll += dh; if (here) { t.page += h; t.dPage += dh; }
       });
     };
-    if (doc) doc.pages.forEach(function (pg, i) { if (i === doc.cur) add(state.strokes, mmPerPx(), i + 1, true); else add(pg.strokes, mmPerPxOf(pg), i + 1, false); });
+    if (doc) doc.pages.forEach(function (pg, i) { if (pg === here) add(state.strokes, mmPerPx(), i + 1, true); else add(pg.strokes, mmPerPxOf(pg), i + 1, false); });
     else add(state.strokes, mmPerPx(), 1, true);
-    Object.keys(out).forEach(function (k) { out[k].page /= 100; out[k].all /= 100; });
+    Object.keys(out).forEach(function (k) { var t = out[k]; t.page /= 100; t.all /= 100; t.dPage /= 100; t.dAll /= 100; });
     return out;
   }
   // a take-off's quantity as its label says it: "24.31 m²", or "— m²" on a page with no scale
@@ -1513,22 +1622,49 @@ body.has-pages #stripGrip { display: block; }
       return;
     }
     // the label: the quantity, or the name and the quantity; one whose group has gone says ? instead of a name
-    if (state.takeLab === "none" && g) return;
-    var both = state.takeLab === "both" || !g, name = g ? g.name : "?", val = takeValue(s);
+    var L = takeLabel(s);
+    if (!L) return;
+    if (L.along) { writeLength(c, L.along[0], L.along[1], col, fs, L.gap, L.lines[0]); return; }
     c.save();
-    c.font = fontStr(fs); c.lineJoin = "round";
-    if (s.take === "area") {
-      var at = labelAt(s);
-      c.textAlign = "center"; c.textBaseline = "middle";
-      if (both && name) { plainText(c, name, at[0], at[1] - fs * 0.6, col); plainText(c, val, at[0], at[1] + fs * 0.6, col); }
-      else plainText(c, val, at[0], at[1], col);
-    } else if (pts.length > 1) {
-      // along its longest side
-      var run = takeRuns(s)[0], best = 1, bl = -1;
-      for (i = 1; i < run.length; i++) { var d = Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]); if (d > bl) { bl = d; best = i; } }
-      writeLength(c, run[best - 1], run[best], col, fs, lw * 2 + fs * 0.25, both && name ? name + " " + val : val);
-    }
+    c.font = fontStr(fs); c.lineJoin = "round"; c.textAlign = "center"; c.textBaseline = "middle";
+    if (L.lines.length > 1) { plainText(c, L.lines[0], L.x, L.y - fs * 0.6, col); plainText(c, L.lines[1], L.x, L.y + fs * 0.6, col); }
+    else plainText(c, L.lines[0], L.x, L.y, col);
     c.restore();
+  }
+  // A take-off's label as it is drawn: its lines of words, and the box they fill ({ x, y: its middle; w, h; ang }).
+  // An area's goes in the middle of it, a length's along its longest side (along: that side, gap: how far off it);
+  // either one moved by hand (lab) goes where it was put, level. A count has none, and neither has anything with
+  // Labels set to none.
+  function takeLabel(s) {
+    var g = groupOf(s.g), pts = s.points;
+    if (s.take === "count" || !pts.length || (state.takeLab === "none" && g)) return null;
+    var both = state.takeLab === "both" || !g, name = g ? g.name : "?", val = takeText(s), fs = fontPx(s);
+    var lines = s.take === "area" ? (both && name ? [name, val] : [val]) : [both && name ? name + " " + val : val];
+    ctx.save(); ctx.font = fontStr(fs);
+    var w = Math.max.apply(null, lines.map(function (t) { return ctx.measureText(t).width; }));
+    ctx.restore();
+    var out = { lines: lines, w: w, h: fs * 1.2 * lines.length, ang: 0, fs: fs };
+    if (s.lab) { out.x = s.lab[0]; out.y = s.lab[1]; return out; }
+    if (s.take === "area") { var at = labelAt(s); out.x = at[0]; out.y = at[1]; return out; }
+    if (pts.length < 2) return null;
+    var run = takeRuns(s)[0], best = 1, bl = -1;
+    for (var i = 1; i < run.length; i++) { var d = Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]); if (d > bl) { bl = d; best = i; } }
+    var a = run[best - 1], b = run[best], ang = Math.atan2(b[1] - a[1], b[0] - a[0]), eps = 1e-6;
+    if (ang >= Math.PI / 2 - eps) ang -= Math.PI; else if (ang < -Math.PI / 2 - eps) ang += Math.PI;   // as writeLength turns it
+    out.along = [a, b]; out.gap = dimLine(s) * 2 + fs * 0.25; out.ang = ang;
+    // its middle: off the side's middle by the gap and half the height of the letters, on the side writeLength puts it
+    var off = out.gap + fs * 0.35;
+    out.x = (a[0] + b[0]) / 2 + Math.sin(ang) * off; out.y = (a[1] + b[1]) / 2 - Math.cos(ang) * off;
+    return out;
+  }
+  // the words of a take-off's label: its quantity as takeValue gives it, and the derived figure when its group has a
+  // height or a depth ("20.00 m · 50.00 m²")
+  function takeText(s) { var d = takeDer(s); return takeValue(s) + (d ? " · " + d : ""); }
+  // the derived figure as words ("50.00 m²", "5.00 m³", "— m³" on a page with no scale), or "" when there is none
+  function takeDer(s) {
+    var g = groupOf(s.g); if (s.take === "count" || !g || !(g.h > 0)) return "";
+    var q = takeQty(s, mmPerPx());
+    return (q.der == null ? "—" : q.der.toFixed(2)) + " " + TAKE_DER[s.take];
   }
   // each marker's number: its place among its group's markers on the page, in the order they were put down
   function takeNumbers(list) { var seen = {}; return list.map(function (s) { return s.take === "count" ? (seen[s.g] = (seen[s.g] || 0) + 1) : 0; }); }
@@ -2010,6 +2146,7 @@ body.has-pages #stripGrip { display: block; }
     p = toPicLocal(q, p);
     var r = 8 / view.s, cs = picCorners(q);
     for (var k = 0; k < 4; k++) if (Math.abs(p.x - cs[k][0]) <= r && Math.abs(p.y - cs[k][1]) <= r) return k;
+    if (q.kind) return -1;            // a picture drawn by code (a totals table) has its corners only, and keeps its proportions
     var inX = Math.min(r, q.w / 4), inY = Math.min(r, q.h / 4);
     var alongX = p.x >= q.x && p.x <= q.x + q.w, alongY = p.y >= q.y && p.y <= q.y + q.h;
     if (alongX && p.y >= q.y - r && p.y <= q.y + inY) return 4;
@@ -2025,14 +2162,95 @@ body.has-pages #stripGrip { display: block; }
   }
   // A picture's outline: thin, or three times that, in one of the colours; centred on its edge.
   function picLineWidth(q) { var t = Math.max(2, refMin() * 0.0025); return q.line && q.line.w === "thick" ? t * 3 : t; }
+  // Pictures are drawn about their middle, turned. Some are drawn by code rather than from a file (q.kind: a totals
+  // table), so they are always as live as what they show; those have no entry in picStore.
   function drawPics(c) {
     state.pics.forEach(function (q) {
-      var im = picStore[q.id], r = rotOf(q); if (!im || !im.complete) return;
+      var im = q.kind ? null : picStore[q.id], r = rotOf(q);
+      if (!q.kind && (!im || !im.complete)) return;
       c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r);
-      c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
-      if (q.line) { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      if (q.kind) drawKindPic(c, q);
+      else {
+        c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
+        if (q.line) { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      }
       c.restore();
     });
+  }
+  // a picture drawn by code, about its middle (the canvas already moved and turned there), w by h
+  function drawKindPic(c, q) { if (q.kind === "legend") drawLegend(c, q); }
+  // ---------- the totals table ----------
+  // A table of the take-offs, placed on the page as a picture is: a row for each group with take-offs on the page it
+  // is on (scope page) or on every page (scope doc), always as they are now. On a page being exported it is drawn
+  // through withPage, so "this page" is that page (state.pg, its take-offs in state.strokes) and the others are read
+  // from what they keep, which an export puts away first.
+  function legendData(q) {
+    var pg = doc ? state.pg || doc.pages[doc.cur] : null, no = doc ? doc.pages.indexOf(pg) + 1 : 1, all = q.scope === "doc";
+    var tot = takeTotals(), rows = [];
+    ["area", "len", "count"].forEach(function (kind) {
+      var keys = state.groups.filter(function (g) { return g.kind === kind; }).map(function (g) { return g.id; }).concat(["?" + kind]);
+      keys.forEach(function (k) {
+        var t = tot[k]; if (!t || !(all ? t.items : t.pItems)) return;
+        var g = groupOf(k), none = kind !== "count" && (all ? t.noScale.length > 0 : t.noScale.indexOf(no) >= 0), v = all ? t.all : t.page, d = all ? t.dAll : t.dPage;
+        rows.push({ kind: kind, g: g, name: g ? g.name || "(no name)" : "(deleted group)", total: kind === "count" ? String(Math.round(v)) : none ? "—" : v.toFixed(2),
+                    unit: TAKE_UNITS[kind], der: g && g.h > 0 && kind !== "count" ? (none ? "—" : d.toFixed(2)) : "", derUnit: TAKE_DER[kind] || "" });
+      });
+    });
+    return { head: "TAKE-OFFS · " + (all ? "ALL PAGES" : "PAGE " + no), rows: rows };
+  }
+  // How the table is laid out, in ems of its type: the width of each column and of the whole, and its height. Its
+  // type is then sized to fit the box, so a table resized, or grown by a row, keeps everything inside it.
+  var LEG = { pad: 0.6, chip: 1.1, gap: 0.5, col: 1.2, unit: 0.3, row: 1.5, head: 1.6 };
+  function legendLayout(c, D) {
+    var F = 100, mw = function (t) { return c.measureText(t).width / F; }, L = { name: 0, tot: 0, unit: 0, der: 0, derU: 0 };
+    c.save(); c.font = fontStr(F);
+    D.rows.forEach(function (r) {
+      L.name = Math.max(L.name, mw(r.name)); L.tot = Math.max(L.tot, mw(r.total)); L.unit = Math.max(L.unit, mw(r.unit));
+      if (r.der) { L.der = Math.max(L.der, mw(r.der)); L.derU = Math.max(L.derU, mw(r.derUnit)); }
+    });
+    var body = D.rows.length ? LEG.chip + LEG.gap + L.name + LEG.col + L.tot + LEG.unit + L.unit + (L.der ? LEG.col + L.der + LEG.unit + L.derU : 0) : mw("No take-offs yet");
+    L.w = LEG.pad * 2 + Math.max(body, mw(D.head)); L.h = LEG.pad * 2 + LEG.head + Math.max(1, D.rows.length) * LEG.row;
+    c.restore();
+    return L;
+  }
+  // A white box with thin black lines: the heading (TAKE-OFFS · PAGE 3, or ALL PAGES), then for each group its colour
+  // (a count's marker), its name, its total with the unit, and the derived figure of a group with a height or depth.
+  function drawLegend(c, q) {
+    var D = legendData(q), L = legendLayout(c, D), w = q.w, h = q.h, x0 = -w / 2, y0 = -h / 2;
+    var fs = Math.max(0.5, Math.min(w / L.w, h / L.h)), lw = Math.max(0.75, fs * 0.06), ink = "#111214";
+    c.save();
+    c.fillStyle = "#ffffff"; c.fillRect(x0, y0, w, h);
+    c.strokeStyle = ink; c.lineWidth = lw; c.strokeRect(x0 + lw / 2, y0 + lw / 2, w - lw, h - lw);
+    var X = x0 + LEG.pad * fs, top = y0 + LEG.pad * fs, ry = top + LEG.head * fs;
+    c.font = fontStr(fs); c.textBaseline = "middle"; c.textAlign = "left"; c.fillStyle = ink;
+    c.fillText(D.head, X, top + LEG.head * fs / 2 - 0.1 * fs);
+    c.beginPath(); c.moveTo(x0, ry - 0.2 * fs); c.lineTo(x0 + w, ry - 0.2 * fs); c.stroke();
+    if (!D.rows.length) { c.fillText("No take-offs yet", X, ry + LEG.row * fs / 2); c.restore(); return; }
+    var xName = X + (LEG.chip + LEG.gap) * fs, xTot = xName + (L.name + LEG.col + L.tot) * fs, xUnit = xTot + LEG.unit * fs;
+    var xDer = xUnit + (L.unit + LEG.col + L.der) * fs, xDerU = xDer + LEG.unit * fs;
+    D.rows.forEach(function (r, i) {
+      var cy = ry + (i + 0.5) * LEG.row * fs, col = r.g ? colorDef(r.g.color, "red").fill : TAKE_GONE.fill, rad = LEG.chip * fs * 0.42, cx = X + LEG.chip * fs / 2;
+      if (i) { c.save(); c.globalAlpha = 0.3; c.lineWidth = lw * 0.6; c.beginPath(); c.moveTo(X, ry + i * LEG.row * fs); c.lineTo(x0 + w - LEG.pad * fs, ry + i * LEG.row * fs); c.stroke(); c.restore(); }
+      // the group's swatch, as in the panel's list
+      c.save();
+      if (r.kind === "area") { c.globalAlpha = 0.3; c.fillStyle = col; c.fillRect(cx - rad, cy - rad * 0.85, rad * 2, rad * 1.7); c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = rad * 0.22; c.strokeRect(cx - rad, cy - rad * 0.85, rad * 2, rad * 1.7); }
+      else if (r.kind === "len") { c.strokeStyle = col; c.lineWidth = rad * 0.35; c.lineCap = "round"; c.beginPath(); c.moveTo(cx - rad, cy + rad * 0.5); c.lineTo(cx - rad * 0.2, cy - rad * 0.4); c.lineTo(cx + rad * 0.3, cy + rad * 0.1); c.lineTo(cx + rad, cy - rad * 0.6); c.stroke(); }
+      else { markPath(c, r.g && TAKE_MARKS.indexOf(r.g.mark) >= 0 ? r.g.mark : "circle", cx, cy, rad * 0.85); c.fillStyle = col; c.fill(); }
+      c.restore();
+      c.textAlign = "left"; c.fillText(r.name, xName, cy);
+      c.textAlign = "right"; c.fillText(r.total, xTot, cy);
+      c.textAlign = "left"; c.fillText(r.unit, xUnit, cy);
+      if (r.der) { c.textAlign = "right"; c.fillText(r.der, xDer, cy); c.textAlign = "left"; c.fillText(r.derUnit, xDerU, cy); }
+    });
+    c.restore();
+  }
+  // Place totals: a table in the middle of the view, Move on and the table selected, a little under half the page
+  // across and as tall as its rows need; it adds up this page to begin with (Page / All in the panel)
+  function placeTotals() {
+    var q = { id: picId(), kind: "legend", scope: "page", at: Date.now() };
+    var L = legendLayout(ctx, legendData(q)), w = Math.min(state.w, state.h) * 0.45, h = Math.min(state.h * 0.9, w * L.h / L.w);
+    placePic(q, h < w * L.h / L.w ? h * L.w / L.h : w, h);
+    status("Totals placed, and Move is on: drag the table into place, or a corner to resize it. Page or All in the panel.");
   }
   function drawPicSelection(c, q) {
     var t = 1 / view.s, hs = 5 * t, mx = q.x + q.w / 2, my = q.y + q.h / 2;
@@ -2041,7 +2259,7 @@ body.has-pages #stripGrip { display: block; }
     c.strokeStyle = accent(); c.lineWidth = 2 * t; c.setLineDash([6 * t, 4 * t]);
     c.strokeRect(q.x, q.y, q.w, q.h);
     c.setLineDash([]); c.lineWidth = 1.5 * t; c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f";
-    var mids = [[q.x + q.w / 2, q.y], [q.x + q.w, q.y + q.h / 2], [q.x + q.w / 2, q.y + q.h], [q.x, q.y + q.h / 2]];
+    var mids = q.kind ? [] : [[q.x + q.w / 2, q.y], [q.x + q.w, q.y + q.h / 2], [q.x + q.w / 2, q.y + q.h], [q.x, q.y + q.h / 2]];
     picCorners(q).concat(mids).forEach(function (pt) { c.fillRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); c.strokeRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); });
     // the knob that turns it, on a stalk from the middle of the top edge
     c.beginPath(); c.moveTo(mx, q.y - hs); c.lineTo(mx, q.y - (KNOB - 6) * t); c.stroke();
@@ -2056,18 +2274,10 @@ body.has-pages #stripGrip { display: block; }
       var im = new Image();
       im.onload = function () {
         if (!state.img) return;
-        var id = "pic" + (state.nextId++) + Date.now().toString(36);
+        var id = picId();
         picStore[id] = im;
         var k = Math.min(1, state.w * 0.5 / im.naturalWidth, state.h * 0.5 / im.naturalHeight);
-        var w = im.naturalWidth * k, h = im.naturalHeight * k;
-        var cx = clamp(view.cx, w / 2, state.w - w / 2), cy = clamp(view.cy, h / 2, state.h - h / 2);
-        // numbered as added, so the name stays put when the layer order changes
-        var num = state.pics.reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1;
-        snapshot();
-        state.pics = state.pics.concat([{ id: id, n: num, x: cx - w / 2, y: cy - h / 2, w: w, h: h }]);
-        setTool("move");
-        selectPic(state.pics[state.pics.length - 1]);
-        sync(); render();
+        placePic({ id: id }, im.naturalWidth * k, im.naturalHeight * k);
         status("Picture added, and Move is on: drag it into place, or drag an edge or corner to resize it (Shift keeps its proportions). D goes back to drawing.");
       };
       im.onerror = function () { status("That picture could not be read."); };
@@ -2075,8 +2285,23 @@ body.has-pages #stripGrip { display: block; }
     };
     reader.readAsDataURL(file);
   }
+  function picId() { return "pic" + (state.nextId++) + Date.now().toString(36); }
+  // Put picture q on the page, w by h, in the middle of what is on screen and kept on the page, as one step to undo;
+  // Move comes on with it selected. Numbered as added, so its name stays put when the layer order changes. Pictures
+  // from a file and pictures drawn by code (q.kind) both come in this way.
+  function placePic(q, w, h) {
+    var cx = clamp(view.cx, w / 2, state.w - w / 2), cy = clamp(view.cy, h / 2, state.h - h / 2);
+    var o = { id: q.id, n: state.pics.reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1, x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+    Object.keys(q).forEach(function (k) { if (!own(o, k)) o[k] = q[k]; });
+    snapshot();
+    state.pics = state.pics.concat([o]);
+    setTool("move");
+    selectPic(o);
+    sync(); render();
+    return o;
+  }
   // Select a picture (or none); the Move panel lists them
-  function selectPic(q) { select(-1); picSel = q ? q.id : null; }
+  function selectPic(q) { select(-1); picSel = q ? q.id : null; takePick = null; }
   // Layer order: state.pics runs from the back to the front. Put picture q at position idx in it.
   function movePicTo(q, idx) {
     var i = state.pics.indexOf(q); if (i < 0) return;
@@ -2096,14 +2321,24 @@ body.has-pages #stripGrip { display: block; }
     status("Picture turned to " + d + "°.");
   }
   function stepPic(d) { var q = selectedPic(); if (q) movePicTo(q, state.pics.indexOf(q) + d); }
-  // a small square thumbnail of each picture, for the list
-  var picThumb = {};
-  function thumbOf(id) {
-    if (picThumb[id]) return picThumb[id];
-    var im = picStore[id]; if (!im || !im.complete) return "";
+  // A small square thumbnail of each picture, for the list. One drawn by code is drawn by the same code, whole, and
+  // kept as long as its own fields are as they were (thumbKey: its kind, what it shows and its shape).
+  var picThumb = {}, thumbKey = {};
+  function thumbOf(q) {
+    var id = q.id, key = q.kind ? q.kind + " " + (q.scope || "") + " " + Math.round(q.w / q.h * 50) : "";
+    if (picThumb[id] && (thumbKey[id] || "") === key) return picThumb[id];
     var c = document.createElement("canvas"), n = 44; c.width = n; c.height = n;
+    var g = c.getContext("2d");
+    if (q.kind) {
+      var kk = Math.min(n / q.w, n / q.h);
+      g.translate(n / 2, n / 2); g.scale(kk, kk);
+      drawKindPic(g, q);
+      thumbKey[id] = key;
+      return (picThumb[id] = c.toDataURL("image/png"));
+    }
+    var im = picStore[id]; if (!im || !im.complete) return "";
     var k = Math.max(n / im.naturalWidth, n / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k;
-    c.getContext("2d").drawImage(im, (n - w) / 2, (n - h) / 2, w, h);
+    g.drawImage(im, (n - w) / 2, (n - h) / 2, w, h);
     return (picThumb[id] = c.toDataURL("image/png"));
   }
   function deletePic(which) {
@@ -2112,7 +2347,7 @@ body.has-pages #stripGrip { display: block; }
     state.pics = state.pics.filter(function (x) { return x !== q; });
     if (q.id === picSel) picSel = null;
     sync(); render();
-    status("Picture deleted. Undo brings it back.");
+    status((q.kind === "legend" ? "Totals table" : "Picture") + " deleted. Undo brings it back.");
   }
   // Is there any markup that opening something else would clear? (Every page of a PDF counts.)
   function hasWork() {
@@ -2266,6 +2501,8 @@ body.has-pages #stripGrip { display: block; }
     });
     var spic = selectedPic();
     if (spic) drawPicSelection(ctx, spic);
+    var stake = state.tool === "move" ? takePicked() : null;
+    if (stake) drawTakeSelection(ctx, stake);
     if (cropping && doc && cropping.pg === doc.pages[doc.cur]) drawCrop(ctx);
     if (redacting && doc && redacting.pg === doc.pages[doc.cur]) drawRedacting(ctx);
     if (comparing && doc) drawCompare(ctx);
@@ -2352,16 +2589,31 @@ body.has-pages #stripGrip { display: block; }
     state.notes = o.notes; state.strokes = o.strokes || []; state.pics = o.pics || []; state.edits = o.edits || []; state.sel = Math.min(o.sel, state.notes.length - 1);
     if (typeof o.dpi === "number") state.dpi = o.dpi;
     state.strokes.forEach(function (st) { var g = st.take && groupOf(st.g); if (g && g.gone) delete g.gone; });
+    // the take-off selected stays selected, as a picture does: found again by its kind and when it was made
+    var tp = takePick; takePick = null;
+    if (tp && tp.at) state.strokes.some(function (st) { if (st.take === tp.take && st.at === tp.at) { takePick = st; return true; } return false; });
     state.picks = (o.picks || []).filter(function (i) { return i < state.notes.length; });
     if (state.sel < 0) state.picks = [];
     else if (state.picks.indexOf(state.sel) < 0) state.picks = [state.sel];
   }
-  function snapshot() {
+  // a step to undo: the markup as it is now, or as it was (was, from current()) when a drag that has only now moved began
+  function snapshot(was) {
     if (ownApplying) { if (ownApplying.snapped) return; ownApplying.snapped = true; }   // one step for a whole go at the colour picker
-    history.push(current());
+    history.push(was || current());
     if (history.length > 80) history.shift();
     if (touchGuard && touchGuard.armed && !touchGuard.before) touchGuard.before = history[history.length - 1];   // what a second finger takes back to
     future = [];
+    setUndoButtons();
+  }
+  // A drag's step to undo, taken once it first really moves, from what was there at the press (d.was): a press that
+  // moves nothing leaves Undo and Redo as they were. If the drag then comes to nothing after all (a corner that goes
+  // back, a drag cancelled), the step is taken back, and Redo and the oldest step it pushed out are put back with it.
+  function dragSnap(d) { d.snap = { future: future, first: history.length >= 80 ? history[0] : null }; snapshot(d.was); }
+  function dragUnsnap(d) {
+    if (!d.snap) return;
+    history.pop();
+    if (d.snap.first !== null && history.length < 80) history.unshift(d.snap.first);
+    future = d.snap.future; d.snap = null;
     setUndoButtons();
   }
   // Undo, and Redo where there is a button for it, can be pressed only when there is something to undo or redo
@@ -2391,7 +2643,7 @@ body.has-pages #stripGrip { display: block; }
   // state.sel is the note the editor shows (and the anchor for Shift-click); state.picks lists every
   // selected note and always includes it. Colour, orientation, size, delete and pill drags act on all picks.
   function selected() { return state.sel >= 0 ? state.notes[state.sel] : null; }
-  function select(i) { state.sel = i; state.picks = i >= 0 ? [i] : []; if (i >= 0) picSel = null; }
+  function select(i) { state.sel = i; state.picks = i >= 0 ? [i] : []; if (i >= 0) { picSel = null; takePick = null; } }
   function picked() { return state.picks.map(function (i) { return state.notes[i]; }).filter(Boolean); }
   // every note, or with Text on every text
   function selectAll() {
@@ -2525,6 +2777,7 @@ body.has-pages #stripGrip { display: block; }
   function setTool(t) {
     takeEnd();                         // an outline being drawn is finished (or dropped, if it is not one yet)
     takeIdle = null;
+    if (t !== "measure") takeCut = false;
     backTool = null;                   // a tool chosen is the left button's tool from now on
     state.tool = t;
     // the Notes panel holds notes and the Text panel texts: what is selected of the other kind is let go
@@ -2532,7 +2785,7 @@ body.has-pages #stripGrip { display: block; }
       state.picks = state.picks.filter(function (i) { return panelOf(state.notes[i]) === t; });
       if (state.picks.indexOf(state.sel) < 0) state.sel = state.picks.length ? state.picks[state.picks.length - 1] : -1;
     }
-    if (t !== "move") picSel = null;   // a picture is picked up and resized with Move
+    if (t !== "move") { picSel = null; takePick = null; }   // a picture, or a take-off, is picked up and changed with Move
     $("toolMove").setAttribute("aria-pressed", String(t === "move"));
     $("toolNote").setAttribute("aria-pressed", String(t === "note"));
     $("toolText").setAttribute("aria-pressed", String(t === "text"));
@@ -2559,7 +2812,7 @@ body.has-pages #stripGrip { display: block; }
       : mm === "count" ? (COARSE ? "Tap each one" : "Click each one") : "";
     $("hint").textContent = t === "move"
       ? (COARSE ? "Drag a picture or a note to move it · drag a picture's edges or corners to resize it"
-         : "Left-drag moves pictures and notes · edges and corners resize a picture, the round handle turns it · Shift keeps proportions · right-click for a menu")
+         : "Left-drag moves pictures, notes and take-offs · edges and corners resize a picture, the round handle turns it · a take-off's corners reshape it · Shift keeps proportions · right-click for a menu")
       : COARSE
       ? (t === "draw" ? "Drag to draw · switch to Notes to place notes · drag a pill or its dot to move it"
          : t === "measure" ? (state.measMode === "dim" ? "Drag to measure" : state.measMode === "count" ? "Tap to count" : "Tap the corners, double-tap to finish") + " · drag a pill or its dot to move it"
@@ -2688,8 +2941,8 @@ body.has-pages #stripGrip { display: block; }
     state.pics.slice().reverse().forEach(function (q, d) {
       var li = document.createElement("li"), b = document.createElement("button");
       b.setAttribute("aria-pressed", String(q.id === picSel));
-      var th = document.createElement("img"); th.className = "thumb"; th.alt = ""; th.src = thumbOf(q.id);
-      var t = document.createElement("span"); t.className = "txt"; t.textContent = "Picture " + (q.n || state.pics.indexOf(q) + 1);
+      var th = document.createElement("img"); th.className = "thumb"; th.alt = ""; th.src = thumbOf(q);
+      var t = document.createElement("span"); t.className = "txt"; t.textContent = q.kind === "legend" ? "Totals" : "Picture " + (q.n || state.pics.indexOf(q) + 1);
       b.appendChild(th); b.appendChild(t);
       b.addEventListener("click", function () { if (listDrag && listDrag.moved) return; selectPic(q); sync(); render(); });
       b.addEventListener("pointerdown", function (ev) { if (ev.button === 0) { listDrag = { q: q, from: d, y0: ev.clientY, moved: false, to: d }; b.setPointerCapture(ev.pointerId); } });
@@ -2699,7 +2952,24 @@ body.has-pages #stripGrip { display: block; }
       li.appendChild(b); pl.appendChild(li);
     });
     $("picEmpty").hidden = state.pics.length > 0;
+    // the take-off selected with Move: what it measures, Cut out (an area) and Delete
+    var stk = state.tool === "move" ? takePicked() : null;
+    $("takeSelBox").hidden = !stk;
+    if (stk) {
+      $("takeSelText").textContent = takeReadout(stk);
+      $("takeSelCut").hidden = stk.take !== "area";
+      $("takeSelDel").textContent = "Delete " + takeWord(stk);
+    }
     $("picEditor").hidden = !spic;
+    // a totals table: what it adds up (this page, or every page) instead of an outline, which it draws itself
+    var pk = spic && spic.kind;
+    $("picEdTitle").textContent = pk ? "Totals table" : "Selected picture";
+    $("picLineWrap").hidden = !!pk;
+    $("picScope").hidden = pk !== "legend";
+    if (pk === "legend") Array.prototype.forEach.call($("picScope").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === (spic.scope === "doc" ? "doc" : "page"))); });
+    $("picNote").textContent = pk ? "Drag to move. Corners resize, keeping its proportions (Shift frees them); the round handle turns it."
+      : "Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.";
+    $("delPic").textContent = pk ? "Delete table" : "Delete picture";
     var si = spic ? state.pics.indexOf(spic) : -1;
     $("picUp").disabled = !spic || si === state.pics.length - 1;
     $("picDown").disabled = !spic || si === 0;
@@ -3166,12 +3436,14 @@ body.has-pages #stripGrip { display: block; }
     $("takeOpts").hidden = !take;
     $("scaleFrom").textContent = scaleFrom();
     Array.prototype.forEach.call($("takeLab").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-lab") === state.takeLab)); });
+    $("takeCut").hidden = mode !== "area";
+    $("takeCut").setAttribute("aria-pressed", String(takeCut));
     if (!take || state.tool !== "measure") return;
     var tot = takeTotals(), many = !!doc && doc.pages.length > 1, here = doc ? doc.cur + 1 : 1, ul = $("takeList");
     var fig = function (v) { return mode === "count" ? String(Math.round(v)) : v.toFixed(2); };
     var rowsNow = [];
     var row = function (g, t) {
-      t = t || { page: 0, all: 0, noScale: [] };
+      t = t || { page: 0, all: 0, noScale: [], dPage: 0, dAll: 0 };
       var li = document.createElement("li"), b = document.createElement("button");
       b.type = "button";
       b.setAttribute("aria-pressed", String(!!g && !g.gone && g.id === state.takeSel[mode]));
@@ -3182,6 +3454,14 @@ body.has-pages #stripGrip { display: block; }
       if (t.noScale.length) qty.title = "No scale on page " + t.noScale.join(", ");
       b.innerHTML = groupSwatch(g, mode);
       b.appendChild(name); b.appendChild(qty);
+      // with a height or a depth, a second line: "× 2.50 m = 50.00 m²". The height is shown as exactly as it is kept
+      // and worked with, to the millimetre ("× 0.125 m"), so the figures on the line multiply out.
+      if (g && g.h > 0 && mode !== "count") {
+        var der = document.createElement("span"); der.className = "der";
+        var dPage = t.noScale.indexOf(here) >= 0 ? "—" : t.dPage.toFixed(2), dAll = t.noScale.length ? "—" : t.dAll.toFixed(2);
+        der.textContent = "× " + g.h.toFixed(3).replace(/0$/, "") + " m = " + (many ? dPage + " · " + dAll : dPage) + " " + TAKE_DER[mode];
+        b.appendChild(der);
+      }
       b.addEventListener("click", function () { if (!g || g.gone) return; state.takeSel[mode] = g.id; sync(); });
       li.appendChild(b);
       rowsNow.push({ li: li, key: b.innerHTML + b.getAttribute("aria-pressed") + qty.title });
@@ -3209,6 +3489,9 @@ body.has-pages #stripGrip { display: block; }
       $("takeColors").setAttribute("data-key", colKey);
     }
     $("takeMark").hidden = mode !== "count";
+    $("takeHWrap").hidden = mode === "count";
+    $("takeHName").textContent = TAKE_H[mode] || "";
+    if (document.activeElement !== $("takeH")) { $("takeH").value = g.h > 0 ? String(g.h) : ""; $("takeH").removeAttribute("aria-invalid"); }
     Array.prototype.forEach.call($("takeMark").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-mark") === (g.mark || "circle"))); });
   }
   function takeChosen() { var g = groupOf(state.takeSel[state.measMode]); return g && !g.gone && g.kind === state.measMode ? g : null; }
@@ -3220,12 +3503,34 @@ body.has-pages #stripGrip { display: block; }
     sync(); render();
   });
   $("takeName").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.target.blur(); canvas.focus({ preventScroll: true }); } });
+  // a group's height or depth, in metres: a setting too; empty (or 0) takes it away
+  $("takeH").addEventListener("change", function (e) {
+    var g = takeChosen(); if (!g) return;
+    var raw = String(e.target.value).trim().replace(",", "."), v = raw === "" ? 0 : Number(raw);
+    if (!(v >= 0 && v <= 1000) || /[^\d.]/.test(raw)) { e.target.setAttribute("aria-invalid", "true"); status("Type the " + TAKE_H[g.kind].toLowerCase() + " in metres, such as " + (g.kind === "len" ? "2.5." : "0.2.")); return; }
+    e.target.removeAttribute("aria-invalid");
+    if (v > 0) g.h = Math.round(v * 1000) / 1000; else delete g.h;
+    sync(); render();
+  });
+  $("takeH").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.target.blur(); canvas.focus({ preventScroll: true }); } });
   Array.prototype.forEach.call($("takeMark").children, function (b) {
     b.addEventListener("click", function () { var g = takeChosen(); if (!g) return; g.mark = b.getAttribute("data-mark"); sync(); render(); });
   });
   Array.prototype.forEach.call($("takeLab").children, function (b) {
     b.addEventListener("click", function () { state.takeLab = b.getAttribute("data-lab"); sync(); render(); });
   });
+  $("takeCut").addEventListener("click", function () { armCut(!takeCut); });
+  $("takePlace").addEventListener("click", function () { if (needPro("takeoff", placeTotals)) placeTotals(); });
+  Array.prototype.forEach.call($("picScope").children, function (b) {
+    b.addEventListener("click", function () {
+      var q = selectedPic(), v = b.getAttribute("data-scope");
+      if (!q || q.kind !== "legend" || q.scope === v) return;
+      snapshot(); q.scope = v; delete picThumb[q.id];
+      sync(); render();
+    });
+  });
+  $("takeSelCut").addEventListener("click", function () { armCut(true); });
+  $("takeSelDel").addEventListener("click", function () { deleteTake(); canvas.focus({ preventScroll: true }); });
   // + makes the next group of this kind and puts its name up to be typed over
   $("takeAdd").addEventListener("click", function () {
     var g = newGroup(state.measMode); if (!g) return;
@@ -3644,7 +3949,7 @@ body.has-pages #stripGrip { display: block; }
       if (one.typing) setTimeout(function () { if (focusGen === one.fg && document.activeElement === $("noteText")) canvas.focus({ preventScroll: true }); }, 0);
       // a quick tap twice in the same spot with Move on: fit the page, or zoom in to where it was tapped
       if (state.tool === "move" && one.moved < TAP_SLOP && now - one.t < TAP_MS) {
-        if (lastTap && now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && !hit(toImg(e)) && !picAt(toImg(e))) {
+        if (lastTap && now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && !hit(toImg(e)) && !picAt(toImg(e)) && !takeAt(toImg(e), false, true) && !takeAt(toImg(e), true, true)) {
           lastTap = null;
           var xy = stageXY(e);
           if (view.zoom > 1.05) fitView(); else zoomAt(xy[0], xy[1], 2.5 / view.zoom);   // 2.5 times the fit, at the tap
@@ -3723,11 +4028,13 @@ body.has-pages #stripGrip { display: block; }
       canvas.setPointerCapture(e.pointerId);
       return;
     }
-    // With Move on, the left button (or a finger) drags pictures and notes, and the selected picture's edges and
-    // corners resize it. A press on nothing lets go of what is selected.
+    // With Move on, the left button (or a finger) drags pictures, notes and take-offs, the selected picture's edges
+    // and corners resize it, and the selected take-off's corners reshape it. A press on nothing lets go of what is
+    // selected.
     if (state.tool === "move" && e.button === 0 && !rightBtn && !isSizeKey(e)) {
       var sp = selectedPic(), knob = !!sp && onKnob(sp, p), corner = sp && !knob ? picHandle(sp, p) : -1, mq = knob || corner >= 0 ? sp : null;
       if (!mq && hit(p)) { if (beginTool(p, true, { shift: e.shiftKey, sx: e.clientX, sy: e.clientY })) canvas.setPointerCapture(e.pointerId); return; }
+      if (!mq && takePress(e, p, !!picAt(p))) { canvas.setPointerCapture(e.pointerId); return; }
       mq = mq || picAt(p);
       // a finger on a picture not yet selected moves the view; a tap selects it, and then it can be dragged
       var byFinger = e.pointerType === "touch";
@@ -3809,7 +4116,9 @@ body.has-pages #stripGrip { display: block; }
   // press of an area dragged out into a rectangle) }. takeIdle is the corner the pointer would snap to before the first.
   // takeShut is the press that last finished an outline by a click on the page (on its first corner, or the second
   // click of a double-click): { t, sx, sy }, so that the rest of that double-click does not start another outline.
-  var taking = null, takeIdle = null, takeShut = null;
+  // takeCut is the Cut out switch: while it is on, the next area outline closed is cut out of the area it lies in,
+  // as a hole, instead of being an area of its own. It goes off once the cut-out is made, or the outline cancelled.
+  var taking = null, takeIdle = null, takeShut = null, takeCut = false;
   // The group a new take-off of this kind goes to: the one chosen, or the last made; the first time, Area 1 (or
   // Length 1, Count 1) in the next colour.
   function takeGroup(kind) {
@@ -3831,10 +4140,11 @@ body.has-pages #stripGrip { display: block; }
     state.takeSel[kind] = g.id;
     return g;
   }
-  // The nearest corner of another take-off, or end of a dimension, on this page within 8 screen px
-  function cornerNear(x, y) {
+  // The nearest corner of another take-off, or end of a dimension, on this page within 8 screen px (but: one not to look at)
+  function cornerNear(x, y, but) {
     var bd = 8 / view.s, best = null;
     state.strokes.forEach(function (s) {
+      if (s === but) return;
       var pts = s.dim ? [s.points[0], s.points[s.points.length - 1]] : s.take && s.take !== "count" ? s.points.concat.apply(s.points, s.holes || []) : null;
       if (pts) pts.forEach(function (q) { var d = Math.hypot(q[0] - x, q[1] - y); if (d <= bd) { bd = d; best = [q[0], q[1]]; } });
     });
@@ -3866,7 +4176,7 @@ body.has-pages #stripGrip { display: block; }
     if ($("takeBar").hidden !== !t) $("takeBar").hidden = !t;
     if (!t) return;
     var n = t.rect ? 4 : t.pts.length, q = takeSoFar(false);
-    $("takeBarText").textContent = TAKE_NAMES[t.kind] + " · " + n + (n === 1 ? " corner" : " corners") + (q ? " · " + q : "");
+    $("takeBarText").textContent = (t.cut ? "Cut-out" : TAKE_NAMES[t.kind]) + " · " + n + (n === 1 ? " corner" : " corners") + (q ? " · " + q : "");
   }
   // Areas and lengths need the scale: the first click says so, at the Scale field, and adds nothing
   function needScale() {
@@ -3883,13 +4193,14 @@ body.has-pages #stripGrip { display: block; }
       // the second click of a double-click (or double tap) that has just closed an outline on its first corner
       if (takeShut && now - takeShut.t < 400 && Math.hypot(e.clientX - takeShut.sx, e.clientY - takeShut.sy) < (touch ? 12 : 4)) return false;
       if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return false;
-      var kind = state.measMode;
-      if (!needPro("takeoff")) return false;
+      var kind = state.measMode, cut = kind === "area" && takeCut;
+      // a cut-out changes an area already made, as moving its corners does, so it needs no Pro of its own
+      if (!cut && !needPro("takeoff")) return false;
       if (kind !== "count" && !mmPerPx()) { needScale(); return false; }
       var g = takeGroup(kind);
       if (!g) return false;
       if (kind === "count") { addMarker(g, p); return false; }
-      taking = { kind: kind, g: g.id, pts: [], last: null, hover: null, near: false, rect: null };
+      taking = { kind: kind, g: g.id, pts: [], last: null, hover: null, near: false, rect: null, cut: cut, fromCut: cut };
       drag = { part: "takePress", a: takePoint(p, false).pt, sx: e.clientX, sy: e.clientY, touch: touch };
       takeIdle = null;
       takeBar(); render();
@@ -3944,8 +4255,26 @@ body.has-pages #stripGrip { display: block; }
       status("Sides cross: the area would be wrong. Backspace takes a corner back.");
       return "";
     }
-    if (t.kind === "area" && (pts.length < 3 || ringArea(pts) < 0.5)) return takeDrop(o.forced ? "Area dropped: it needs three corners or more." : "An area needs three corners or more: nothing added.");
+    if (t.kind === "area" && (pts.length < 3 || ringArea(pts) < 0.5)) return takeDrop(t.cut ? (o.forced ? "Cut-out dropped: it needs three corners or more." : "A cut-out needs three corners or more: nothing cut.")
+      : o.forced ? "Area dropped: it needs three corners or more." : "An area needs three corners or more: nothing added.");
     if (t.kind === "len" && pts.length < 2) return takeDrop(o.forced ? "Length dropped: it needs two points or more." : "A length needs two points or more: nothing added.");
+    // a cut-out: a hole in the area it lies wholly inside, whatever group is chosen; refused anywhere else, and the
+    // outline then stays open to be put right (or is dropped, when something else is ending it)
+    if (t.cut) {
+      var host = cutHost(pts);
+      if (!host) {
+        if (o.forced) return takeDrop("Cut-out dropped: it has to lie wholly inside one area.");
+        status("A cut-out has to lie wholly inside one area.");
+        return "";
+      }
+      taking = null; takeCut = false; takeBar();
+      snapshot();
+      host.holes = (host.holes || []).concat([pts.map(function (q) { return [q[0], q[1]]; })]);
+      sync(); render();
+      var cm = "Cut out: the area is " + takeValue(host) + " now.";
+      status(cm);
+      return cm;
+    }
     var g = groupOf(t.g);
     if (!g || g.gone) g = takeGroup(t.kind);
     if (!g) return takeDrop("");
@@ -3973,9 +4302,45 @@ body.has-pages #stripGrip { display: block; }
   }
   function takeCancel(quiet) {
     if (!taking) return;
-    var what = TAKE_NAMES[taking.kind];
+    var cut = taking.cut, what = cut ? "Cut-out cancelled: nothing cut." : TAKE_NAMES[taking.kind] + " cancelled: nothing added.";
     if (drag && drag.part === "takePress") drag = null;
-    takeDrop(quiet ? "" : what + " cancelled: nothing added.");
+    if (cut && !quiet) takeCut = false;             // cancelled by hand: the switch goes off with it
+    takeDrop(quiet ? "" : what);
+    if (cut && !quiet) sync();
+  }
+  // The area a cut-out with these corners would go in: the one in front, on this page, that it lies wholly inside,
+  // clear of the area's other cut-outs; null if there is none.
+  function cutHost(pts) {
+    for (var i = state.strokes.length - 1; i >= 0; i--) {
+      var s = state.strokes[i];
+      if (s.take === "area" && areaSound(s.points, (s.holes || []).concat([pts]))) return s;
+    }
+    return null;
+  }
+  // the cut-out under p (inside it, or on its edge), and the area it is cut out of: { s, k }
+  function holeAt(p) {
+    var q = [p.x, p.y];
+    for (var i = state.strokes.length - 1; i >= 0; i--) {
+      var s = state.strokes[i], reach = penPx(s) / 2 + 6 / view.s;
+      if (s.take !== "area" || !s.holes) continue;
+      for (var k = 0; k < s.holes.length; k++) {
+        var h = s.holes[k];
+        if (inRing(q, h)) return { s: s, k: k };
+        for (var j = 0; j < h.length; j++) if (distToSeg(q, h[j], h[(j + 1) % h.length]) <= reach) return { s: s, k: k };
+      }
+    }
+    return null;
+  }
+  // Cut out, from the switch in the panel, the menu or the Move panel: Measure's Area mode, ready for the outline
+  function armCut(on) {
+    // An outline begun as a cut-out was let through without Pro; made into an area of its own, it is a new take-off,
+    // so it asks as a new area does, and stays a cut-out until Pro is on.
+    if (!on && taking && taking.kind === "area" && taking.cut && taking.fromCut && !needPro("takeoff", function () { armCut(false); })) return;
+    if (on && (state.tool !== "measure" || state.measMode !== "area")) setMeasMode("area");
+    takeCut = !!on;
+    if (taking && taking.kind === "area") { taking.cut = takeCut; takeBar(); }
+    sync(); render();
+    if (takeCut) status("Cut out: click the corners of the hole inside an area, or drag a rectangle.");
   }
   $("takeUndo").addEventListener("click", function () { takeBack(); canvas.focus({ preventScroll: true }); });
   $("takeDone").addEventListener("click", function () { takeFinish(); canvas.focus({ preventScroll: true }); });
@@ -3992,11 +4357,13 @@ body.has-pages #stripGrip { display: block; }
     var pts = t.rect ? [t.rect[0], [t.rect[1][0], t.rect[0][1]], t.rect[1], [t.rect[0][0], t.rect[1][1]]] : t.pts, hov = t.hover && !t.rect ? t.hover.pt : null;
     var path = function (list, close) { c.beginPath(); c.moveTo(list[0][0], list[0][1]); for (var i = 1; i < list.length; i++) c.lineTo(list[i][0], list[i][1]); if (close) c.closePath(); };
     var all = hov && !t.near ? pts.concat([hov]) : pts;
-    if (t.kind === "area" && all.length >= 3) { path(all, true); c.globalAlpha = 0.14; c.fillStyle = col; c.fill(); c.globalAlpha = 1; }
+    // a cut-out is shown as a hole: the drawing shows through it, white over the area's colour, inside a dashed line
+    if (t.kind === "area" && all.length >= 3) { path(all, true); c.globalAlpha = t.cut ? 0.5 : 0.14; c.fillStyle = t.cut ? "#ffffff" : col; c.fill(); c.globalAlpha = 1; }
     if (pts.length) {
       path(pts, !!t.rect);
       c.strokeStyle = "rgba(255,255,255,0.9)"; c.lineWidth = 4.5 * u; c.stroke();
-      c.strokeStyle = col; c.lineWidth = 2 * u; c.stroke();
+      if (t.cut) c.setLineDash([5 * u, 3 * u]);
+      c.strokeStyle = col; c.lineWidth = 2 * u; c.stroke(); c.setLineDash([]);
       c.fillStyle = col; pts.forEach(function (q) { c.beginPath(); c.arc(q[0], q[1], 3 * u, 0, Math.PI * 2); c.fill(); });
     }
     if (hov && pts.length) {
@@ -4013,9 +4380,211 @@ body.has-pages #stripGrip { display: block; }
     if (t.hover && t.hover.snap) dot(t.hover.pt);
     c.restore();
   }
+  // ---------- take-offs: editing with Move ----------
+  // With Move on a take-off is picked up as a picture is: a click selects it (takePick, the stroke itself), a drag
+  // moves it whole, and the selected one's corners can be dragged one by one (Shift: level, upright or 45° from the
+  // corner before). A double-click on a side adds a corner there, and the menu on a corner deletes it. Its label,
+  // dragged with Shift, stays where it is put (lab), however the take-off is reshaped. An area is kept sound: a
+  // corner that would make its sides cross, or push a cut-out out of it, goes back where it was. takeTap is the
+  // last press with Move on, to tell a double-click (or a double tap) on a side.
+  var takePick = null, takeTap = null;
+  // the take-off selected, if it is still on this page (an undo or the eraser may have taken it away)
+  function takePicked() { return takePick && state.strokes.indexOf(takePick) >= 0 ? takePick : null; }
+  function selectTake(s) { select(-1); picSel = null; takePick = s || null; }
+  function takeWord(s) { return s.take === "area" ? "area" : s.take === "len" ? "length" : "marker"; }
+  // its rings of corners: an area's outline and then its cut-outs, a length's line; a count has none to drag
+  function takeRings(s) { return s.take === "count" ? [] : [s.points].concat(s.take === "area" ? s.holes || [] : []); }
+  // the corner of take-off s under p: { r (the ring, 0 the outline), k }, or null; a finger takes it from further off
+  function takeCorner(s, p, touch) {
+    var bd = (touch ? 16 : 8) / view.s, best = null;
+    takeRings(s).forEach(function (ring, r) {
+      ring.forEach(function (q, k) { var d = Math.hypot(q[0] - p.x, q[1] - p.y); if (d <= bd) { bd = d; best = { r: r, k: k }; } });
+    });
+    return best;
+  }
+  // the side of take-off s under p, and the point on it nearest p: { r, k (the corner it starts from), at }
+  function takeSide(s, p, touch) {
+    var reach = penPx(s) / 2 + (touch ? 12 : 6) / view.s, best = null;
+    takeRings(s).forEach(function (ring, r) {
+      var n = ring.length, closed = s.take === "area" || s.closed;
+      for (var k = 0; k < (closed ? n : n - 1); k++) {
+        var a = ring[k], b = ring[(k + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+        var t = l2 ? clamp(((p.x - a[0]) * dx + (p.y - a[1]) * dy) / l2, 0, 1) : 0, at = [a[0] + dx * t, a[1] + dy * t];
+        var d = Math.hypot(p.x - at[0], p.y - at[1]);
+        if (d <= reach && (!best || d < best.d)) best = { r: r, k: k, at: at, d: d };
+      }
+    });
+    return best;
+  }
+  // is p on take-off s's label (a little round it counted)?
+  function onTakeLabel(s, p) {
+    var L = takeLabel(s); if (!L) return false;
+    var co = Math.cos(-L.ang), si = Math.sin(-L.ang), dx = p.x - L.x, dy = p.y - L.y, m = 4 / view.s;
+    return Math.abs(dx * co - dy * si) <= L.w / 2 + m && Math.abs(dx * si + dy * co) <= L.h / 2 + m;
+  }
+  // The take-off in front under p: by its line or its marker (inside false), or by its label or anywhere inside an
+  // area (inside true). Move looks with the first before pictures and with the second after them, so a picture lying
+  // in a large room, under the room's label, can still be picked up.
+  function takeAt(p, inside, touch) {
+    var q = [p.x, p.y];
+    for (var i = state.strokes.length - 1; i >= 0; i--) {
+      var s = state.strokes[i];
+      if (!s.take) continue;
+      if (inside) { if (onTakeLabel(s, p) || (s.take === "area" && inArea(q, s))) return s; continue; }
+      var reach = penPx(s) / 2 + (touch ? 12 : 6) / view.s, runs = takeRuns(s);
+      for (var r = 0; r < runs.length; r++) {
+        var run = runs[r];
+        if (run.length === 1) { if (Math.hypot(q[0] - run[0][0], q[1] - run[0][1]) <= reach) return s; continue; }
+        for (var k = 0; k < run.length - 1; k++) if (distToSeg(q, run[k], run[k + 1]) <= reach) return s;
+      }
+    }
+    return null;
+  }
+  // a copy of where a take-off is (its corners, cut-outs and label), to move it from or put it back to
+  function takeWhere(s) { return JSON.parse(JSON.stringify({ points: s.points, holes: s.holes || null, lab: s.lab || null })); }
+  function takePut(s, w) { s.points = w.points; if (w.holes) s.holes = w.holes; else delete s.holes; if (w.lab) s.lab = w.lab; else delete s.lab; }
+  // The selected take-off's read-out in the Move panel: "12.40 m² · perimeter 14.20 m · 6 corners", "18.40 m · 4
+  // points", "Doors · marker 7 of 12 on this page"
+  function takeReadout(s) {
+    var q = takeQty(s, mmPerPx()), f = function (v, u) { return (v == null ? "—" : v.toFixed(2)) + " " + u; };
+    var dv = takeDer(s), d = dv ? " · " + dv : "";
+    if (s.take === "area") {
+      var nh = (s.holes || []).length;
+      return f(q.area, "m²") + d + " · perimeter " + f(q.per, "m") + " · " + s.points.length + " corners" + (nh ? " · " + nh + (nh === 1 ? " cut-out" : " cut-outs") : "");
+    }
+    if (s.take === "len") return f(q.len, "m") + d + " · " + s.points.length + " points";
+    var g = groupOf(s.g), mine = state.strokes.filter(function (x) { return x.take === "count" && x.g === s.g; });
+    return (g ? g.name : "?") + " · marker " + (mine.indexOf(s) + 1) + " of " + mine.length + " on this page";
+  }
+  function deleteTake(s) {
+    s = s || takePicked(); if (!s) return;
+    var w = takeWord(s);
+    snapshot();
+    state.strokes = state.strokes.filter(function (x) { return x !== s; });
+    if (takePick === s) takePick = null;
+    sync(); render();
+    status(w.charAt(0).toUpperCase() + w.slice(1) + " deleted. Undo brings it back.");
+  }
+  // a corner added on a side, where it was double-clicked: the shape stays as it is, one step to undo
+  function addTakeCorner(s, side) {
+    snapshot();
+    (side.r === 0 ? s.points : s.holes[side.r - 1]).splice(side.k + 1, 0, [side.at[0], side.at[1]]);
+    sync(); render();
+    status("Corner added: " + takeReadout(s) + ".");
+  }
+  // Delete corner: an area (and each cut-out) keeps three at least, a length two; refused if the sides would cross
+  function delTakeCorner(s, c) {
+    var ring = c.r === 0 ? s.points : s.holes[c.r - 1], least = s.take === "len" ? 2 : 3;
+    if (ring.length <= least) { status("A" + (s.take === "len" ? " length keeps two points" : c.r ? " cut-out keeps three corners" : "n area keeps three corners") + " at least."); return; }
+    var next = ring.slice(); next.splice(c.k, 1);
+    if (s.take === "area" && !areaSound(c.r === 0 ? next : s.points, (s.holes || []).map(function (h, i) { return i === c.r - 1 ? next : h; }))) { status("Without that corner the sides would cross: it stays."); return; }
+    snapshot();
+    if (c.r === 0) s.points = next; else s.holes[c.r - 1] = next;
+    if (s.take === "len" && s.closed && next.length < 3) delete s.closed;
+    sync(); render();
+    status("Corner deleted: " + takeReadout(s) + ".");
+  }
+  // the selected take-off, marked as a selected picture is: a dashed line round it and a white square on each corner
+  function drawTakeSelection(c, s) {
+    var t = 1 / view.s, hs = (lastTouch ? 7 : 5) * t;
+    c.save(); c.lineJoin = "round";
+    c.strokeStyle = accent(); c.lineWidth = 2 * t; c.setLineDash([6 * t, 4 * t]);
+    if (s.take === "count") {
+      var p = s.points[0]; c.beginPath(); c.arc(p[0], p[1], fontPx(s) * 0.55 * 1.6 + 3 * t, 0, Math.PI * 2); c.stroke();
+      c.restore(); return;
+    }
+    var rings = takeRings(s);
+    rings.forEach(function (r) {
+      c.beginPath(); c.moveTo(r[0][0], r[0][1]);
+      for (var k = 1; k < r.length; k++) c.lineTo(r[k][0], r[k][1]);
+      if (s.take === "area" || s.closed) c.closePath();
+      c.stroke();
+    });
+    c.setLineDash([]); c.lineWidth = 1.5 * t; c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f";
+    rings.forEach(function (r) { r.forEach(function (q) { c.fillRect(q[0] - hs, q[1] - hs, hs * 2, hs * 2); c.strokeRect(q[0] - hs, q[1] - hs, hs * 2, hs * 2); }); });
+    c.restore();
+  }
+  // A press with Move on that lands on a take-off (after notes and the selected picture's handles had their turn):
+  // the selected one's label with Shift, or its corners; then a take-off's line, marker or label; a picture (left to
+  // the caller: picFirst says one is there); then the inside of an area. True if it was taken here.
+  function takePress(e, p, picFirst) {
+    var finger = e.pointerType === "touch", now = Date.now(), was = takeTap, st = takePicked();
+    takeTap = { t: now, sx: e.clientX, sy: e.clientY };
+    if (st && e.shiftKey && onTakeLabel(st, p)) {
+      var L = takeLabel(st);
+      drag = { part: "takeLab", s: st, off: [L.x - p.x, L.y - p.y], at: [L.x, L.y], from: takeWhere(st), sx: e.clientX, sy: e.clientY, moved: false, was: current() };
+      return true;
+    }
+    var tc = st ? takeCorner(st, p, finger) : null;
+    if (tc) {
+      var ring = tc.r === 0 ? st.points : st.holes[tc.r - 1], closed = st.take === "area" || st.closed;
+      var prev = tc.k > 0 ? ring[tc.k - 1] : closed ? ring[ring.length - 1] : ring[1];
+      drag = { part: "takeCorner", s: st, r: tc.r, k: tc.k, from: ring[tc.k].slice(), prev: prev ? prev.slice() : null, sx: e.clientX, sy: e.clientY, moved: false, was: current() };
+      canvas.style.cursor = "crosshair";
+      return true;
+    }
+    var tk = takeAt(p, false, finger) || (picFirst ? null : takeAt(p, true, finger));
+    if (!tk) return false;
+    // a second press on a side of the selected one, soon after the first and on the same spot: a corner there, once
+    // it is let go without moving (a press that goes on to drag still moves the take-off)
+    var twice = was && now - was.t < 400 && Math.hypot(e.clientX - was.sx, e.clientY - was.sy) < (finger ? 12 : 4);
+    var side = twice && tk === st ? takeSide(st, p, finger) : null;
+    if (side) takeTap = null;
+    // a finger on one not yet selected moves the view, and a tap selects it, as with pictures
+    if (finger && tk !== st) { drag = { part: "pan", sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy, tap: true, tapTake: tk, moved: false }; return true; }
+    selectTake(tk);
+    drag = { part: "takeMove", s: tk, x0: p.x, y0: p.y, sx: e.clientX, sy: e.clientY, from: takeWhere(tk), moved: false, side: side, was: current() };
+    sync(); render();
+    return true;
+  }
+  // The drag of a take-off, its corner or its label, as the pointer moves. Each is kept on the page, or, if it was
+  // already off it (a page cropped after it was drawn keeps it beyond the edge), from going any further off: it moves
+  // only as the pointer does, and is never pulled onto the page with a jump.
+  function takeDragTo(e, p) {
+    var d = drag, s = d.s;
+    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 3) return;
+    if (!d.moved) dragSnap(d);
+    d.moved = true;
+    var keep = function (v, from, end) { return clamp(v, Math.min(0, from), Math.max(end, from)); };
+    if (d.part === "takeLab") { s.lab = [keep(p.x + d.off[0], d.at[0], state.w), keep(p.y + d.off[1], d.at[1], state.h)]; render(); return; }
+    if (d.part === "takeCorner") {
+      var ring = d.r === 0 ? s.points : s.holes[d.r - 1], x = keep(p.x, d.from[0], state.w), y = keep(p.y, d.from[1], state.h);
+      // Shift: level, upright or 45° from the corner before; otherwise onto a corner of another take-off close by
+      ring[d.k] = e.shiftKey && d.prev ? snapNote(d.prev, x, y) : cornerNear(x, y, s) || [x, y];
+      render();
+      return;
+    }
+    // the whole of it: x0..x1, y0..y1 round all its corners, which may go as far as the page's edges, or no further
+    // off than they already are (one wider than the page does not go sideways at all)
+    var f = d.from, all = f.points.concat.apply(f.points, f.holes || []);
+    var x0 = Math.min.apply(null, all.map(function (q) { return q[0]; })), x1 = Math.max.apply(null, all.map(function (q) { return q[0]; }));
+    var y0 = Math.min.apply(null, all.map(function (q) { return q[1]; })), y1 = Math.max.apply(null, all.map(function (q) { return q[1]; }));
+    var dx = clamp(p.x - d.x0, Math.min(0, -x0), Math.max(0, state.w - x1)), dy = clamp(p.y - d.y0, Math.min(0, -y0), Math.max(0, state.h - y1));
+    var mv = function (q) { return [q[0] + dx, q[1] + dy]; };
+    s.points = f.points.map(mv);
+    if (f.holes) s.holes = f.holes.map(function (h) { return h.map(mv); });
+    if (f.lab) s.lab = mv(f.lab);
+    render();
+  }
+  // let go: a drag that did not move is no step to undo (none was taken); a corner that would leave an area unsound
+  // goes back, and so does what a cancelled drag moved, each with its step taken back; and a drag that ends where it
+  // began (or could not go where the pointer went) changed nothing, so its step goes too
+  function takeDragEnd(d, cancelled) {
+    var s = d.s;
+    if (!d.moved) { if (d.side && cancelled !== true) addTakeCorner(s, d.side); setUndoButtons(); sync(); render(); return; }
+    if (cancelled === true && d.part !== "takeCorner") { takePut(s, d.from); dragUnsnap(d); }
+    else if (d.part === "takeCorner") {
+      var ring = d.r === 0 ? s.points : s.holes[d.r - 1], c = ring[d.k];
+      if (cancelled === true || (s.take === "area" && !areaSound(s.points, s.holes))) {
+        ring[d.k] = d.from; dragUnsnap(d);
+        if (cancelled !== true) status("The sides would cross, or a cut-out would leave its area: the corner is back where it was.");
+      } else if (c[0] === d.from[0] && c[1] === d.from[1]) dragUnsnap(d);
+    } else if (JSON.stringify(takeWhere(s)) === JSON.stringify(d.from)) dragUnsnap(d);
+    setUndoButtons(); sync(); render();
+  }
   // Measure's modes: Dimension, Area, Length, Count. The three take-offs need Pro (only once the shop is open): a
   // click on one while it is locked asks, and leaves the mode as it was.
-  function setMeasMode(m) { state.measMode = m; setTool("measure"); }
+  function setMeasMode(m) { if (m !== "area") takeCut = false; state.measMode = m; setTool("measure"); }
   Array.prototype.forEach.call($("measMode").children, function (b) {
     b.addEventListener("click", function () {
       var m = b.getAttribute("data-mode");
@@ -4050,9 +4619,9 @@ body.has-pages #stripGrip { display: block; }
       }
       var h = hit(p);
       if (state.tool === "move") {
-        var sq = selectedPic(), sk = !!sq && onKnob(sq, p), hk = sq && !sk ? picHandle(sq, p) : -1;
+        var sq = selectedPic(), sk = !!sq && onKnob(sq, p), hk = sq && !sk ? picHandle(sq, p) : -1, tq = takePicked();
         canvas.style.cursor = spaceDown || sk ? "grab" : hk >= 0 ? picCursor(sq, hk) : h ? (h.part === "target" ? "move" : "grab")
-          : picAt(p) ? "move" : "default";
+          : tq && takeCorner(tq, p, false) ? "crosshair" : picAt(p) || takeAt(p, false) || takeAt(p, true) ? "move" : "default";
         return;
       }
       canvas.style.cursor = spaceDown ? "grab" : h ? (h.part === "target" ? "move" : "grab") : "crosshair";
@@ -4154,6 +4723,7 @@ body.has-pages #stripGrip { display: block; }
       render();
       return;
     }
+    if (drag.part === "takeMove" || drag.part === "takeCorner" || drag.part === "takeLab") { takeDragTo(e, p); return; }
     if (drag.part === "picMove" || drag.part === "picSize" || drag.part === "picTurn") {
       var f0 = drag.from, q = drag.pic;
       if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) * view.s < 3) return;
@@ -4186,11 +4756,12 @@ body.has-pages #stripGrip { display: block; }
           if (e.shiftKey) { q.h = q.w / ar; q.y = f0.y + f0.h / 2 - q.h / 2; } else { q.h = f0.h; q.y = f0.y; }
         }
       } else {
-        // a corner: the opposite corner stays put. It resizes freely; with Shift it keeps its proportions.
+        // a corner: the opposite corner stays put. It resizes freely, with Shift keeping its proportions; a picture
+      // drawn by code keeps them, and Shift frees it.
         var cs = picCorners(f0), a = cs[(drag.corner + 2) % 4], aspect = f0.w / f0.h;
         var gx = drag.corner === 1 || drag.corner === 2 ? 1 : -1, gy = drag.corner === 2 || drag.corner === 3 ? 1 : -1;
         var w = Math.max(16, (p.x - a[0]) * gx), h = Math.max(16, (p.y - a[1]) * gy);
-        if (e.shiftKey) { w = Math.max(w, h * aspect); h = w / aspect; }
+        if (e.shiftKey !== !!q.kind) { w = Math.max(w, h * aspect); h = w / aspect; }
         q.w = w; q.h = h;
         q.x = gx > 0 ? a[0] : a[0] - w;
         q.y = gy > 0 ? a[1] : a[1] - h;
@@ -4383,7 +4954,7 @@ body.has-pages #stripGrip { display: block; }
       canvas.style.cursor = spaceDown ? "grab" : "crosshair";
       if (d.moved || cancelled === true) return;
       // a finger's tap rather than a drag: with Move, select the picture tapped or let go; with Text, words there
-      if (d.tap) { if (d.tapPic) selectPic(d.tapPic); else { selectPic(null); select(-1); } sync(); render(); }
+      if (d.tap) { if (d.tapPic) selectPic(d.tapPic); else if (d.tapTake) selectTake(d.tapTake); else { selectPic(null); select(-1); } sync(); render(); }
       var ta = d.textAt;
       if (ta && ta.x >= 0 && ta.y >= 0 && ta.x <= state.w && ta.y <= state.h) addNote(ta.x, ta.y, false, textNote(ta.x, ta.y));
       return;
@@ -4420,6 +4991,7 @@ body.has-pages #stripGrip { display: block; }
       sync(); render();
       return;
     }
+    if (d.part === "takeMove" || d.part === "takeCorner" || d.part === "takeLab") { takeDragEnd(d, cancelled); return; }
     if (d.part === "stroke") { sync(); render(); return; }   // render: a length shown while drawing goes
     if (d.part === "takePress") {
       // the first press of an outline: a rectangle if it was dragged out, otherwise its first corner
@@ -4629,16 +5201,29 @@ body.has-pages #stripGrip { display: block; }
       }
       add(menuItem("Add note here", "", function () { addNote(p.x, p.y); }, { disabled: !onImage }));
       var ds = si >= 0 && state.strokes[si].dim ? state.strokes[si] : null, ts = si >= 0 && state.strokes[si].take ? state.strokes[si] : null;
+      // a cut-out under the pointer (inside it or on its edge), unless something else was drawn in it
+      var ho = holeAt(p);
+      if (ho && (si < 0 || state.strokes[si] === ho.s)) {
+        add(menuItem("Delete this cut-out", "", function () {
+          snapshot(); ho.s.holes.splice(ho.k, 1); if (!ho.s.holes.length) delete ho.s.holes;
+          sync(); render(); status("Cut-out deleted: the area is " + takeValue(ho.s) + " again. Undo brings it back.");
+        }, { danger: true }));
+      }
       if (ts) {
-        // a take-off: into another group of its kind, or away
+        // the selected take-off's corner (with Move on): delete it
+        var tcn = state.tool === "move" && ts === takePicked() ? takeCorner(ts, p, lastTouch) : null;
+        if (tcn) {
+          var tcr = tcn.r === 0 ? ts.points : ts.holes[tcn.r - 1];
+          add(menuItem("Delete corner", "", function () { delTakeCorner(ts, tcn); }, { disabled: tcr.length <= (ts.take === "len" ? 2 : 3) }));
+        }
+        // a take-off: into another group of its kind, a cut-out in an area, or away
         var word = ts.take === "area" ? "area" : ts.take === "len" ? "length" : "marker";
         liveGroups(ts.take).forEach(function (g) {
           if (g.id === ts.g) return;
           add(menuItem("Move to " + g.name, "", function () { snapshot(); ts.g = g.id; sync(); render(); status("Moved to " + g.name + "."); }));
         });
-        add(menuItem("Delete this " + word, "", function () {
-          snapshot(); state.strokes.splice(state.strokes.indexOf(ts), 1); sync(); render(); status((word === "area" ? "Area" : word === "length" ? "Length" : "Marker") + " deleted. Undo brings it back.");
-        }, { danger: true }));
+        if (ts.take === "area") add(menuItem("Add cut-out", "", function () { armCut(true); }));
+        add(menuItem("Delete this " + word, "", function () { deleteTake(ts); }, { danger: true }));
       } else if (ds) {
         add(menuItem("Set its length…", "", function () { askLength(ds); }));
         add(menuItem("Delete this dimension", "", function () {
@@ -4779,8 +5364,8 @@ body.has-pages #stripGrip { display: block; }
     if ((e.key === "Enter" || e.key === "F2") && (el === canvas || el === document.body) && state.picks.length === 1 && selected()) {
       e.preventDefault(); focusText(!freshNote(selected())); return;
     }
-    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (selectedPic()) deletePic(); else deleteSel(); }
-    if (e.key === "Escape") { picSel = null; select(-1); sync(); render(); }
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (selectedPic()) deletePic(); else if (state.tool === "move" && takePicked()) deleteTake(); else deleteSel(); }
+    if (e.key === "Escape") { picSel = null; takePick = null; select(-1); takeCut = false; sync(); render(); }
     if (doc && (e.key === "PageDown" || e.key === "PageUp")) { e.preventDefault(); showPage(doc.cur + (e.key === "PageDown" ? 1 : -1)); return; }
     if (e.key === "?") { e.preventDefault(); openKeys(true); return; }
     if (e.key === "v" || e.key === "V") setTool("move");
@@ -5086,7 +5671,7 @@ body.has-pages #stripGrip { display: block; }
     doc.cur = i;
     var pg = doc.pages[i], total = doc.pages.length;
     state.notes = pg.notes; state.strokes = pg.strokes; state.sel = pg.sel; state.picks = pg.picks; state.pageRatio = pg.pageRatio != null ? pg.pageRatio : null;
-    state.pics = pg.pics || []; state.edits = pg.edits || []; state.pg = pg; picSel = null;
+    state.pics = pg.pics || []; state.edits = pg.edits || []; state.pg = pg; picSel = null; takePick = null;
     closeAsk(true);
     history = pg.history; future = pg.future;
     state.w = pg.w; state.h = pg.h; state.refW = pg.refW; state.refH = pg.refH; state.img = pg.img || whitePage();
@@ -5222,6 +5807,7 @@ body.has-pages #stripGrip { display: block; }
       st.points = st.points.map(pt);
       if (st.left) st.left = st.left.map(function (run) { return run.map(pt); });
       if (st.holes) st.holes = st.holes.map(function (run) { return run.map(pt); });
+      if (st.lab) st.lab = pt(st.lab);
     });
     (o.pics || []).forEach(function (q) {
       var c = fn(q.x + q.w / 2, q.y + q.h / 2); q.x = c[0] - q.w / 2; q.y = c[1] - q.h / 2;
@@ -6970,7 +7556,7 @@ body.has-pages #stripGrip { display: block; }
     col(function () {
       table("Editing", [
         [k("Ctrl/Cmd+Z"), "Undo"], [k("Ctrl/Cmd+Shift+Z") + " or " + k("Ctrl+Y"), "Redo"],
-        [k("Delete"), "Delete the selected note or picture"], [k("Esc"), "Deselect"], [k("Ctrl/Cmd+A"), "Select all notes"],
+        [k("Delete"), "Delete the selected note, picture or take-off"], [k("Esc"), "Deselect"], [k("Ctrl/Cmd+A"), "Select all notes"],
         [k("Enter") + " or " + k("F2"), "Type in the selected note"],
         [k("Enter") + " / " + k("Backspace") + " / " + k("Esc"), "While drawing an area or a length: finish it / take back a corner / cancel it"],
         [k("Ctrl/Cmd+]") + " / " + k("Ctrl/Cmd+["), "Bring the selected picture forward / send it backward"]
@@ -7549,7 +8135,7 @@ body.has-pages #stripGrip { display: block; }
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", end: state.pen.end || "" };
     // the take-off groups: those not deleted
-    var groups = liveGroups().map(function (g) { var o = { id: g.id, name: g.name, kind: g.kind, color: g.color }; if (g.kind === "count") o.mark = g.mark || "circle"; return o; });
+    var groups = liveGroups().map(function (g) { var o = { id: g.id, name: g.name, kind: g.kind, color: g.color }; if (g.kind === "count") o.mark = g.mark || "circle"; else if (g.h > 0) o.h = g.h; return o; });
     var text = JSON.stringify({ v: 5, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, textStyle: state.textStyle || null, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "", strip: state.stripW || 0, stripFolded: !!state.stripFolded,
@@ -7613,6 +8199,8 @@ body.has-pages #stripGrip { display: block; }
         seq = Math.max(seq, +g.id.slice(1));
         var o = { id: g.id, name: typeof g.name === "string" ? g.name.slice(0, 60) : TAKE_NAMES[g.kind], kind: g.kind, color: validColor(g.color, "red") };
         if (g.kind === "count") o.mark = TAKE_MARKS.indexOf(g.mark) >= 0 ? g.mark : "circle";
+        // a height or depth, to the millimetre as the field keeps it, so the figure shown is the one worked with
+        else if (typeof g.h === "number" && isFinite(g.h) && g.h <= 1000 && Math.round(g.h * 1000) > 0) o.h = Math.round(g.h * 1000) / 1000;
         return o;
       });
       state.groupSeq = Math.max(seq, num(d.groupSeq, 0, 1e9, 0));
