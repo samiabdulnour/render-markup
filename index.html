@@ -264,7 +264,7 @@ input.entry, .scalebox input {
 #list li button:hover, #picList li button:hover, #textList li button:hover { background: var(--chosen-tint); border-color: transparent; }
 #list li button[aria-pressed="true"], #picList li button[aria-pressed="true"], #textList li button[aria-pressed="true"] { background: var(--chosen); border-color: var(--chosen); color: var(--on-chosen); }
 #picList .thumb { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; flex: none; border: 1px solid rgba(0,0,0,0.2); background: #fff; }
-#picEditor[hidden] { display: none; }
+#picEditor[hidden], #picScope[hidden] { display: none; }
 /* What the page has to say (saved, copied, a picture added...): a message at the foot of the stage that shows
    for a moment and goes. */
 #status {
@@ -376,7 +376,8 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 #takeList .qty { flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .takeacts { display: flex; gap: 6px; }
 .takeacts .seg { flex: 1 1 auto; }
-#takeAdd, #takeCut { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+#takeAdd, #takeCut, #takePlace { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
+#takeDel { flex: 1 1 auto; }
 #takeCut[hidden], #takeSelBox[hidden], #takeSelCut[hidden], #takeHWrap[hidden] { display: none; }
 #takeList li button { flex-wrap: wrap; row-gap: 2px; }
 #takeList .der { flex: 1 0 100%; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.8; }
@@ -654,12 +655,12 @@ body.has-pages #stripGrip { display: block; }
         <ul id="takeList" aria-label="Groups"></ul>
         <div class="takeacts">
           <button type="button" id="takeAdd" title="New group"><svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 1.5v11M1.5 7h11"/></svg><span class="unseen">New group</span></button>
-          <button type="button" id="takeCut" aria-pressed="false" title="Cut out: the next outline is a hole in the area it lies in" hidden><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 2h14v14H2z" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 6.5h5v5h-5z" stroke-width="1.4" stroke-dasharray="2 1.4"/></svg><span class="unseen">Cut out</span></button>
           <div class="seg" id="takeLab" role="group" aria-label="Labels">
             <button type="button" data-lab="none" title="No labels"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span class="unseen">No labels</span></button>
             <button type="button" data-lab="value" title="Labels: the quantity"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 7h9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="unseen">Quantity</span></button>
             <button type="button" data-lab="both" title="Labels: the name and the quantity"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.5" width="20" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 5h11M11 9.5h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="unseen">Name and quantity</span></button>
           </div>
+          <button type="button" id="takePlace" title="Place totals: a table of the take-offs, on the page"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3" width="14" height="12" rx="1"/><path d="M2 7h14M2 11h14M7.5 7v8"/></svg><span class="unseen">Place totals</span></button>
         </div>
         <div id="takeEdit" hidden>
           <label for="takeName">Name<input id="takeName" class="entry" type="text" maxlength="60" autocomplete="off" spellcheck="false"></label>
@@ -673,7 +674,10 @@ body.has-pages #stripGrip { display: block; }
           <label for="takeH" id="takeHWrap" title="Lengths: the height, for the wall's area in m². Areas: the depth, for the volume in m³."><span id="takeHName">Height</span>
             <span class="ratio"><input id="takeH" class="entry" type="text" inputmode="decimal" autocomplete="off" placeholder="—"><span class="pre">m</span></span>
           </label>
-          <button type="button" id="takeDel" class="danger">Delete group</button>
+          <div class="takeacts">
+            <button type="button" id="takeCut" aria-pressed="false" title="Cut out: the next outline is a hole in the area it lies in" hidden><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 2h14v14H2z" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.5 6.5h5v5h-5z" stroke-width="1.4" stroke-dasharray="2 1.4"/></svg><span class="unseen">Cut out</span></button>
+            <button type="button" id="takeDel" class="danger">Delete group</button>
+          </div>
         </div>
       </div>
       <label for="dimSize" class="slider"><span class="head">Text size <span class="val" id="dimSizeVal"></span></span>
@@ -698,7 +702,11 @@ body.has-pages #stripGrip { display: block; }
       <p class="empty" id="picEmpty">No pictures yet. Add one above, or paste one with Ctrl/Cmd+V.</p>
     </div>
     <div class="section" id="picEditor" hidden>
-      <h2>Selected picture</h2>
+      <h2 id="picEdTitle">Selected picture</h2>
+      <div class="seg" id="picScope" role="group" aria-label="What it adds up" hidden>
+        <button type="button" data-scope="page" aria-pressed="true" title="This page's take-offs">Page</button>
+        <button type="button" data-scope="doc" aria-pressed="false" title="The take-offs of every page">All</button>
+      </div>
       <div class="segrow">
       <div class="seg" role="group" aria-label="Layer order">
         <button id="picUp" title="Bring forward: in front of the picture above it in the list (Ctrl/Cmd+])"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="4.5" y="4.5" width="10" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="9" y="1" width="10" height="8" fill="currentColor"/><path d="M25 12.5V2.5M22 5.5l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Forward</span></button>
@@ -709,7 +717,7 @@ body.has-pages #stripGrip { display: block; }
         <button id="picRight" title="Rotate right: a quarter turn clockwise"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M19.8 3.6A5.6 5.6 0 1 0 20.6 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M22.8 1.4l-3.6 2.2 3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="unseen">Rotate right</span></button>
       </div>
       </div>
-      <div class="field">Outline
+      <div class="field" id="picLineWrap">Outline
         <div class="seg" role="group" aria-label="Outline">
           <button id="picLineNone" aria-pressed="true" title="No outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M6 12.5l5.5-6.5 3.8 4 2.7-2.7 6 5.2z" fill="currentColor" opacity="0.55"/><circle cx="20" cy="3.8" r="1.6" fill="currentColor" opacity="0.55"/></svg><span class="unseen">None</span></button>
           <button id="picLineThin" aria-pressed="false" title="A thin outline round the picture"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><rect x="5" y="1.2" width="20" height="11.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.5 12l5-5.5 3.5 3.5 2.5-2.4 5.5 4.4z" fill="currentColor" opacity="0.55"/></svg><span class="unseen">Thin</span></button>
@@ -717,7 +725,7 @@ body.has-pages #stripGrip { display: block; }
         </div>
         <div class="swatches five" id="picLineColors" role="group" aria-label="Outline colour" hidden></div>
       </div>
-      <p class="note">Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.</p>
+      <p class="note" id="picNote">Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.</p>
       <button id="delPic" class="danger">Delete picture</button>
     </div>
     <div class="section" id="takeSelBox" hidden>
@@ -1504,25 +1512,27 @@ body.has-pages #stripGrip { display: block; }
     q.der = h ? r2(q.len * h) : null;
     return q;
   }
-  // Totals for each group on this page and on every page: { id: { kind, page, all, items, noScale } }. This page is
-  // read as it is now, the others from what they keep, each at its own scale; noScale lists the pages (numbered from
-  // 1) where the group has areas or lengths but the page has no scale. Take-offs of a group gone altogether add up
-  // under "?" and their kind. Totals are sums of the items as rounded, worked in hundredths so they add up exactly.
+  // Totals for each group on this page and on every page: { id: { kind, page, all, items, pItems, noScale, dPage,
+  // dAll } }. This page is the one being painted (state.pg: the one on screen, or the one an export is drawing), read
+  // as it is now; the others from what they keep, each at its own scale. noScale lists the pages (numbered from 1)
+  // where the group has areas or lengths but the page has no scale; pItems counts its items on this page. Take-offs
+  // of a group gone altogether add up under "?" and their kind. Totals are sums of the items as rounded, worked in
+  // hundredths so they add up exactly; so are the derived figures (dPage, dAll) of a group with a height or depth.
   function takeTotals() {
-    var out = {};
+    var out = {}, here = doc ? state.pg || doc.pages[doc.cur] : null;
     var add = function (list, mmpp, no, here) {
       list.forEach(function (s) {
         if (!s.take) return;
         var key = groupOf(s.g) ? s.g : "?" + s.take;
-        var t = out[key] || (out[key] = { kind: s.take, page: 0, all: 0, items: 0, noScale: [], dPage: 0, dAll: 0 });
-        t.items++;
+        var t = out[key] || (out[key] = { kind: s.take, page: 0, all: 0, items: 0, pItems: 0, noScale: [], dPage: 0, dAll: 0 });
+        t.items++; if (here) t.pItems++;
         var q = takeQty(s, mmpp), v = s.take === "count" ? 1 : s.take === "area" ? q.area : q.len;
         if (v == null) { if (t.noScale.indexOf(no) < 0) t.noScale.push(no); return; }
         var h = Math.round(v * 100), dh = q.der != null ? Math.round(q.der * 100) : 0;
         t.all += h; t.dAll += dh; if (here) { t.page += h; t.dPage += dh; }
       });
     };
-    if (doc) doc.pages.forEach(function (pg, i) { if (i === doc.cur) add(state.strokes, mmPerPx(), i + 1, true); else add(pg.strokes, mmPerPxOf(pg), i + 1, false); });
+    if (doc) doc.pages.forEach(function (pg, i) { if (pg === here) add(state.strokes, mmPerPx(), i + 1, true); else add(pg.strokes, mmPerPxOf(pg), i + 1, false); });
     else add(state.strokes, mmPerPx(), 1, true);
     Object.keys(out).forEach(function (k) { var t = out[k]; t.page /= 100; t.all /= 100; t.dPage /= 100; t.dAll /= 100; });
     return out;
@@ -2107,6 +2117,7 @@ body.has-pages #stripGrip { display: block; }
     p = toPicLocal(q, p);
     var r = 8 / view.s, cs = picCorners(q);
     for (var k = 0; k < 4; k++) if (Math.abs(p.x - cs[k][0]) <= r && Math.abs(p.y - cs[k][1]) <= r) return k;
+    if (q.kind) return -1;            // a picture drawn by code (a totals table) has its corners only, and keeps its proportions
     var inX = Math.min(r, q.w / 4), inY = Math.min(r, q.h / 4);
     var alongX = p.x >= q.x && p.x <= q.x + q.w, alongY = p.y >= q.y && p.y <= q.y + q.h;
     if (alongX && p.y >= q.y - r && p.y <= q.y + inY) return 4;
@@ -2122,14 +2133,95 @@ body.has-pages #stripGrip { display: block; }
   }
   // A picture's outline: thin, or three times that, in one of the colours; centred on its edge.
   function picLineWidth(q) { var t = Math.max(2, refMin() * 0.0025); return q.line && q.line.w === "thick" ? t * 3 : t; }
+  // Pictures are drawn about their middle, turned. Some are drawn by code rather than from a file (q.kind: a totals
+  // table), so they are always as live as what they show; those have no entry in picStore.
   function drawPics(c) {
     state.pics.forEach(function (q) {
-      var im = picStore[q.id], r = rotOf(q); if (!im || !im.complete) return;
+      var im = q.kind ? null : picStore[q.id], r = rotOf(q);
+      if (!q.kind && (!im || !im.complete)) return;
       c.save(); c.translate(q.x + q.w / 2, q.y + q.h / 2); c.rotate(r);
-      c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
-      if (q.line) { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      if (q.kind) drawKindPic(c, q);
+      else {
+        c.drawImage(im, -q.w / 2, -q.h / 2, q.w, q.h);
+        if (q.line) { c.strokeStyle = colorDef(q.line.c, "black").fill; c.lineWidth = picLineWidth(q); c.lineJoin = "miter"; c.strokeRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      }
       c.restore();
     });
+  }
+  // a picture drawn by code, about its middle (the canvas already moved and turned there), w by h
+  function drawKindPic(c, q) { if (q.kind === "legend") drawLegend(c, q); }
+  // ---------- the totals table ----------
+  // A table of the take-offs, placed on the page as a picture is: a row for each group with take-offs on the page it
+  // is on (scope page) or on every page (scope doc), always as they are now. On a page being exported it is drawn
+  // through withPage, so "this page" is that page (state.pg, its take-offs in state.strokes) and the others are read
+  // from what they keep, which an export puts away first.
+  function legendData(q) {
+    var pg = doc ? state.pg || doc.pages[doc.cur] : null, no = doc ? doc.pages.indexOf(pg) + 1 : 1, all = q.scope === "doc";
+    var tot = takeTotals(), rows = [];
+    ["area", "len", "count"].forEach(function (kind) {
+      var keys = state.groups.filter(function (g) { return g.kind === kind; }).map(function (g) { return g.id; }).concat(["?" + kind]);
+      keys.forEach(function (k) {
+        var t = tot[k]; if (!t || !(all ? t.items : t.pItems)) return;
+        var g = groupOf(k), none = kind !== "count" && (all ? t.noScale.length > 0 : t.noScale.indexOf(no) >= 0), v = all ? t.all : t.page, d = all ? t.dAll : t.dPage;
+        rows.push({ kind: kind, g: g, name: g ? g.name || "(no name)" : "(deleted group)", total: kind === "count" ? String(Math.round(v)) : none ? "—" : v.toFixed(2),
+                    unit: TAKE_UNITS[kind], der: g && g.h > 0 && kind !== "count" ? (none ? "—" : d.toFixed(2)) : "", derUnit: TAKE_DER[kind] || "" });
+      });
+    });
+    return { head: "TAKE-OFFS · " + (all ? "ALL PAGES" : "PAGE " + no), rows: rows };
+  }
+  // How the table is laid out, in ems of its type: the width of each column and of the whole, and its height. Its
+  // type is then sized to fit the box, so a table resized, or grown by a row, keeps everything inside it.
+  var LEG = { pad: 0.6, chip: 1.1, gap: 0.5, col: 1.2, unit: 0.3, row: 1.5, head: 1.6 };
+  function legendLayout(c, D) {
+    var F = 100, mw = function (t) { return c.measureText(t).width / F; }, L = { name: 0, tot: 0, unit: 0, der: 0, derU: 0 };
+    c.save(); c.font = fontStr(F);
+    D.rows.forEach(function (r) {
+      L.name = Math.max(L.name, mw(r.name)); L.tot = Math.max(L.tot, mw(r.total)); L.unit = Math.max(L.unit, mw(r.unit));
+      if (r.der) { L.der = Math.max(L.der, mw(r.der)); L.derU = Math.max(L.derU, mw(r.derUnit)); }
+    });
+    var body = D.rows.length ? LEG.chip + LEG.gap + L.name + LEG.col + L.tot + LEG.unit + L.unit + (L.der ? LEG.col + L.der + LEG.unit + L.derU : 0) : mw("No take-offs yet");
+    L.w = LEG.pad * 2 + Math.max(body, mw(D.head)); L.h = LEG.pad * 2 + LEG.head + Math.max(1, D.rows.length) * LEG.row;
+    c.restore();
+    return L;
+  }
+  // A white box with thin black lines: the heading (TAKE-OFFS · PAGE 3, or ALL PAGES), then for each group its colour
+  // (a count's marker), its name, its total with the unit, and the derived figure of a group with a height or depth.
+  function drawLegend(c, q) {
+    var D = legendData(q), L = legendLayout(c, D), w = q.w, h = q.h, x0 = -w / 2, y0 = -h / 2;
+    var fs = Math.max(0.5, Math.min(w / L.w, h / L.h)), lw = Math.max(0.75, fs * 0.06), ink = "#111214";
+    c.save();
+    c.fillStyle = "#ffffff"; c.fillRect(x0, y0, w, h);
+    c.strokeStyle = ink; c.lineWidth = lw; c.strokeRect(x0 + lw / 2, y0 + lw / 2, w - lw, h - lw);
+    var X = x0 + LEG.pad * fs, top = y0 + LEG.pad * fs, ry = top + LEG.head * fs;
+    c.font = fontStr(fs); c.textBaseline = "middle"; c.textAlign = "left"; c.fillStyle = ink;
+    c.fillText(D.head, X, top + LEG.head * fs / 2 - 0.1 * fs);
+    c.beginPath(); c.moveTo(x0, ry - 0.2 * fs); c.lineTo(x0 + w, ry - 0.2 * fs); c.stroke();
+    if (!D.rows.length) { c.fillText("No take-offs yet", X, ry + LEG.row * fs / 2); c.restore(); return; }
+    var xName = X + (LEG.chip + LEG.gap) * fs, xTot = xName + (L.name + LEG.col + L.tot) * fs, xUnit = xTot + LEG.unit * fs;
+    var xDer = xUnit + (L.unit + LEG.col + L.der) * fs, xDerU = xDer + LEG.unit * fs;
+    D.rows.forEach(function (r, i) {
+      var cy = ry + (i + 0.5) * LEG.row * fs, col = r.g ? colorDef(r.g.color, "red").fill : TAKE_GONE.fill, rad = LEG.chip * fs * 0.42, cx = X + LEG.chip * fs / 2;
+      if (i) { c.save(); c.globalAlpha = 0.3; c.lineWidth = lw * 0.6; c.beginPath(); c.moveTo(X, ry + i * LEG.row * fs); c.lineTo(x0 + w - LEG.pad * fs, ry + i * LEG.row * fs); c.stroke(); c.restore(); }
+      // the group's swatch, as in the panel's list
+      c.save();
+      if (r.kind === "area") { c.globalAlpha = 0.3; c.fillStyle = col; c.fillRect(cx - rad, cy - rad * 0.85, rad * 2, rad * 1.7); c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = rad * 0.22; c.strokeRect(cx - rad, cy - rad * 0.85, rad * 2, rad * 1.7); }
+      else if (r.kind === "len") { c.strokeStyle = col; c.lineWidth = rad * 0.35; c.lineCap = "round"; c.beginPath(); c.moveTo(cx - rad, cy + rad * 0.5); c.lineTo(cx - rad * 0.2, cy - rad * 0.4); c.lineTo(cx + rad * 0.3, cy + rad * 0.1); c.lineTo(cx + rad, cy - rad * 0.6); c.stroke(); }
+      else { markPath(c, r.g && TAKE_MARKS.indexOf(r.g.mark) >= 0 ? r.g.mark : "circle", cx, cy, rad * 0.85); c.fillStyle = col; c.fill(); }
+      c.restore();
+      c.textAlign = "left"; c.fillText(r.name, xName, cy);
+      c.textAlign = "right"; c.fillText(r.total, xTot, cy);
+      c.textAlign = "left"; c.fillText(r.unit, xUnit, cy);
+      if (r.der) { c.textAlign = "right"; c.fillText(r.der, xDer, cy); c.textAlign = "left"; c.fillText(r.derUnit, xDerU, cy); }
+    });
+    c.restore();
+  }
+  // Place totals: a table in the middle of the view, Move on and the table selected, a little under half the page
+  // across and as tall as its rows need; it adds up this page to begin with (Page / All in the panel)
+  function placeTotals() {
+    var q = { id: picId(), kind: "legend", scope: "page", at: Date.now() };
+    var L = legendLayout(ctx, legendData(q)), w = Math.min(state.w, state.h) * 0.45, h = Math.min(state.h * 0.9, w * L.h / L.w);
+    placePic(q, h < w * L.h / L.w ? h * L.w / L.h : w, h);
+    status("Totals placed, and Move is on: drag the table into place, or a corner to resize it. Page or All in the panel.");
   }
   function drawPicSelection(c, q) {
     var t = 1 / view.s, hs = 5 * t, mx = q.x + q.w / 2, my = q.y + q.h / 2;
@@ -2138,7 +2230,7 @@ body.has-pages #stripGrip { display: block; }
     c.strokeStyle = accent(); c.lineWidth = 2 * t; c.setLineDash([6 * t, 4 * t]);
     c.strokeRect(q.x, q.y, q.w, q.h);
     c.setLineDash([]); c.lineWidth = 1.5 * t; c.fillStyle = "#ffffff"; c.strokeStyle = "#1f1f1f";
-    var mids = [[q.x + q.w / 2, q.y], [q.x + q.w, q.y + q.h / 2], [q.x + q.w / 2, q.y + q.h], [q.x, q.y + q.h / 2]];
+    var mids = q.kind ? [] : [[q.x + q.w / 2, q.y], [q.x + q.w, q.y + q.h / 2], [q.x + q.w / 2, q.y + q.h], [q.x, q.y + q.h / 2]];
     picCorners(q).concat(mids).forEach(function (pt) { c.fillRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); c.strokeRect(pt[0] - hs, pt[1] - hs, hs * 2, hs * 2); });
     // the knob that turns it, on a stalk from the middle of the top edge
     c.beginPath(); c.moveTo(mx, q.y - hs); c.lineTo(mx, q.y - (KNOB - 6) * t); c.stroke();
@@ -2153,24 +2245,31 @@ body.has-pages #stripGrip { display: block; }
       var im = new Image();
       im.onload = function () {
         if (!state.img) return;
-        var id = "pic" + (state.nextId++) + Date.now().toString(36);
+        var id = picId();
         picStore[id] = im;
         var k = Math.min(1, state.w * 0.5 / im.naturalWidth, state.h * 0.5 / im.naturalHeight);
-        var w = im.naturalWidth * k, h = im.naturalHeight * k;
-        var cx = clamp(view.cx, w / 2, state.w - w / 2), cy = clamp(view.cy, h / 2, state.h - h / 2);
-        // numbered as added, so the name stays put when the layer order changes
-        var num = state.pics.reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1;
-        snapshot();
-        state.pics = state.pics.concat([{ id: id, n: num, x: cx - w / 2, y: cy - h / 2, w: w, h: h }]);
-        setTool("move");
-        selectPic(state.pics[state.pics.length - 1]);
-        sync(); render();
+        placePic({ id: id }, im.naturalWidth * k, im.naturalHeight * k);
         status("Picture added, and Move is on: drag it into place, or drag an edge or corner to resize it (Shift keeps its proportions). D goes back to drawing.");
       };
       im.onerror = function () { status("That picture could not be read."); };
       im.src = reader.result;
     };
     reader.readAsDataURL(file);
+  }
+  function picId() { return "pic" + (state.nextId++) + Date.now().toString(36); }
+  // Put picture q on the page, w by h, in the middle of what is on screen and kept on the page, as one step to undo;
+  // Move comes on with it selected. Numbered as added, so its name stays put when the layer order changes. Pictures
+  // from a file and pictures drawn by code (q.kind) both come in this way.
+  function placePic(q, w, h) {
+    var cx = clamp(view.cx, w / 2, state.w - w / 2), cy = clamp(view.cy, h / 2, state.h - h / 2);
+    var o = { id: q.id, n: state.pics.reduce(function (m, x) { return Math.max(m, x.n || 0); }, 0) + 1, x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+    Object.keys(q).forEach(function (k) { if (!own(o, k)) o[k] = q[k]; });
+    snapshot();
+    state.pics = state.pics.concat([o]);
+    setTool("move");
+    selectPic(o);
+    sync(); render();
+    return o;
   }
   // Select a picture (or none); the Move panel lists them
   function selectPic(q) { select(-1); picSel = q ? q.id : null; takePick = null; }
@@ -2193,14 +2292,24 @@ body.has-pages #stripGrip { display: block; }
     status("Picture turned to " + d + "°.");
   }
   function stepPic(d) { var q = selectedPic(); if (q) movePicTo(q, state.pics.indexOf(q) + d); }
-  // a small square thumbnail of each picture, for the list
-  var picThumb = {};
-  function thumbOf(id) {
-    if (picThumb[id]) return picThumb[id];
-    var im = picStore[id]; if (!im || !im.complete) return "";
+  // A small square thumbnail of each picture, for the list. One drawn by code is drawn by the same code, whole, and
+  // kept as long as its own fields are as they were (thumbKey: its kind, what it shows and its shape).
+  var picThumb = {}, thumbKey = {};
+  function thumbOf(q) {
+    var id = q.id, key = q.kind ? q.kind + " " + (q.scope || "") + " " + Math.round(q.w / q.h * 50) : "";
+    if (picThumb[id] && (thumbKey[id] || "") === key) return picThumb[id];
     var c = document.createElement("canvas"), n = 44; c.width = n; c.height = n;
+    var g = c.getContext("2d");
+    if (q.kind) {
+      var kk = Math.min(n / q.w, n / q.h);
+      g.translate(n / 2, n / 2); g.scale(kk, kk);
+      drawKindPic(g, q);
+      thumbKey[id] = key;
+      return (picThumb[id] = c.toDataURL("image/png"));
+    }
+    var im = picStore[id]; if (!im || !im.complete) return "";
     var k = Math.max(n / im.naturalWidth, n / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k;
-    c.getContext("2d").drawImage(im, (n - w) / 2, (n - h) / 2, w, h);
+    g.drawImage(im, (n - w) / 2, (n - h) / 2, w, h);
     return (picThumb[id] = c.toDataURL("image/png"));
   }
   function deletePic(which) {
@@ -2209,7 +2318,7 @@ body.has-pages #stripGrip { display: block; }
     state.pics = state.pics.filter(function (x) { return x !== q; });
     if (q.id === picSel) picSel = null;
     sync(); render();
-    status("Picture deleted. Undo brings it back.");
+    status((q.kind === "legend" ? "Totals table" : "Picture") + " deleted. Undo brings it back.");
   }
   // Is there any markup that opening something else would clear? (Every page of a PDF counts.)
   function hasWork() {
@@ -2785,8 +2894,8 @@ body.has-pages #stripGrip { display: block; }
     state.pics.slice().reverse().forEach(function (q, d) {
       var li = document.createElement("li"), b = document.createElement("button");
       b.setAttribute("aria-pressed", String(q.id === picSel));
-      var th = document.createElement("img"); th.className = "thumb"; th.alt = ""; th.src = thumbOf(q.id);
-      var t = document.createElement("span"); t.className = "txt"; t.textContent = "Picture " + (q.n || state.pics.indexOf(q) + 1);
+      var th = document.createElement("img"); th.className = "thumb"; th.alt = ""; th.src = thumbOf(q);
+      var t = document.createElement("span"); t.className = "txt"; t.textContent = q.kind === "legend" ? "Totals" : "Picture " + (q.n || state.pics.indexOf(q) + 1);
       b.appendChild(th); b.appendChild(t);
       b.addEventListener("click", function () { if (listDrag && listDrag.moved) return; selectPic(q); sync(); render(); });
       b.addEventListener("pointerdown", function (ev) { if (ev.button === 0) { listDrag = { q: q, from: d, y0: ev.clientY, moved: false, to: d }; b.setPointerCapture(ev.pointerId); } });
@@ -2805,6 +2914,15 @@ body.has-pages #stripGrip { display: block; }
       $("takeSelDel").textContent = "Delete " + takeWord(stk);
     }
     $("picEditor").hidden = !spic;
+    // a totals table: what it adds up (this page, or every page) instead of an outline, which it draws itself
+    var pk = spic && spic.kind;
+    $("picEdTitle").textContent = pk ? "Totals table" : "Selected picture";
+    $("picLineWrap").hidden = !!pk;
+    $("picScope").hidden = pk !== "legend";
+    if (pk === "legend") Array.prototype.forEach.call($("picScope").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === (spic.scope === "doc" ? "doc" : "page"))); });
+    $("picNote").textContent = pk ? "Drag to move. Corners resize, keeping its proportions (Shift frees them); the round handle turns it."
+      : "Drag to move. Edges and corners resize, the round handle turns. Shift keeps proportions, or turns in 15° steps.";
+    $("delPic").textContent = pk ? "Delete table" : "Delete picture";
     var si = spic ? state.pics.indexOf(spic) : -1;
     $("picUp").disabled = !spic || si === state.pics.length - 1;
     $("picDown").disabled = !spic || si === 0;
@@ -3354,6 +3472,15 @@ body.has-pages #stripGrip { display: block; }
     b.addEventListener("click", function () { state.takeLab = b.getAttribute("data-lab"); sync(); render(); });
   });
   $("takeCut").addEventListener("click", function () { armCut(!takeCut); });
+  $("takePlace").addEventListener("click", function () { if (needPro("takeoff", placeTotals)) placeTotals(); });
+  Array.prototype.forEach.call($("picScope").children, function (b) {
+    b.addEventListener("click", function () {
+      var q = selectedPic(), v = b.getAttribute("data-scope");
+      if (!q || q.kind !== "legend" || q.scope === v) return;
+      snapshot(); q.scope = v; delete picThumb[q.id];
+      sync(); render();
+    });
+  });
   $("takeSelCut").addEventListener("click", function () { armCut(true); });
   $("takeSelDel").addEventListener("click", function () { deleteTake(); canvas.focus({ preventScroll: true }); });
   // + makes the next group of this kind and puts its name up to be typed over
@@ -4575,11 +4702,12 @@ body.has-pages #stripGrip { display: block; }
           if (e.shiftKey) { q.h = q.w / ar; q.y = f0.y + f0.h / 2 - q.h / 2; } else { q.h = f0.h; q.y = f0.y; }
         }
       } else {
-        // a corner: the opposite corner stays put. It resizes freely; with Shift it keeps its proportions.
+        // a corner: the opposite corner stays put. It resizes freely, with Shift keeping its proportions; a picture
+      // drawn by code keeps them, and Shift frees it.
         var cs = picCorners(f0), a = cs[(drag.corner + 2) % 4], aspect = f0.w / f0.h;
         var gx = drag.corner === 1 || drag.corner === 2 ? 1 : -1, gy = drag.corner === 2 || drag.corner === 3 ? 1 : -1;
         var w = Math.max(16, (p.x - a[0]) * gx), h = Math.max(16, (p.y - a[1]) * gy);
-        if (e.shiftKey) { w = Math.max(w, h * aspect); h = w / aspect; }
+        if (e.shiftKey !== !!q.kind) { w = Math.max(w, h * aspect); h = w / aspect; }
         q.w = w; q.h = h;
         q.x = gx > 0 ? a[0] : a[0] - w;
         q.y = gy > 0 ? a[1] : a[1] - h;
