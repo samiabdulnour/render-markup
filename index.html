@@ -7,6 +7,10 @@
 <title>Render Markup</title>
 <meta name="description" content="Mark up architectural renders with clean pill callouts, leader lines and sketches. Runs in your browser; images never leave your computer.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%2720%27 width=%2740%27 height=%2720%27 rx=%2710%27 fill=%27%23111214%27/%3E%3Cline x1=%2742%27 y1=%2736%27 x2=%2756%27 y2=%2750%27 stroke=%27%23111214%27 stroke-width=%273%27/%3E%3Ccircle cx=%2756%27 cy=%2750%27 r=%274%27 fill=%27%23d6301f%27/%3E%3C/svg%3E">
+<!-- The manifest makes the page an app Chrome and Edge can install, which then opens PDFs and pictures from the
+     computer (Open with) and, on Android, takes them shared from other apps. One theme colour: there is no dark version. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#efefef">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout idea: a working stage on the left, a narrow control rail on the right; the render is the hero, the UI stays quiet.
@@ -7284,6 +7288,7 @@ body.has-pages #stripGrip { display: block; }
       state.blank = true; stage.classList.add("has-image");
       $("docname").textContent = "Blank canvas · 1920 × 1080 px";
       sync(); render();
+      bootDone();
     };
     im.src = c.toDataURL("image/png");
   }
@@ -7622,6 +7627,55 @@ body.has-pages #stripGrip { display: block; }
     if (d.takeLab === "none" || d.takeLab === "both" || d.takeLab === "value") state.takeLab = d.takeLab;
     // the mode is kept, but without Pro the take-off modes go back to Dimension
     state.measMode = ["dim", "area", "len", "count"].indexOf(d.measMode) >= 0 && (d.measMode === "dim" || proOk()) ? d.measMode : "dim";
+  }
+
+  // ---------- opened from the system ----------
+  // Installed from Chrome or Edge, the app is offered for PDFs and pictures (Open with, or a double-click once it is
+  // the default), and on Android a file can be shared to it. Either way the files open just as the Open button opens
+  // them, once the blank canvas is up: opened before, the blank canvas would replace them. Each file is read once
+  // and let go; nothing is kept of it, and nothing is ever written back to the copy on the computer.
+  var booted = false, onBoot = [];
+  function whenBooted(fn) { if (booted) fn(); else onBoot.push(fn); }
+  function bootDone() { if (booted) return; booted = true; onBoot.splice(0).forEach(function (fn) { fn(); }); }
+  if (window.launchQueue && typeof window.launchQueue.setConsumer === "function") {
+    window.launchQueue.setConsumer(function (params) {
+      var handles = Array.prototype.slice.call((params && params.files) || []);
+      if (!handles.length) return;   // the app was started on its own, with nothing to open
+      Promise.all(handles.map(function (h) { return h.getFile(); })).then(function (files) {
+        whenBooted(function () { openMany(files); });
+      }, function () {
+        whenBooted(function () { status("That file could not be read."); });
+      });
+    });
+  }
+  // A share on Android: the service worker (sw.js) has put the files aside and opened the app at ./?shared=1.
+  // They are taken in the order shared, and cleared, and the address goes back to the app's own, so a reload
+  // does not look for them again.
+  if (/[?&]shared=1(&|$)/.test(location.search)) {
+    // (window.history: `history` here is the undo list)
+    try { window.history.replaceState(null, "", location.pathname + location.hash); } catch (err) { /* it keeps the query: harmless */ }
+    if (window.caches) caches.open("render-markup-shared").then(function (cache) {
+      return cache.keys().then(function (keys) {
+        keys.sort(function (a, b) { return +a.url.split("/").pop() - +b.url.split("/").pop(); });
+        return Promise.all(keys.map(function (k) {
+          return cache.match(k).then(function (res) {
+            return res.blob().then(function (b) { return new File([b], decodeURIComponent(res.headers.get("x-file-name") || "shared"), { type: b.type }); });
+          });
+        }));
+      });
+    }).then(function (files) {
+      caches.delete("render-markup-shared");
+      if (files.length) whenBooted(function () { openMany(files); });
+    }).catch(function () {
+      whenBooted(function () { status("The shared file could not be opened."); });
+    });
+  }
+  // The service worker also keeps the app's own files, so the app opens with no connection. It is registered once
+  // the page has loaded, so it never slows the start; where it cannot be, the app works the same without it.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(function () { /* works without it */ });
+    });
   }
 
   // ---------- boot ----------
