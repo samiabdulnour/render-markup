@@ -7517,7 +7517,7 @@ body.has-pages #stripGrip { display: block; }
   // are not 200 rows. Totals has a row for each take-off group: its total, and its figure on each page. Each page is
   // read at its own scale and paper size, through withPage, and nothing is changed, so there is nothing to undo.
   // The number columns hold one unit each and only numbers, so SUM and pivot tables work on them at once.
-  var REPORT_COLS = ["Page", "Sheet", "Kind", "No.", "Group", "Text", "Colour", "Length (m)", "Area (m²)", "Perimeter (m)", "Count", "Height/depth (m)", "Scale", "Date", "By"];
+  var REPORT_COLS = ["Page", "Sheet", "Kind", "No.", "Group", "Text", "Colour", "Length (m)", "Area (m²)", "Perimeter (m)", "Count", "Height/depth (m)", "Scale (1:n)", "Date", "By"];
   var TOTALS_COLS = ["Group", "Kind", "Unit", "Total", "Height/depth (m)", "Derived", "Derived unit"];
   // Excel reads a CSV in the separator and decimal mark of the computer's region, which a web page cannot know, so
   // the format is a choice of two, kept for next time; until one is chosen it follows the browser's language.
@@ -7528,6 +7528,14 @@ body.has-pages #stripGrip { display: block; }
   }
   // a number cell: the value and how many decimals it is written with (null: an empty cell)
   function repNum(v, d) { return v == null ? null : { n: v, d: d }; }
+  // A page's scale as a number cell holding only the n of 1:n (100, 50, 12.5), rounded as the panel shows it. Written
+  // as 1:50 it would not stay words: Excel opening a CSV reads 1:50, 1:5 or 1:1 as a time of day (1:05 for 1:5) but
+  // 1:100 or 1:200 as words, so one column would hold both and a filter by scale would split. A number also sorts.
+  function scaleCell(k) {
+    if (!k) return null;
+    var whole = ratioText(k).indexOf(".") < 0;
+    return repNum(whole ? Math.round(k) : Math.round(k * 10) / 10, whole ? 0 : 1);
+  }
   // a colour by its name, or an own colour as its #rrggbb
   function colourName(c, fallback) { return COLORS[c] ? COLORS[c].name : isHex(c) ? c.toLowerCase() : fallback || ""; }
   // when something was made, in local time as YYYY-MM-DD HH:MM; blank for what was made before it was kept
@@ -7556,7 +7564,7 @@ body.has-pages #stripGrip { display: block; }
   // groups were made, each group's in the order put down. Lines, shapes and pictures carry no figures and are left out.
   // On a page with no scale the lengths and areas are blank, and a dimension says how long it is in pixels.
   function pageRows(no, sheet) {
-    var out = [], mmpp = mmPerPx(), k = pageRatio(), scale = k ? "1:" + ratioText(k) : "", i;
+    var out = [], mmpp = mmPerPx(), scale = scaleCell(pageRatio()), i;
     // By is for the initials of whoever made the markup, which there is nowhere to set yet
     var add = function (kind, n, group, text, colour, figs, sc, at) {
       out.push([repNum(no, 0), sheet, kind, n ? repNum(n, 0) : null, group, text, colour].concat(figs, [sc, stampText(at), ""]));
