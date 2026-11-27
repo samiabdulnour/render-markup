@@ -2350,9 +2350,10 @@ body.has-pages #stripGrip { display: block; }
     prelim:   { text: "PRELIMINARY", color: "magenta", name: "Preliminary" }
   };
   var OWN_MAX = 20, OWN_LEN = 40, TITLE_SHARED = ["project", "client", "status", "date", "drawn", "checked"];
-  // A stamp in units of the size of its words, F: the words take at most 80% of its width, and it is 2 F tall, or
-  // 2.6 F with a second line, which is set at 0.45 of the size. A capital is 0.72 F high.
-  var ST = { one: 2, two: 2.6, sub: 0.45, fit: 0.8, cap: 0.72 };
+  // A stamp in units of the size of its words, F: the words take at most 74% of its width, and it is 2.2 F tall, or
+  // 2.8 F with a second line, which is set at 0.45 of the size. A capital is 0.72 F high. That leaves the words some
+  // air inside the inner frame on every side, as on a rubber stamp, rather than touching it.
+  var ST = { one: 2.2, two: 2.8, sub: 0.45, fit: 0.74, cap: 0.72 };
   function boldStr(fs) { return "700 " + fs + "px " + FONTS[state.font].family; }
   function stampWords(q) { return String(q.text || "").toUpperCase(); }
   function stampSub(q) { return String(q.sub || "").toUpperCase(); }
