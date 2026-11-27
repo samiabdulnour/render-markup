@@ -1005,7 +1005,7 @@ body.has-pages #stripGrip { display: block; }
       </div>
     </div>
     <div class="pdfchoices" role="group" aria-labelledby="repTitle">
-      <button id="expCsv" class="choice pro-mark" title="Report: a CSV file, a row for each note, text, dimension and take-off"><span class="ttl">Report</span><span class="note">Notes, texts, dimensions, take-offs · a row each</span></button>
+      <button id="expCsv" class="choice pro-mark" title="Report: a CSV file, a row for each note, text, dimension, take-off, stamp and title block"><span class="ttl">Report</span><span class="note">Each note, text, dimension, take-off, stamp</span></button>
       <button id="expTotals" class="choice pro-mark" title="Totals: a CSV file, a row for each take-off group, with its total and its figure on each page"><span class="ttl">Totals</span><span class="note">Each take-off group · by page</span></button>
     </div>
     <div class="actions"><button id="pdfCancel">Cancel</button></div>
@@ -1446,8 +1446,8 @@ body.has-pages #stripGrip { display: block; }
 
   // ---------- take-offs ----------
   // Areas, lengths and counts, three modes of Measure beside Dimension. Each is a stroke marked take
-  // ({ take: "area" | "len" | "count", g, size, points, holes, closed, at }, in page px), so undo, the pages, turning
-  // and cropping, the eraser, Clear drawing and every export carry it as they carry a dimension. A count is one
+  // ({ take: "area" | "len" | "count", g, size, points, holes, closed, at, by }, in page px), so undo, the pages,
+  // turning and cropping, the eraser, Clear drawing and every export carry it as they carry a dimension. A count is one
   // marker a stroke. Its colour is its group's, never its own: groups are settings (state.groups), the same on every
   // page and kept for next time, so a group recoloured is recoloured everywhere. Areas and lengths read at the page's
   // scale, in m² and m, and need one; a count needs none. Each item is rounded to 2 places and a total is the sum of
@@ -2422,7 +2422,7 @@ body.has-pages #stripGrip { display: block; }
   // Place a stamp in the middle of the view, Move on and the stamp selected. Its second line is written in now and
   // kept, so a stamp keeps its day.
   function placeStamp(st, text, color) {
-    var at = Date.now(), q = { id: picId(), kind: "stamp", st: st, text: text, sub: subLine(stampDay(at), state.office.initials), color: color, at: at };
+    var at = Date.now(), q = madeBy({ id: picId(), kind: "stamp", st: st, text: text, sub: subLine(stampDay(at), state.office.initials), color: color, at: at });
     var b = stampBox(q), o = placePic(q, b.w, b.h);
     iniFresh = String(state.office.initials || "").trim() ? null : { id: o.id, top: history[history.length - 1] };
     status("Stamp placed, and Move is on: drag it into place, or a corner to resize it. Its words, date and colour are in the panel.");
@@ -2430,7 +2430,7 @@ body.has-pages #stripGrip { display: block; }
   // Place a title block: 180 by 45 mm on paper (at most 90% of the page across), 10 mm in from the bottom right corner
   function placeTitle() {
     var mm = paperMmPerPx(), b = fitPage(180 / mm, 45 / mm, 0.9), m = 10 / mm;
-    var q = { id: picId(), kind: "title", f: { drawing: "", no: "", rev: "", scale: "" }, at: Date.now() };
+    var q = madeBy({ id: picId(), kind: "title", f: { drawing: "", no: "", rev: "", scale: "" }, at: Date.now() });
     placePic(q, b.w, b.h, { x: Math.max(0, state.w - m - b.w), y: Math.max(0, state.h - m - b.h) });
     status("Title block placed bottom right, and Move is on: fill it in in the panel" + (doc && doc.pages.length > 1 ? ". All pages puts it on every page." : "."));
   }
@@ -3034,6 +3034,10 @@ body.has-pages #stripGrip { display: block; }
     var l = nextLook(); fn(l); state.style = l; sync();
   }
   // A new note, a text and a dimension each carry when they were made (at), as a take-off does, for the report's Date.
+  // Each carries who made it too (by), for the report's By: the initials as they are when it is made, kept on it, so
+  // initials typed later never put another name on what is already on the page, as they never do on a stamp. With
+  // no initials set there is no by, and By is blank.
+  function madeBy(o) { var b = String(state.office.initials || "").trim(); if (b) o.by = b; return o; }
   function newNote(x, y) {
     var dx = state.w * 0.11 * (x > state.w / 2 ? -1 : 1);
     var dy = -state.h * 0.1;
@@ -3044,14 +3048,14 @@ body.has-pages #stripGrip { display: block; }
       px: clamp(x + dx, state.w * 0.04, state.w * 0.96), py: clamp(y + dy, state.h * 0.08, state.h * 0.92),
       vertical: look.vertical, color: look.color, shape: look.shape, size: look.size, outline: look.outline, end: look.end, at: Date.now()
     };
-    return n;
+    return madeBy(n);
   }
   // Words alone, from the Text tool: a note of the shape "text", with no leader (its dot is under it)
   function textNote(x, y) {
     var s = selected(), look = s && shapeOf(s) === "text" ? textLookOf(s) : nextTextLook();
     var n = { id: state.nextId++, text: "Text", tx: x, ty: y, px: x, py: y, color: look.color, shape: "text", size: look.size, at: Date.now() };
     TYPE_KEYS.forEach(function (k) { n[k] = look[k]; });
-    return n;
+    return madeBy(n);
   }
   function addNote(x, y, deferFocus, made) {
     snapshot();
@@ -4395,7 +4399,7 @@ body.has-pages #stripGrip { display: block; }
   function startDim(p) {
     if (p.x < 0 || p.y < 0 || p.x > state.w || p.y > state.h) return false;
     snapshot();
-    var s = { dim: true, color: state.dim.color, size: state.dim.size, points: [[p.x, p.y], [p.x, p.y]], at: Date.now() };
+    var s = madeBy({ dim: true, color: state.dim.color, size: state.dim.size, points: [[p.x, p.y], [p.x, p.y]], at: Date.now() });
     state.strokes.push(s);
     drag = { part: "dim", stroke: s };
     render();
@@ -4526,7 +4530,7 @@ body.has-pages #stripGrip { display: block; }
   // a count: each click puts down the group's next numbered marker; there is nothing to finish
   function addMarker(g, p) {
     snapshot();
-    state.strokes.push({ take: "count", g: g.id, size: state.dim.size, points: [[clamp(p.x, 0, state.w), clamp(p.y, 0, state.h)]], at: Date.now() });
+    state.strokes.push(madeBy({ take: "count", g: g.id, size: state.dim.size, points: [[clamp(p.x, 0, state.w), clamp(p.y, 0, state.h)]], at: Date.now() }));
     var n = state.strokes.filter(function (s) { return s.take === "count" && s.g === g.id; }).length;
     sync(); render();
     status(g.name + ": " + n + " on this page.");
@@ -4571,7 +4575,7 @@ body.has-pages #stripGrip { display: block; }
     var g = groupOf(t.g);
     if (!g || g.gone) g = takeGroup(t.kind);
     if (!g) return takeDrop("");
-    var s = { take: t.kind, g: g.id, size: state.dim.size, points: pts.map(function (q) { return [q[0], q[1]]; }), at: Date.now() };
+    var s = madeBy({ take: t.kind, g: g.id, size: state.dim.size, points: pts.map(function (q) { return [q[0], q[1]]; }), at: Date.now() });
     if (t.kind === "len" && o.close && pts.length > 2) s.closed = true;
     taking = null; takeBar();
     snapshot();
@@ -7930,8 +7934,8 @@ body.has-pages #stripGrip { display: block; }
   // The initials are for the stamps placed from now on: a stamp keeps the second line it was given, so changing them
   // never puts another name on a stamp already placed. One exception: the stamp just placed with no initials yet,
   // while it is still selected and nothing else has been done, takes the initials typed then, as if they had been
-  // there when it was placed (the first stamp, with the initials typed in after it). That is no step to undo of its
-  // own: Undo takes the stamp off, initials and all.
+  // there when it was placed (the first stamp, with the initials typed in after it), its By in the report with them.
+  // That is no step to undo of its own: Undo takes the stamp off, initials and all.
   fieldKeys($("stInit"));
   $("stInit").addEventListener("input", function () {
     var el = $("stInit"), was = state.office.initials, q = selectedPic();
@@ -7939,6 +7943,7 @@ body.has-pages #stripGrip { display: block; }
     if (q && q.kind === "stamp" && q.at && iniFresh && iniFresh.id === q.id && iniFresh.top === history[history.length - 1]) {
       var day = stampDay(q.at), now = subLine(day, state.office.initials);
       if ((q.sub || "") === subLine(day, was) && now !== q.sub) { var two = !!stampSub(q); q.sub = now; fitStamp(q, two); }
+      delete q.by; madeBy(q);
     }
     saveSettings(); render();
   });
@@ -8346,6 +8351,14 @@ body.has-pages #stripGrip { display: block; }
       withPage(pg, function () { fn(doc.pages.indexOf(pg) + 1, src.kind === "pdf" ? src.label + " p" + pg.n : src.label); });
     });
   }
+  // The n of the 1:n a title block's Scale cell says, 0 when it says no 1:n (NTS). Written as drawings write it: 1:50,
+  // 1 : 50, 1/200 (as in France and Japan, and as the scale field takes it), M 1:12,5. A point, comma or space
+  // before exactly three digits is a thousands separator, as in 1:1,250, M 1:2.500 or 1:1 000 on a location plan
+  // (1:1.25 is no drawing's scale); before one or two digits, a decimal mark.
+  function titleScale(t) {
+    var g = /^\D*1\s*[:\/]\s*(\d{1,3}(?:[\s.,]\d{3})+)\s*$/.exec(t), m = g || /^\D*1\s*[:\/]\s*(\d+(?:[.,]\d{1,2})?)\s*$/.exec(t);
+    return !m ? 0 : parseFloat(g ? m[1].replace(/\D/g, "") : m[1].replace(",", "."));
+  }
   // The report's rows for the page in state. Notes and texts first, in the order of their lists and numbered in each
   // as the lists number them; then dimensions, in the order drawn; then take-offs, group by group in the order the
   // groups were made, each group's in the order put down; then stamps and title blocks, as they lie on the page.
@@ -8353,22 +8366,22 @@ body.has-pages #stripGrip { display: block; }
   // are blank, and a dimension says how long it is in pixels.
   function pageRows(no, sheet) {
     var out = [], mmpp = mmPerPx(), scale = scaleCell(pageRatio()), i, none = [null, null, null, null, null];
-    // By: the initials typed for stamps, the only name the page knows; blank until they are set
-    var by = String(state.office.initials || "").trim();
-    var add = function (kind, n, group, text, colour, figs, sc, at) {
-      out.push([repNum(no, 0), sheet, kind, n ? repNum(n, 0) : null, group, text, colour].concat(figs, [sc, stampText(at), by]));
+    // it: what the row is for, whose at is its Date and whose by its By (the initials set when it was made, see
+    // madeBy), so a row never names whoever happens to be exporting
+    var add = function (kind, n, group, text, colour, figs, sc, it) {
+      out.push([repNum(no, 0), sheet, kind, n ? repNum(n, 0) : null, group, text, colour].concat(figs, [sc, stampText(it.at), it.by || ""]));
     };
     var seen = { note: 0, text: 0 };
     state.notes.forEach(function (n) {
       var kind = panelOf(n);
-      add(kind === "text" ? "Text" : "Note", ++seen[kind], "", n.text || "", colourName(n.color, colorOf(n).name), [null, null, null, null, null], "", n.at);
+      add(kind === "text" ? "Text" : "Note", ++seen[kind], "", n.text || "", colourName(n.color, colorOf(n).name), [null, null, null, null, null], "", n);
     });
     var nd = 0;
     state.strokes.forEach(function (s) {
       if (!s.dim) return;
       var px = dimLen(s);
       add("Dimension", ++nd, "", mmpp ? lengthText(px) : Math.round(px) + " px (no scale)", colourName(s.color, "Red"),
-          [mmpp ? repNum(Math.round(px * mmpp) / 1000, 3) : null, null, null, null, null], scale, s.at);
+          [mmpp ? repNum(Math.round(px * mmpp) / 1000, 3) : null, null, null, null, null], scale, s);
     });
     var lists = {};
     state.strokes.forEach(function (s) { if (s.take) (lists[takeKey(s)] = lists[takeKey(s)] || []).push(s); });
@@ -8377,36 +8390,38 @@ body.has-pages #stripGrip { display: block; }
       if (!list) return;
       var g = groupOf(key), name = g ? g.name || "(no name)" : "(deleted group)", col = g ? colourName(g.color) : "";
       var h = g && g.h > 0 ? repNum(g.h, 3) : null;
-      // a group's markers: one row, dated when the last of them was put down
+      // a group's markers: one row, dated when the last of them was put down, and By whoever put that one down
       if (list[0].take === "count") {
-        var last = 0;
-        for (i = 0; i < list.length; i++) last = Math.max(last, list[i].at || 0);
+        var last = list[0];
+        for (i = 1; i < list.length; i++) if ((list[i].at || 0) >= (last.at || 0)) last = list[i];
         add("Count", 0, name, "", col, [null, null, null, repNum(list.length, 0), null], "", last);
         return;
       }
       list.forEach(function (s, j) {
         var q = takeQty(s, mmpp), area = s.take === "area";
         add(area ? "Area" : "Length", j + 1, name, takeText(s), col,
-            [area ? null : repNum(q.len, 2), area ? repNum(q.area, 2) : null, area ? repNum(q.per, 2) : null, null, h], scale, s.at);
+            [area ? null : repNum(q.len, 2), area ? repNum(q.area, 2) : null, area ? repNum(q.per, 2) : null, null, h], scale, s);
       });
     });
     // Stamps and title blocks, from the back to the front as they lie, each numbered among its own kind on the page.
-    // A copy put on every page by All pages is a row on each page it is on. A stamp's Group is which stamp it is (an
-    // own stamp's is its words) and its Text the words and second line as stamped. A title block's Text is its No.,
-    // Drawing and Rev, read as it is drawn on this page, and its Scale what its Scale cell says: a scale typed in it
-    // such as 1:50 as the number 50, otherwise the page's own. A typed scale that is not 1:n (NTS, As shown) cannot
-    // stand in that column of numbers, so it is told in the Text instead.
+    // A copy put on every page by All pages is a row on each page it is on. A stamp's Group is which stamp it is: a
+    // library stamp's name while it still says the library's words, otherwise its words, as for an own stamp, so a
+    // filter on Approved never counts an Approved whose words were changed to NOT APPROVED. Its Text is the words and
+    // second line as stamped. A title block's Text is its No., Drawing and Rev, read as it is drawn on this page, and
+    // its Scale what its Scale cell says: a scale typed in it such as 1:50 as the number 50 (see titleScale),
+    // otherwise the page's own. A typed scale that is not 1:n (NTS, As shown) cannot stand in that column of
+    // numbers, so it is told in the Text instead.
     var kinds = { stamp: 0, title: 0 };
     state.pics.forEach(function (q) {
       if (q.kind === "stamp") {
         var st = STAMPS[q.st];
-        add("Stamp", ++kinds.stamp, st ? st.name : String(q.text || ""), [stampWords(q), stampSub(q)].filter(Boolean).join(" · "),
-            colourName(q.color), none, "", q.at);
+        add("Stamp", ++kinds.stamp, st && stampWords(q) === st.text ? st.name : String(q.text || ""), [stampWords(q), stampSub(q)].filter(Boolean).join(" · "),
+            colourName(q.color), none, "", q);
       } else if (q.kind === "title") {
-        var D = titleData(q), m = /^\D*1\s*:\s*(\d+(?:[.,]\d+)?)\s*$/.exec(D.scale), k = m ? parseFloat(m[1].replace(",", ".")) : 0;
+        var D = titleData(q), k = titleScale(D.scale);
         var words = [D.no, D.drawing, D.rev ? "Rev " + D.rev : ""];
         if (!(k > 0) && D.scale !== "—") words.push("Scale " + D.scale);
-        add("Title block", ++kinds.title, "", words.filter(Boolean).join(" · "), "", none, k > 0 ? scaleCell(k) : null, q.at);
+        add("Title block", ++kinds.title, "", words.filter(Boolean).join(" · "), "", none, k > 0 ? scaleCell(k) : null, q);
       }
     });
     return out;
