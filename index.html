@@ -377,7 +377,9 @@ table.keys td:first-child { width: 45%; padding-right: 12px; }
 .takeacts { display: flex; gap: 6px; }
 .takeacts .seg { flex: 1 1 auto; }
 #takeAdd, #takeCut { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
-#takeCut[hidden], #takeSelBox[hidden], #takeSelCut[hidden] { display: none; }
+#takeCut[hidden], #takeSelBox[hidden], #takeSelCut[hidden], #takeHWrap[hidden] { display: none; }
+#takeList li button { flex-wrap: wrap; row-gap: 2px; }
+#takeList .der { flex: 1 0 100%; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.8; }
 #takeSelCut { flex: none; width: 44px; justify-content: center; padding: 6px 0; }
 #takeSelDel { flex: 1 1 auto; justify-content: center; }
 #takeSelText { text-transform: none; letter-spacing: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -668,6 +670,9 @@ body.has-pages #stripGrip { display: block; }
             <button type="button" data-mark="diamond" title="Diamond"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M15 0.8L21.2 7 15 13.2 8.8 7z" fill="currentColor"/></svg><span class="unseen">Diamond</span></button>
             <button type="button" data-mark="triangle" title="Triangle"><svg class="shape" viewBox="0 0 30 14" width="30" height="14" aria-hidden="true"><path d="M15 1L21.5 12.5h-13z" fill="currentColor"/></svg><span class="unseen">Triangle</span></button>
           </div>
+          <label for="takeH" id="takeHWrap" title="Lengths: the height, for the wall's area in m². Areas: the depth, for the volume in m³."><span id="takeHName">Height</span>
+            <span class="ratio"><input id="takeH" class="entry" type="text" inputmode="decimal" autocomplete="off" placeholder="—"><span class="pre">m</span></span>
+          </label>
           <button type="button" id="takeDel" class="danger">Delete group</button>
         </div>
       </div>
@@ -1369,6 +1374,9 @@ body.has-pages #stripGrip { display: block; }
   // scale, in m² and m, and need one; a count needs none. Each item is rounded to 2 places and a total is the sum of
   // the rounded items, so a spreadsheet adding up the items comes to the same figure.
   var TAKE_NAMES = { area: "Area", len: "Length", count: "Count" }, TAKE_UNITS = { area: "m²", len: "m", count: "pcs" };
+  // A group can carry a height (lengths: a wall's, giving its area in m²) or a depth (areas: a slab's, giving its
+  // volume in m³), in metres: its h. What it gives is the derived figure, worked from each item as rounded.
+  var TAKE_DER = { area: "m³", len: "m²" }, TAKE_H = { area: "Depth", len: "Height" };
   var TAKE_COLORS = ["red", "blue", "green", "magenta", "yellow", "black"], TAKE_MARKS = ["circle", "square", "diamond", "triangle"];
   var TAKE_MAX = 30;            // groups at most
   // what a take-off whose group has gone altogether is drawn in: grey, with a question mark
@@ -1480,16 +1488,21 @@ body.has-pages #stripGrip { display: block; }
   }
   // A take-off's quantities at mmpp real millimetres a pixel (0: no scale, and no area or length): its area in m²
   // (net of holes), its length in m (a loop's closing side counted), an area's perimeter in m, and n, one of it.
-  // Each is rounded to 2 places here, at the item.
+  // Each is rounded to 2 places here, at the item. der is the derived figure, when its group has a height or depth:
+  // the rounded length times the height (m²), or the rounded area times the depth (m³), itself rounded to 2 places.
   function takeQty(s, mmpp) {
-    var m = mmpp / 1000, r2 = function (v) { return Math.round(v * 100) / 100; };
-    if (s.take === "count" || !m) return { area: null, len: null, per: null, n: 1 };
+    var m = mmpp / 1000, r2 = function (v) { return Math.round(v * 100) / 100; }, g = groupOf(s.g), h = g && g.h > 0 ? g.h : 0, q;
+    if (s.take === "count" || !m) return { area: null, len: null, per: null, n: 1, der: null };
     if (s.take === "area") {
       var a = ringArea(s.points);
-      (s.holes || []).forEach(function (h) { a -= ringArea(h); });
-      return { area: r2(Math.max(0, a) * m * m), per: r2(ringLen(s.points, true) * m), len: null, n: 1 };
+      (s.holes || []).forEach(function (hole) { a -= ringArea(hole); });
+      q = { area: r2(Math.max(0, a) * m * m), per: r2(ringLen(s.points, true) * m), len: null, n: 1 };
+      q.der = h ? r2(q.area * h) : null;
+      return q;
     }
-    return { len: r2(ringLen(s.points, !!s.closed) * m), area: null, per: null, n: 1 };
+    q = { len: r2(ringLen(s.points, !!s.closed) * m), area: null, per: null, n: 1 };
+    q.der = h ? r2(q.len * h) : null;
+    return q;
   }
   // Totals for each group on this page and on every page: { id: { kind, page, all, items, noScale } }. This page is
   // read as it is now, the others from what they keep, each at its own scale; noScale lists the pages (numbered from
@@ -1501,17 +1514,17 @@ body.has-pages #stripGrip { display: block; }
       list.forEach(function (s) {
         if (!s.take) return;
         var key = groupOf(s.g) ? s.g : "?" + s.take;
-        var t = out[key] || (out[key] = { kind: s.take, page: 0, all: 0, items: 0, noScale: [] });
+        var t = out[key] || (out[key] = { kind: s.take, page: 0, all: 0, items: 0, noScale: [], dPage: 0, dAll: 0 });
         t.items++;
         var q = takeQty(s, mmpp), v = s.take === "count" ? 1 : s.take === "area" ? q.area : q.len;
         if (v == null) { if (t.noScale.indexOf(no) < 0) t.noScale.push(no); return; }
-        var h = Math.round(v * 100);
-        t.all += h; if (here) t.page += h;
+        var h = Math.round(v * 100), dh = q.der != null ? Math.round(q.der * 100) : 0;
+        t.all += h; t.dAll += dh; if (here) { t.page += h; t.dPage += dh; }
       });
     };
     if (doc) doc.pages.forEach(function (pg, i) { if (i === doc.cur) add(state.strokes, mmPerPx(), i + 1, true); else add(pg.strokes, mmPerPxOf(pg), i + 1, false); });
     else add(state.strokes, mmPerPx(), 1, true);
-    Object.keys(out).forEach(function (k) { out[k].page /= 100; out[k].all /= 100; });
+    Object.keys(out).forEach(function (k) { var t = out[k]; t.page /= 100; t.all /= 100; t.dPage /= 100; t.dAll /= 100; });
     return out;
   }
   // a take-off's quantity as its label says it: "24.31 m²", or "— m²" on a page with no scale
@@ -1605,8 +1618,15 @@ body.has-pages #stripGrip { display: block; }
     out.x = (a[0] + b[0]) / 2 + Math.sin(ang) * off; out.y = (a[1] + b[1]) / 2 - Math.cos(ang) * off;
     return out;
   }
-  // the words of a take-off's label: its quantity as takeValue gives it
-  function takeText(s) { return takeValue(s); }
+  // the words of a take-off's label: its quantity as takeValue gives it, and the derived figure when its group has a
+  // height or a depth ("20.00 m · 50.00 m²")
+  function takeText(s) { var d = takeDer(s); return takeValue(s) + (d ? " · " + d : ""); }
+  // the derived figure as words ("50.00 m²", "5.00 m³", "— m³" on a page with no scale), or "" when there is none
+  function takeDer(s) {
+    var g = groupOf(s.g); if (s.take === "count" || !g || !(g.h > 0)) return "";
+    var q = takeQty(s, mmPerPx());
+    return (q.der == null ? "—" : q.der.toFixed(2)) + " " + TAKE_DER[s.take];
+  }
   // each marker's number: its place among its group's markers on the page, in the order they were put down
   function takeNumbers(list) { var seen = {}; return list.map(function (s) { return s.take === "count" ? (seen[s.g] = (seen[s.g] || 0) + 1) : 0; }); }
   // Sizes as shown to the user: in pixels of the image, which is what ends up in the export.
@@ -3258,7 +3278,7 @@ body.has-pages #stripGrip { display: block; }
     var fig = function (v) { return mode === "count" ? String(Math.round(v)) : v.toFixed(2); };
     var rowsNow = [];
     var row = function (g, t) {
-      t = t || { page: 0, all: 0, noScale: [] };
+      t = t || { page: 0, all: 0, noScale: [], dPage: 0, dAll: 0 };
       var li = document.createElement("li"), b = document.createElement("button");
       b.type = "button";
       b.setAttribute("aria-pressed", String(!!g && !g.gone && g.id === state.takeSel[mode]));
@@ -3269,6 +3289,13 @@ body.has-pages #stripGrip { display: block; }
       if (t.noScale.length) qty.title = "No scale on page " + t.noScale.join(", ");
       b.innerHTML = groupSwatch(g, mode);
       b.appendChild(name); b.appendChild(qty);
+      // with a height or a depth, a second line: "× 2.50 m = 50.00 m²"
+      if (g && g.h > 0 && mode !== "count") {
+        var der = document.createElement("span"); der.className = "der";
+        var dPage = t.noScale.indexOf(here) >= 0 ? "—" : t.dPage.toFixed(2), dAll = t.noScale.length ? "—" : t.dAll.toFixed(2);
+        der.textContent = "× " + g.h.toFixed(2) + " m = " + (many ? dPage + " · " + dAll : dPage) + " " + TAKE_DER[mode];
+        b.appendChild(der);
+      }
       b.addEventListener("click", function () { if (!g || g.gone) return; state.takeSel[mode] = g.id; sync(); });
       li.appendChild(b);
       rowsNow.push({ li: li, key: b.innerHTML + b.getAttribute("aria-pressed") + qty.title });
@@ -3296,6 +3323,9 @@ body.has-pages #stripGrip { display: block; }
       $("takeColors").setAttribute("data-key", colKey);
     }
     $("takeMark").hidden = mode !== "count";
+    $("takeHWrap").hidden = mode === "count";
+    $("takeHName").textContent = TAKE_H[mode] || "";
+    if (document.activeElement !== $("takeH")) { $("takeH").value = g.h > 0 ? String(g.h) : ""; $("takeH").removeAttribute("aria-invalid"); }
     Array.prototype.forEach.call($("takeMark").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-mark") === (g.mark || "circle"))); });
   }
   function takeChosen() { var g = groupOf(state.takeSel[state.measMode]); return g && !g.gone && g.kind === state.measMode ? g : null; }
@@ -3307,6 +3337,16 @@ body.has-pages #stripGrip { display: block; }
     sync(); render();
   });
   $("takeName").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.target.blur(); canvas.focus({ preventScroll: true }); } });
+  // a group's height or depth, in metres: a setting too; empty (or 0) takes it away
+  $("takeH").addEventListener("change", function (e) {
+    var g = takeChosen(); if (!g) return;
+    var raw = String(e.target.value).trim().replace(",", "."), v = raw === "" ? 0 : Number(raw);
+    if (!(v >= 0 && v <= 1000) || /[^\d.]/.test(raw)) { e.target.setAttribute("aria-invalid", "true"); status("Type the " + TAKE_H[g.kind].toLowerCase() + " in metres, such as " + (g.kind === "len" ? "2.5." : "0.2.")); return; }
+    e.target.removeAttribute("aria-invalid");
+    if (v > 0) g.h = Math.round(v * 1000) / 1000; else delete g.h;
+    sync(); render();
+  });
+  $("takeH").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.target.blur(); canvas.focus({ preventScroll: true }); } });
   Array.prototype.forEach.call($("takeMark").children, function (b) {
     b.addEventListener("click", function () { var g = takeChosen(); if (!g) return; g.mark = b.getAttribute("data-mark"); sync(); render(); });
   });
@@ -4229,11 +4269,12 @@ body.has-pages #stripGrip { display: block; }
   // points", "Doors · marker 7 of 12 on this page"
   function takeReadout(s) {
     var q = takeQty(s, mmPerPx()), f = function (v, u) { return (v == null ? "—" : v.toFixed(2)) + " " + u; };
+    var dv = takeDer(s), d = dv ? " · " + dv : "";
     if (s.take === "area") {
       var nh = (s.holes || []).length;
-      return f(q.area, "m²") + " · perimeter " + f(q.per, "m") + " · " + s.points.length + " corners" + (nh ? " · " + nh + (nh === 1 ? " cut-out" : " cut-outs") : "");
+      return f(q.area, "m²") + d + " · perimeter " + f(q.per, "m") + " · " + s.points.length + " corners" + (nh ? " · " + nh + (nh === 1 ? " cut-out" : " cut-outs") : "");
     }
-    if (s.take === "len") return f(q.len, "m") + " · " + s.points.length + " points";
+    if (s.take === "len") return f(q.len, "m") + d + " · " + s.points.length + " points";
     var g = groupOf(s.g), mine = state.strokes.filter(function (x) { return x.take === "count" && x.g === s.g; });
     return (g ? g.name : "?") + " · marker " + (mine.indexOf(s) + 1) + " of " + mine.length + " on this page";
   }
@@ -7912,7 +7953,7 @@ body.has-pages #stripGrip { display: block; }
     var inks = { pen: state.inks.pen, hi: state.inks.hi };
     inks[state.pen.hi ? "hi" : "pen"] = { color: state.pen.color, width: state.pen.width, tip: state.pen.tip, dash: state.pen.dash || "", end: state.pen.end || "" };
     // the take-off groups: those not deleted
-    var groups = liveGroups().map(function (g) { var o = { id: g.id, name: g.name, kind: g.kind, color: g.color }; if (g.kind === "count") o.mark = g.mark || "circle"; return o; });
+    var groups = liveGroups().map(function (g) { var o = { id: g.id, name: g.name, kind: g.kind, color: g.color }; if (g.kind === "count") o.mark = g.mark || "circle"; else if (g.h > 0) o.h = g.h; return o; });
     var text = JSON.stringify({ v: 5, ink: state.pen.hi ? "hi" : "pen", inks: inks, eraser: state.eraser,
                                 style: state.style, textStyle: state.textStyle || null, font: state.font, bold: !!state.bold, caps: state.caps, dim: state.dim, unit: state.unit, showLen: !!state.showLen,
                                 ratio: state.ratio, eraserTip: state.eraserTip, wheelErase: !!state.wheelErase, shapeKind: state.shapeKind, own: state.ownColor || "", strip: state.stripW || 0, stripFolded: !!state.stripFolded,
@@ -7976,6 +8017,7 @@ body.has-pages #stripGrip { display: block; }
         seq = Math.max(seq, +g.id.slice(1));
         var o = { id: g.id, name: typeof g.name === "string" ? g.name.slice(0, 60) : TAKE_NAMES[g.kind], kind: g.kind, color: validColor(g.color, "red") };
         if (g.kind === "count") o.mark = TAKE_MARKS.indexOf(g.mark) >= 0 ? g.mark : "circle";
+        else if (typeof g.h === "number" && isFinite(g.h) && g.h > 0 && g.h <= 1000) o.h = g.h;   // a height or depth
         return o;
       });
       state.groupSeq = Math.max(seq, num(d.groupSeq, 0, 1e9, 0));
