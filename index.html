@@ -7485,13 +7485,16 @@ body.has-pages #stripGrip { display: block; }
       return images.length - 1;
     };
     var list = pages.map(function (pg, i) {
-      var m = made[i] || { raster: [], xo: null };
+      var m = made[i] || { raster: [], xo: null }, whole = true;
       var pics = (pg.pics || []).map(function (q) {
-        var at = data(q.id); if (at < 0) return null;
+        var at = data(q.id); if (at < 0) { whole = false; return null; }
         var o = { img: at, x: q.x, y: q.y, w: q.w, h: q.h };
         if (q.n != null) o.n = q.n; if (q.rot) o.rot = q.rot; if (q.line) o.line = { w: q.line.w, c: q.line.c };
         return o;
-      }).filter(Boolean);
+      });
+      // a picture that cannot be kept here (none to read back): the page keeps its overlay for good and comes back as
+      // drawn, not to edit, rather than losing that picture when the overlay comes off
+      if (!whole) return { w: pg.w, h: pg.h, wPt: pg.wPt, hPt: pg.hPt, k: pg.k, refW: pg.refW, refH: pg.refH, ratio: null, xo: null, notes: [], strokes: [], pics: [], edits: [] };
       // changed words that could only go in as a picture are in the overlay: they come back without their cover,
       // which is in the page itself
       var edits = (m.raster || []).map(function (ed) {
@@ -7805,12 +7808,11 @@ body.has-pages #stripGrip { display: block; }
     return ids;
   }
   function putMarkup(pg, mp, m, ids) {
-    var s = pg.k / mp.k, pt = function (q) { var r = [q[0] * s, q[1] * s]; return q.length > 2 ? r.concat(q.slice(2)) : r; };
-    pg.notes = mp.notes.map(function (n) { n.id = state.nextId++; n.px *= s; n.py *= s; n.tx *= s; n.ty *= s; return n; });
+    var s = pg.k / mp.k;
+    // the points of notes and strokes scaled as turning and cropping move them (mapMarkup), then what is in pixels too
+    if (s !== 1) mapMarkup({ notes: mp.notes, strokes: mp.strokes }, function (x, y) { return [x * s, y * s]; });
+    pg.notes = mp.notes.map(function (n) { n.id = state.nextId++; return n; });
     pg.strokes = mp.strokes.map(function (st) {
-      st.points = st.points.map(pt);
-      if (st.left) st.left = st.left.map(function (r) { return r.map(pt); });
-      if (st.holes) st.holes = st.holes.map(function (r) { return r.map(pt); });
       if (st.erase) st.r *= s;
       if (st.take) st.g = ids[st.g] || (ids[st.g] = "g" + (++state.groupSeq));   // a group the file did not name: a deleted one
       return st;
